@@ -91,6 +91,12 @@
   .li-amt{font-variant-numeric:tabular-nums; white-space:nowrap; font-weight:600;}
   .li-sub{color:var(--sub); font-size:.78rem;}
   .amt-in{color:var(--ok);}
+  /* 取り消した記録は消さずに残す（§5.7 柱3）。線を引いて、集計から外れたことを見せる */
+  li.voided .li-main{text-decoration:line-through; opacity:.55;}
+  .li-void{color:var(--bad-ink); font-size:.78rem; margin-top:2px;}
+  .li-act{display:flex; gap:8px; margin-top:8px;}
+  .li-act button{min-height:38px; padding:6px 12px; font-size:.78rem; font-weight:500; color:var(--sub);}
+  .list-more{width:100%; margin-top:12px; min-height:42px; font-size:.82rem; color:var(--sub);}
   .empty{color:var(--sub); font-size:.85rem;}
   .notice{border-radius:var(--radius); padding:12px 14px; margin-bottom:12px; font-size:.86rem; border:1px solid;}
   .notice h3{margin:0 0 6px; font-size:.9rem;}
@@ -149,6 +155,16 @@
     <div class="meta" id="balance-meta"></div>
   </div>
 
+  <!-- 取り消したまま入れ直していない記録（§5.7 取り消しっぱなしを作らない） -->
+  <div id="notice-void-open" class="notice warn hidden">
+    <h3>取り消したままの記録があります</h3>
+    <p id="void-open-detail"></p>
+    <div class="row">
+      <button type="button" id="btn-void-refill">正しい記録を入れ直す</button>
+      <button type="button" id="btn-void-done">入れ直しは済んでいる</button>
+    </div>
+  </div>
+
   <!-- ===== 記録（§5.1 ★F1 3タップ入力） ===== -->
   <div class="card">
     <h2>記録する</h2>
@@ -161,11 +177,16 @@
     <div class="fieldlabel" id="quick-label">よく使う項目</div>
     <div class="quick" id="quick" role="group" aria-labelledby="quick-label"></div>
 
+    <!-- ボタンは上位2つだけ。残りはここから1タップで選ぶ（ボタンが多いと目で探す時間が増える） -->
+    <label for="f-category">ほかの費目から選ぶ</label>
+    <select id="f-category"></select>
+
     <label for="f-amount">金額（円）</label>
     <input type="text" id="f-amount" inputmode="numeric" autocomplete="off" placeholder="3000">
 
+    <!-- 人数は「部費徴収・臨時徴収」のときだけ出す（それ以外の収入では意味がないため） -->
     <div id="wrap-headcount" class="hidden">
-      <label for="f-headcount">人数（任意）</label>
+      <label for="f-headcount">何人から集めたか（任意）</label>
       <input type="text" id="f-headcount" inputmode="numeric" autocomplete="off" placeholder="24">
     </div>
 
@@ -174,11 +195,9 @@
     <input type="text" id="f-note" autocomplete="off" placeholder="○○高校との練習試合 審判2名">
 
     <details class="fold" id="fold">
-      <summary id="fold-summary">日付・費目</summary>
+      <summary id="fold-summary">日付</summary>
       <label for="f-date">日付</label>
       <input type="date" id="f-date">
-      <label for="f-category">費目（一覧から選ぶ）</label>
-      <select id="f-category"></select>
     </details>
 
     <p id="form-error" class="notice bad hidden"></p>
@@ -191,6 +210,21 @@
   <div class="card" id="recent-card">
     <h2>最近の記録</h2>
     <ul class="list" id="recent"></ul>
+    <button type="button" id="btn-more" class="list-more hidden"></button>
+
+    <!-- 取消（§5.7）。上書きせず、取消線＋理由で残す -->
+    <div id="void-panel" class="notice bad hidden">
+      <h3>この記録を取り消しますか？</h3>
+      <p id="void-detail"></p>
+      <p>記録は<strong>消さずに取消線をつけて残します</strong>。理由も一緒に残るので、あとから見たときに分かります。</p>
+      <label for="void-reason">理由（必須）</label>
+      <input type="text" id="void-reason" autocomplete="off" placeholder="金額を3,000→3,500に訂正">
+      <div class="row" id="void-presets"></div>
+      <div class="row">
+        <button type="button" id="btn-void-do" disabled>取り消す</button>
+        <button type="button" id="btn-void-cancel">やめる</button>
+      </div>
+    </div>
   </div>
 
   <!-- ===== データの保全 ===== -->
@@ -236,6 +270,12 @@
   var SCHEMA_VERSION = 1;
   var FISCAL_START_MONTH = 4;
   var DUP_WINDOW_MS = 5 * 60 * 1000;   // 二重入力の確認窓（§5.1）
+  var UNDO_WINDOW_MS = 5 * 60 * 1000;  // 「入れた直後」＝理由なしで削除できる窓（§5.7）
+  var QUICK_SHOWN = 2;                 // よく使う項目ボタンの表示数。残りは費目プルダウンから
+  var RECENT_SHOWN = 3;                // 一覧の既定表示件数
+  // 人数を聞くのは「部員から頭割りで集める」費目だけ。寄付や返金で人数を聞かれても答えようがない
+  var HEADCOUNT_CATEGORIES = ['部費徴収', '臨時徴収'];
+  var VOID_PRESETS = ['金額のまちがい', '費目のまちがい', '二重に入れた'];
 
   var SEED_VERSION = 1;                // 初期セットを1度だけ入れるための版番号
 
@@ -652,6 +692,10 @@
   var activeCategory = '';
   var quickOrder = [];                       // よく使う項目の表示順（このセッション中は固定）
   var lastAdded = { key:null, id:null };     // 直前に入った記録＝光らせる行
+  var showAll = false;                       // 一覧を全件出しているか
+  var sessionAdded = [];                     // このセッションで入れた記録（'年度#id'）＝理由なしで消せる対象
+  var voidTarget = { key:null, id:null };    // 取消パネルが対象にしている記録
+  var refillFrom = { key:null, id:null };    // 取消から「入れ直す」でフォームに移した元記録
 
   // 並びは「開いたとき」に決めて、使っている最中は動かさない。
   // 記録するたびにボタンが入れ替わると、次の1件で押し間違える。
@@ -679,6 +723,7 @@
     renderQuick();
     updateFoldSummary();
     renderRecent(key, y);
+    renderVoidNotice();
     renderDataSummary();
   }
 
@@ -711,6 +756,7 @@
     var shown = 0;
     quickOrder.forEach(function(q){
       if(q.kind !== currentKind) return;
+      if(shown >= QUICK_SHOWN) return;   // 残りは下の費目プルダウンから選ぶ
       shown += 1;
 
       var b = document.createElement('button');
@@ -736,8 +782,22 @@
     if(shown === 0){
       var p = document.createElement('p');
       p.className = 'empty';
-      p.textContent = 'よく使う項目はまだありません。下の「日付・費目」から選んでください。';
+      p.textContent = 'よく使う項目はまだありません。下の「ほかの費目から選ぶ」から選んでください。';
       box.appendChild(p);
+    }
+  }
+
+  // 人数欄は費目で出し入れする。関係ない収入で人数を聞かれると、手が止まる
+  function needsHeadcount(){
+    return currentKind === 'income' && HEADCOUNT_CATEGORIES.indexOf(activeCategory) >= 0;
+  }
+
+  function syncHeadcount(){
+    if(needsHeadcount()){
+      show($('wrap-headcount'));
+    } else {
+      hide($('wrap-headcount'));
+      $('f-headcount').value = '';   // 隠れた欄の値が黙って保存されないように
     }
   }
 
@@ -746,6 +806,7 @@
     $('f-category').value = q.category;
     if(q.note) $('f-note').value = q.note;
     renderQuick();
+    syncHeadcount();
     updateFoldSummary();
     hide($('saved-ok'));
 
@@ -762,17 +823,27 @@
     var when = /^\d{4}-\d{2}-\d{2}$/.test(d)
       ? d.slice(5).replace('-', '/') + (d === today ? '（今日）' : '')
       : '未選択';
-    text($('fold-summary'), '日付 ' + when + '　／　費目 ' + (activeCategory || '未選択'));
+    text($('fold-summary'), '日付 ' + when);
   }
 
   function renderRecent(key, y){
     var ul = $('recent');
     while(ul.firstChild) ul.removeChild(ul.firstChild);
 
-    var items = live(y.entries).slice().sort(function(a, b){
+    // 取消した記録も並べる（取消線つき）。消えて見えると「勝手に消された」と感じる
+    var all = y.entries.slice().sort(function(a, b){
       if(a.date !== b.date) return a.date < b.date ? 1 : -1;
       return b.id - a.id;
-    }).slice(0, 3);
+    });
+    var items = showAll ? all : all.slice(0, RECENT_SHOWN);
+
+    var more = $('btn-more');
+    if(all.length > RECENT_SHOWN){
+      text(more, showAll ? '最近の3件だけ表示する' : 'すべての記録を見る（' + all.length + '件）');
+      show(more);
+    } else {
+      hide(more);
+    }
 
     if(!items.length){
       var li = document.createElement('li');
@@ -785,7 +856,10 @@
     items.forEach(function(e){
       var li = document.createElement('li');
       // 「押したのに入っていない」不安を残さないための印（§5.1）
-      if(lastAdded.key === key && lastAdded.id === e.id) li.className = 'just-added';
+      var cls = [];
+      if(lastAdded.key === key && lastAdded.id === e.id) cls.push('just-added');
+      if(e.voided) cls.push('voided');
+      if(cls.length) li.className = cls.join(' ');
 
       var main = document.createElement('div');
       main.className = 'li-main';
@@ -817,8 +891,40 @@
         sub.textContent = parts.join('　');
         li.appendChild(sub);
       }
+
+      if(e.voided){
+        var v = document.createElement('div');
+        v.className = 'li-void';
+        v.textContent = '取消：' + (e.voidReason || '理由なし') +
+                        (e.voidedAt ? '（' + e.voidedAt.slice(0, 10) + '）' : '');
+        li.appendChild(v);
+      } else {
+        // 入れた直後の打ち間違いに理由を書かせるのは気遣いがない（§5.7）。
+        // その場合だけ「削除」、時間が経ったものは理由つきの「取り消す」
+        var act = document.createElement('div');
+        act.className = 'li-act';
+        var b2 = document.createElement('button');
+        b2.type = 'button';
+        if(isJustEntered(key, e)){
+          b2.textContent = '削除';
+          b2.addEventListener('click', function(){ deleteJustEntered(key, e.id); });
+        } else {
+          b2.textContent = '取り消す';
+          b2.addEventListener('click', function(){ openVoid(key, e.id); });
+        }
+        act.appendChild(b2);
+        li.appendChild(act);
+      }
       ul.appendChild(li);
     });
+  }
+
+  // 「同じセッションで入れた」かつ「5分以内」だけを直後とみなす。
+  // リロードをまたぐと、他人の端末で開いた記録まで理由なしで消せてしまう
+  function isJustEntered(key, e){
+    if(sessionAdded.indexOf(key + '#' + e.id) < 0) return false;
+    var t = Date.parse(e.createdAt);
+    return Number.isFinite(t) && (Date.now() - t) < UNDO_WINDOW_MS;
   }
 
   function countAll(){
@@ -918,7 +1024,7 @@
     }
 
     var headcount = null;
-    if(currentKind === 'income'){
+    if(needsHeadcount()){
       var hc = parseCount($('f-headcount').value);
       if(hc === null){
         formError('人数は数字で入れてください（空のままでも大丈夫です）。');
@@ -963,14 +1069,22 @@
 
     y.entries.push(entry);
 
+    // 取消からの入れ直しなら、元の取消を「入れ直し済み」にする。
+    // 保存に失敗したときのために、書き換える前の値を控えておく
+    var refilled = (refillFrom.id !== null) ? findEntry(refillFrom.key, refillFrom.id) : null;
+    if(refilled) refilled.voidRefilled = true;
+
     var ok = save();
     if(ok){
       lastAdded = { key:key, id:entry.id };
+      sessionAdded.push(key + '#' + entry.id);
+      refillFrom = { key:null, id:null };
       // 保存できた時だけ入力欄を空にする（消えた入力を作らない）
       $('f-amount').value = '';
       $('f-note').value = '';
       $('f-headcount').value = '';
     } else {
+      if(refilled) refilled.voidRefilled = false;
       // 保存に失敗した記録は帳簿から戻す。画面の数字と端末の中身を食い違わせない。
       y.entries.pop();
       if(quickHit) quickHit.count -= 1;
@@ -990,6 +1104,143 @@
       try { $('recent-card').scrollIntoView({ block:'nearest' }); }
       catch(err){ diag('記録一覧への移動に失敗: ' + describe(err)); }
     }
+  }
+
+  /* =========================================================
+     8.5 取消と削除（§5.7 上書きしない）
+     ========================================================= */
+  function findEntry(key, id){
+    var y = state.years[key];
+    if(!y) return null;
+    var hit = null;
+    y.entries.forEach(function(e){ if(e && e.id === id) hit = e; });
+    return hit;
+  }
+
+  function entryLabel(e){
+    return e.date + '　' + (e.category || '精算') + '　' +
+           (e.kind === 'income' ? '+' : '−') + yen(e.amount) + (e.note ? '　' + e.note : '');
+  }
+
+  function openVoid(key, id){
+    var e = findEntry(key, id);
+    if(!e) return;
+    voidTarget = { key:key, id:id };
+    text($('void-detail'), entryLabel(e));
+    $('void-reason').value = '';
+    $('btn-void-do').disabled = true;
+    show($('void-panel'));
+    try { $('void-panel').scrollIntoView({ block:'nearest' }); }
+    catch(err){ diag('取消パネルへの移動に失敗: ' + describe(err)); }
+  }
+
+  function doVoid(){
+    var reason = $('void-reason').value.trim();
+    if(!reason) return;                       // 理由なしの取消は作らない
+    var e = findEntry(voidTarget.key, voidTarget.id);
+    if(!e){
+      window.alert('取り消す記録が見つかりませんでした。画面を読み込み直してください。');
+      return;
+    }
+    e.voided = true;
+    e.voidReason = reason;
+    e.voidedAt = localStampISO(new Date());
+    e.voidRefilled = false;                   // 入れ直すまで「取り消したまま」として見張る
+
+    if(save()){
+      hide($('void-panel'));
+      diag('記録を取り消しました（' + entryLabel(e) + '／理由: ' + reason + '）。');
+      voidTarget = { key:null, id:null };
+    } else {
+      // 保存できなければ取り消さなかったことにする。画面と端末の中身を食い違わせない
+      e.voided = false;
+      e.voidReason = '';
+      e.voidedAt = null;
+      delete e.voidRefilled;
+    }
+    render();
+  }
+
+  function deleteJustEntered(key, id){
+    var y = state.years[key];
+    var e = findEntry(key, id);
+    if(!y || !e) return;
+    if(!window.confirm('この記録を削除しますか？\n\n' + entryLabel(e))) return;
+
+    var at = y.entries.indexOf(e);
+    y.entries.splice(at, 1);
+    var quickHit = findQuick(e.kind, e.category);
+    if(quickHit && quickHit.count > 0) quickHit.count -= 1;
+
+    if(save()){
+      if(lastAdded.key === key && lastAdded.id === id) lastAdded = { key:null, id:null };
+      diag('入れた直後の記録を削除しました（' + entryLabel(e) + '）。');
+    } else {
+      y.entries.splice(at, 0, e);             // 保存できなければ戻す
+      if(quickHit) quickHit.count += 1;
+    }
+    render();
+  }
+
+  // 取り消したまま入れ直していない記録。放っておくと帳簿から金額が丸ごと抜ける
+  function openVoids(){
+    var out = [];
+    Object.keys(state.years).forEach(function(k){
+      state.years[k].entries.forEach(function(e){
+        if(e && e.voided && e.voidRefilled !== true) out.push({ key:k, e:e });
+      });
+    });
+    return out.sort(function(a, b){ return a.e.date < b.e.date ? -1 : 1; });
+  }
+
+  function renderVoidNotice(){
+    var list = openVoids();
+    if(!list.length){
+      hide($('notice-void-open'));
+      return;
+    }
+    var first = list[0];
+    text($('void-open-detail'),
+      entryLabel(first.e) + '　を取り消しました。' +
+      (list.length > 1 ? '（ほかに ' + (list.length - 1) + '件）' : '') +
+      ' 正しい記録は入れ直しましたか？');
+    show($('notice-void-open'));
+  }
+
+  // 取り消した記録の中身をフォームに移す。金額だけ直して押せば終わる状態にする
+  function refillFromVoid(){
+    var list = openVoids();
+    if(!list.length) return;
+    var e = list[0].e;
+
+    setKind(e.kind === 'income' ? 'income' : 'expense');
+    activeCategory = e.category || '';
+    $('f-category').value = activeCategory;
+    $('f-date').value = e.date;
+    $('f-note').value = e.note || '';
+    $('f-amount').value = '';
+    syncHeadcount();
+    if(needsHeadcount() && Number.isSafeInteger(e.headcount) && e.headcount > 0){
+      $('f-headcount').value = String(e.headcount);
+    }
+    refillFrom = { key:list[0].key, id:e.id };
+
+    renderQuick();
+    updateFoldSummary();
+    hide($('notice-void-open'));
+    var amt = $('f-amount');
+    amt.focus();
+    try { amt.scrollIntoView({ block:'center' }); }
+    catch(err){ diag('入力欄への移動に失敗: ' + describe(err)); }
+  }
+
+  function markVoidDone(){
+    var list = openVoids();
+    if(!list.length) return;
+    var e = list[0].e;
+    e.voidRefilled = true;
+    if(!save()) e.voidRefilled = false;
+    render();
   }
 
   /* =========================================================
@@ -1016,7 +1267,12 @@
     applySeed(state);
     computeQuickOrder();
     lastAdded = { key:null, id:null };
+    sessionAdded = [];
+    showAll = false;
+    voidTarget = { key:null, id:null };
+    refillFrom = { key:null, id:null };
     saveBlocked = false;
+    hide($('void-panel'));
     hide($('wipe-panel'));
     hide($('notice-corrupted'));
     hide($('notice-save-failed'));
@@ -1036,8 +1292,37 @@
     $('f-category').addEventListener('change', function(){
       activeCategory = $('f-category').value;
       renderQuick();
+      syncHeadcount();
       updateFoldSummary();
+      hide($('saved-ok'));
     });
+
+    $('btn-more').addEventListener('click', function(){
+      showAll = !showAll;
+      render();
+    });
+
+    // 取消（§5.7）。理由が空のあいだは押せない
+    $('void-reason').addEventListener('input', function(){
+      $('btn-void-do').disabled = ($('void-reason').value.trim() === '');
+    });
+    $('btn-void-do').addEventListener('click', doVoid);
+    $('btn-void-cancel').addEventListener('click', function(){
+      hide($('void-panel'));
+      voidTarget = { key:null, id:null };
+    });
+    VOID_PRESETS.forEach(function(word){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = word;
+      b.addEventListener('click', function(){
+        $('void-reason').value = word;
+        $('btn-void-do').disabled = false;
+      });
+      $('void-presets').appendChild(b);
+    });
+    $('btn-void-refill').addEventListener('click', refillFromVoid);
+    $('btn-void-done').addEventListener('click', markVoidDone);
     $('btn-backup').addEventListener('click', backup);
     $('btn-backup-2').addEventListener('click', backup);
     $('btn-wipe-backup').addEventListener('click', backup);
@@ -1070,19 +1355,13 @@
     $('kind-expense').setAttribute('aria-pressed', String(kind === 'expense'));
     $('kind-income').setAttribute('aria-pressed',  String(kind === 'income'));
 
-    if(kind === 'income'){
-      show($('wrap-headcount'));
-    } else {
-      hide($('wrap-headcount'));
-      $('f-headcount').value = '';       // 支出に戻したとき人数が残らないように
-    }
-
     $('f-note').placeholder   = PLACEHOLDERS[kind].note;
     $('f-amount').placeholder = PLACEHOLDERS[kind].amount;
 
     hide($('saved-ok'));
-    renderCategories();
+    renderCategories();                  // ここで費目が決まってから人数欄を出し入れする
     renderQuick();
+    syncHeadcount();
     updateFoldSummary();
   }
 
@@ -1126,6 +1405,12 @@
     var hcases = [['', 0], ['24', 24], ['２４名', 24], ['0', null], ['あ', null]];
     var hbad = hcases.filter(function(c){ return parseCount(c[0]) !== c[1]; });
     diag('人数の読み取りテスト: ' + (hbad.length ? 'NG ' + hbad.length + '件' : hcases.length + '件すべてOK'));
+
+    // 取消した行が集計から外れるか（§5.7 の柱。ここが崩れると残高が嘘になる）
+    var vt = [{ kind:'expense', amount:1000, voided:false }, { kind:'expense', amount:500, voided:true }];
+    diag('取消の除外テスト: ' + (sumOf(vt, 'expense') === 1000 ? 'OK' : 'NG'));
+    diag('人数欄の出し分け: ' + ((HEADCOUNT_CATEGORIES.indexOf('部費徴収') >= 0 &&
+         HEADCOUNT_CATEGORIES.indexOf('寄付・差し入れ') < 0) ? 'OK' : 'NG'));
 
     diag('よく使う項目: 支出' + quickOrder.filter(function(q){ return q.kind === 'expense'; }).length +
          '個／収入' + quickOrder.filter(function(q){ return q.kind === 'income'; }).length + '個');
