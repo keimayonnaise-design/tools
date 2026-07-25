@@ -44,7 +44,7 @@
   .balance{font-size:2rem; font-weight:700; letter-spacing:-.01em; margin:2px 0 0;}
   .balance-label{color:var(--sub); font-size:.8rem;}
   .meta{color:var(--sub); font-size:.78rem; margin-top:6px;}
-  label{display:block; font-size:.82rem; color:var(--sub); margin:12px 0 4px;}
+  label,.fieldlabel{display:block; font-size:.82rem; color:var(--sub); margin:12px 0 4px;}
   input[type="text"],input[type="date"],select,textarea{
     width:100%; font:inherit; color:var(--ink); background:var(--card);
     border:1px solid var(--line); border-radius:10px; padding:11px 12px; min-height:48px;
@@ -56,7 +56,7 @@
     min-width:0; max-width:100%; text-align:left;
   }
   /* 念のため：どの欄も親カードの幅を超えない */
-  .card > input, .card > select, .card > textarea{ max-width:100%; }
+  .card input, .card select, .card textarea{ max-width:100%; }
   textarea{min-height:110px; font-size:.8rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
   .seg{display:flex; gap:8px; margin-top:4px;}
   .seg button{flex:1;}
@@ -70,6 +70,20 @@
   button:disabled{opacity:.5; cursor:default;}
   .row{display:flex; gap:8px; flex-wrap:wrap;}
   .row button{flex:1 1 auto;}
+  /* よく使う項目（§5.1 3タップ入力の中心）。2列で並べ、親指の届く高さを確保する */
+  .quick{display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;}
+  .quick button{
+    flex:1 1 calc(50% - 4px); min-width:0; min-height:56px;
+    padding:10px 8px; font-size:.92rem; line-height:1.3; text-align:center;
+  }
+  .quick .q-note{display:block; font-weight:400; font-size:.72rem; opacity:.75; margin-top:2px;}
+  .saved-ok{color:var(--ok); font-size:.86rem; font-weight:600; margin:10px 0 0; text-align:center;}
+  /* 記録が入った行を一瞬光らせる（トーストだけで済ませない・§5.1） */
+  li.just-added{animation:flash 2.2s ease-out 1;}
+  @keyframes flash{ from{background:var(--warn-bg);} to{background:transparent;} }
+  @media (prefers-reduced-motion: reduce){ li.just-added{animation:none; border-left:3px solid var(--accent); padding-left:8px;} }
+  details.fold{margin-top:14px; border-top:1px solid var(--line); padding-top:4px;}
+  details.fold summary{font-size:.8rem; color:var(--sub); cursor:pointer; padding:8px 0; min-height:36px;}
   ul.list{list-style:none; margin:0; padding:0;}
   ul.list li{padding:10px 0; border-top:1px solid var(--line); font-size:.9rem;}
   ul.list li:first-child{border-top:0;}
@@ -135,34 +149,46 @@
     <div class="meta" id="balance-meta"></div>
   </div>
 
-  <!-- ===== 記録（Phase 0 の暫定フォーム） ===== -->
+  <!-- ===== 記録（§5.1 ★F1 3タップ入力） ===== -->
   <div class="card">
     <h2>記録する</h2>
-    <p class="phase-note">Phase 0 の暫定フォームです。Phase 1 で「3タップで終わる」本番の画面に差し替えます。立て替えは Phase 2。</p>
 
     <div class="seg" role="group" aria-label="種別">
       <button type="button" id="kind-expense" aria-pressed="true">支出</button>
       <button type="button" id="kind-income" aria-pressed="false">収入</button>
     </div>
 
-    <label for="f-date">日付</label>
-    <input type="date" id="f-date">
-
-    <label for="f-category">費目</label>
-    <select id="f-category"></select>
+    <div class="fieldlabel" id="quick-label">よく使う項目</div>
+    <div class="quick" id="quick" role="group" aria-labelledby="quick-label"></div>
 
     <label for="f-amount">金額（円）</label>
     <input type="text" id="f-amount" inputmode="numeric" autocomplete="off" placeholder="3000">
 
-    <label for="f-note">内容メモ</label>
-    <input type="text" id="f-note" autocomplete="off" placeholder="○○中との練習試合 審判2名">
+    <div id="wrap-headcount" class="hidden">
+      <label for="f-headcount">人数（任意）</label>
+      <input type="text" id="f-headcount" inputmode="numeric" autocomplete="off" placeholder="24">
+    </div>
+
+    <!-- placeholder は種別で入れ替える（setKind）。ここは支出のときの文言 -->
+    <label for="f-note">内容メモ（任意）</label>
+    <input type="text" id="f-note" autocomplete="off" placeholder="○○高校との練習試合 審判2名">
+
+    <details class="fold" id="fold">
+      <summary id="fold-summary">日付・費目</summary>
+      <label for="f-date">日付</label>
+      <input type="date" id="f-date">
+      <label for="f-category">費目（一覧から選ぶ）</label>
+      <select id="f-category"></select>
+    </details>
 
     <p id="form-error" class="notice bad hidden"></p>
     <button type="button" class="primary" id="btn-save">記録する</button>
+    <p id="saved-ok" class="saved-ok hidden"></p>
+    <p class="phase-note" style="margin-top:14px">立て替えの記録は Phase 2 で入ります。いまの支出はすべて「封筒から払った」扱いで保存されます。</p>
   </div>
 
   <!-- ===== 最近の記録 ===== -->
-  <div class="card">
+  <div class="card" id="recent-card">
     <h2>最近の記録</h2>
     <ul class="list" id="recent"></ul>
   </div>
@@ -211,11 +237,33 @@
   var FISCAL_START_MONTH = 4;
   var DUP_WINDOW_MS = 5 * 60 * 1000;   // 二重入力の確認窓（§5.1）
 
+  var SEED_VERSION = 1;                // 初期セットを1度だけ入れるための版番号
+
   var DEFAULT_CATEGORIES = {
     income:  ['部費徴収', '臨時徴収', '返金・戻り', '寄付・差し入れ'],
-    expense: ['審判費', '消耗品費', '用具・備品費', '遠征・交通費',
+    expense: ['審判費', '消耗品費', '用具・備品費', '球場・施設使用料', '遠征・交通費',
               '救急・衛生用品', '記念品・卒部関係', '印刷・通信費', '雑費']
   };
+
+  // 入力例は支出と収入で入れ替える。関係ない例が出ていると、書き方に迷って手が止まる
+  var PLACEHOLDERS = {
+    expense: { note:'○○高校との練習試合 審判2名', amount:'3000'  },
+    income:  { note:'7月分の部費',                 amount:'12000' }
+  };
+
+  // よく使う項目ボタンの初期セット（2026-07-25 本人が実際の支出から選んだ5つ＋収入側）。
+  // note を持たせているのは、費目と内容メモをセットで埋めるため（§5.1）。今は空で始める。
+  var DEFAULT_QUICK = [
+    { kind:'expense', category:'審判費',           note:'' },
+    { kind:'expense', category:'消耗品費',         note:'' },
+    { kind:'expense', category:'用具・備品費',     note:'' },
+    { kind:'expense', category:'球場・施設使用料', note:'' },
+    { kind:'expense', category:'記念品・卒部関係', note:'' },
+    { kind:'income',  category:'部費徴収',         note:'' },
+    { kind:'income',  category:'臨時徴収',         note:'' },
+    { kind:'income',  category:'返金・戻り',       note:'' },
+    { kind:'income',  category:'寄付・差し入れ',   note:'' }
+  ];
 
   /* =========================================================
      1. 小道具
@@ -244,19 +292,37 @@
          + '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
   }
 
+  // 全角数字を半角にする（iOSのかな入力から「１０００」が普通に飛んでくる）
+  function toHalfDigits(raw){
+    return String(raw == null ? '' : raw)
+      .replace(/[０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); });
+  }
+
+  function groupDigits(d){
+    return String(d).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
   // 全角数字・カンマ・「円」を吸収して整数に。ダメなら null（§11 Phase 1 受け入れ基準）
   function parseAmount(raw){
-    var s = String(raw == null ? '' : raw);
-    s = s.replace(/[０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); });
-    s = s.replace(/[，、,\s　円]/g, '');
+    var s = toHalfDigits(raw).replace(/[，、,\s　円]/g, '');
     if(!/^[0-9]+$/.test(s)) return null;
     var n = Number(s);
     if(!isFinite(n) || Math.floor(n) !== n || n <= 0 || n > 999999999) return null;
     return n;
   }
 
+  // 人数（§5.2）。未入力は 0、読めない文字は null で返して区別する
+  function parseCount(raw){
+    var s = toHalfDigits(raw).replace(/[，、,\s　名人]/g, '');
+    if(s === '') return 0;
+    if(!/^[0-9]+$/.test(s)) return null;
+    var n = Number(s);
+    if(!isFinite(n) || n <= 0 || n > 10000) return null;
+    return n;
+  }
+
   function yen(n){
-    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '円';
+    return groupDigits(n) + '円';
   }
 
   function fiscalYearOf(dateISO){
@@ -286,12 +352,14 @@
         schoolName: '',
         clubName: '野球部',
         authorName: '',
-        fiscalYearStartMonth: FISCAL_START_MONTH
+        fiscalYearStartMonth: FISCAL_START_MONTH,
+        seedVersion: 0
       },
       categories: {
         income:  DEFAULT_CATEGORIES.income.slice(),
         expense: DEFAULT_CATEGORIES.expense.slice()
       },
+      quick: [],
       purposes: [],
       years: {}
     };
@@ -304,6 +372,7 @@
       schemaVersion: SCHEMA_VERSION,
       settings: {},
       categories: {},
+      quick: Array.isArray(raw.quick) ? raw.quick.filter(isQuickLike).map(normalizeQuick) : [],
       purposes: Array.isArray(raw.purposes) ? raw.purposes.filter(isNonEmptyString) : [],
       years: {}
     };
@@ -313,6 +382,7 @@
     out.settings.clubName   = typeof rs.clubName   === 'string' ? rs.clubName   : d.settings.clubName;
     out.settings.authorName = typeof rs.authorName === 'string' ? rs.authorName : d.settings.authorName;
     out.settings.fiscalYearStartMonth = FISCAL_START_MONTH;
+    out.settings.seedVersion = Number.isSafeInteger(rs.seedVersion) ? rs.seedVersion : 0;
 
     var rc = (raw.categories && typeof raw.categories === 'object') ? raw.categories : {};
     out.categories.income  = Array.isArray(rc.income)  && rc.income.length  ? rc.income.filter(isNonEmptyString)  : d.categories.income;
@@ -335,6 +405,41 @@
   }
 
   function isNonEmptyString(s){ return typeof s === 'string' && s.length > 0; }
+
+  function isQuickLike(q){
+    return q && typeof q === 'object' && isNonEmptyString(q.category);
+  }
+
+  function normalizeQuick(q){
+    return {
+      kind:     (q.kind === 'income') ? 'income' : 'expense',
+      category: q.category,
+      note:     typeof q.note === 'string' ? q.note : '',
+      count:    (Number.isSafeInteger(q.count) && q.count >= 0) ? q.count : 0
+    };
+  }
+
+  // 初期セットを1度だけ足す。既にある費目・ボタンには触れない（並びも回数も保つ）。
+  // 版番号で管理しているのは、将来「費目を非表示にする」機能が入ったとき、
+  // 消したはずのものが毎回復活しないようにするため。
+  function applySeed(d){
+    if(Number.isSafeInteger(d.settings.seedVersion) && d.settings.seedVersion >= SEED_VERSION) return;
+
+    ['income', 'expense'].forEach(function(kind){
+      DEFAULT_CATEGORIES[kind].forEach(function(name){
+        if(d.categories[kind].indexOf(name) < 0) d.categories[kind].push(name);
+      });
+    });
+
+    DEFAULT_QUICK.forEach(function(q){
+      var exists = d.quick.some(function(x){ return x.kind === q.kind && x.category === q.category; });
+      if(!exists) d.quick.push({ kind:q.kind, category:q.category, note:q.note, count:0 });
+    });
+
+    d.settings.seedVersion = SEED_VERSION;
+    // ここでは保存しない。次に記録を1件入れたときに一緒に書き込まれる。
+    // （起動しただけで書き込むと、保存に失敗したとき何もしていないのに警告が出る）
+  }
 
   function currentYearKey(){
     return String(fiscalYearOf(localDateISO(new Date())));
@@ -544,6 +649,20 @@
      7. 描画
      ========================================================= */
   var currentKind = 'expense';
+  var activeCategory = '';
+  var quickOrder = [];                       // よく使う項目の表示順（このセッション中は固定）
+  var lastAdded = { key:null, id:null };     // 直前に入った記録＝光らせる行
+
+  // 並びは「開いたとき」に決めて、使っている最中は動かさない。
+  // 記録するたびにボタンが入れ替わると、次の1件で押し間違える。
+  function computeQuickOrder(){
+    quickOrder = state.quick.map(function(q, i){ return { q:q, i:i }; })
+      .sort(function(a, b){
+        if(b.q.count !== a.q.count) return b.q.count - a.q.count;
+        return a.i - b.i;
+      })
+      .map(function(x){ return x.q; });
+  }
 
   function render(){
     var key = currentYearKey();
@@ -557,13 +676,14 @@
       '／支出 ' + yen(sumOf(y.entries, 'expense')));
 
     renderCategories();
-    renderRecent(y);
+    renderQuick();
+    updateFoldSummary();
+    renderRecent(key, y);
     renderDataSummary();
   }
 
   function renderCategories(){
     var sel = $('f-category');
-    var keep = sel.value;
     var list = state.categories[currentKind];
     while(sel.firstChild) sel.removeChild(sel.firstChild);
     list.forEach(function(name){
@@ -572,17 +692,87 @@
       op.textContent = name;
       sel.appendChild(op);
     });
-    if(list.indexOf(keep) >= 0) sel.value = keep;
+    if(list.indexOf(activeCategory) < 0){
+      // 開いた直後は「いちばん使っている費目」を選んでおく。
+      // よく使う項目の先頭と選択が食い違っていると、押したつもりの費目とズレる。
+      var top = null;
+      quickOrder.forEach(function(q){
+        if(!top && q.kind === currentKind && list.indexOf(q.category) >= 0) top = q.category;
+      });
+      activeCategory = top || (list.length ? list[0] : '');
+    }
+    sel.value = activeCategory;
   }
 
-  function renderRecent(y){
+  function renderQuick(){
+    var box = $('quick');
+    while(box.firstChild) box.removeChild(box.firstChild);
+
+    var shown = 0;
+    quickOrder.forEach(function(q){
+      if(q.kind !== currentKind) return;
+      shown += 1;
+
+      var b = document.createElement('button');
+      b.type = 'button';
+      // 同じ費目のボタンが複数あれば両方光るが、いまは1費目1ボタンなので起きない
+      b.setAttribute('aria-pressed', String(q.category === activeCategory));
+
+      var name = document.createElement('span');
+      name.textContent = q.category;
+      b.appendChild(name);
+
+      if(q.note){
+        var n = document.createElement('span');
+        n.className = 'q-note';
+        n.textContent = q.note;
+        b.appendChild(n);
+      }
+
+      b.addEventListener('click', function(){ pickQuick(q); });
+      box.appendChild(b);
+    });
+
+    if(shown === 0){
+      var p = document.createElement('p');
+      p.className = 'empty';
+      p.textContent = 'よく使う項目はまだありません。下の「日付・費目」から選んでください。';
+      box.appendChild(p);
+    }
+  }
+
+  function pickQuick(q){
+    activeCategory = q.category;
+    $('f-category').value = q.category;
+    if(q.note) $('f-note').value = q.note;
+    renderQuick();
+    updateFoldSummary();
+    hide($('saved-ok'));
+
+    // 続けて金額を打てるように、数字キーボードを開いた状態で渡す
+    var amt = $('f-amount');
+    amt.focus();
+    try { amt.setSelectionRange(amt.value.length, amt.value.length); }
+    catch(err){ diag('金額欄のカーソル設定に失敗: ' + describe(err)); }
+  }
+
+  function updateFoldSummary(){
+    var d = $('f-date').value;
+    var today = localDateISO(new Date());
+    var when = /^\d{4}-\d{2}-\d{2}$/.test(d)
+      ? d.slice(5).replace('-', '/') + (d === today ? '（今日）' : '')
+      : '未選択';
+    text($('fold-summary'), '日付 ' + when + '　／　費目 ' + (activeCategory || '未選択'));
+  }
+
+  function renderRecent(key, y){
     var ul = $('recent');
     while(ul.firstChild) ul.removeChild(ul.firstChild);
 
     var items = live(y.entries).slice().sort(function(a, b){
       if(a.date !== b.date) return a.date < b.date ? 1 : -1;
       return b.id - a.id;
-    }).slice(0, 5);
+    }).slice(0, 3);
 
     if(!items.length){
       var li = document.createElement('li');
@@ -594,6 +784,8 @@
 
     items.forEach(function(e){
       var li = document.createElement('li');
+      // 「押したのに入っていない」不安を残さないための印（§5.1）
+      if(lastAdded.key === key && lastAdded.id === e.id) li.className = 'just-added';
 
       var main = document.createElement('div');
       main.className = 'li-main';
@@ -609,10 +801,20 @@
       main.appendChild(amt);
       li.appendChild(main);
 
-      if(e.note){
+      var parts = [];
+      // 「この12,000円は何?」に一発で答えられるようにする（§5.2）。
+      // 割り切れなくても警告は出さない（欠席者の免除など、正当な理由が普通にある）
+      if(Number.isSafeInteger(e.headcount) && e.headcount > 0){
+        parts.push(e.amount % e.headcount === 0
+          ? e.headcount + '名×' + yen(e.amount / e.headcount)
+          : e.headcount + '名');
+      }
+      if(e.note) parts.push(e.note);
+
+      if(parts.length){
         var sub = document.createElement('div');
         sub.className = 'li-sub';
-        sub.textContent = e.note;
+        sub.textContent = parts.join('　');
         li.appendChild(sub);
       }
       ul.appendChild(li);
@@ -654,28 +856,80 @@
     });
   }
 
+  // 入力中に3桁区切りを出す（§5.1）。
+  // カーソルは「左に数字が何桁あるか」で数え直す。カンマが増減しても位置がずれない。
+  function formatAmountField(){
+    var el = $('f-amount');
+    var caret = (typeof el.selectionStart === 'number') ? el.selectionStart : el.value.length;
+    var digitsLeft = toHalfDigits(el.value.slice(0, caret)).replace(/[^0-9]/g, '').length;
+
+    var digits = toHalfDigits(el.value).replace(/[^0-9]/g, '');
+    if(digits.length > 1) digits = digits.replace(/^0+(?=\d)/, '');
+
+    var formatted = groupDigits(digits);
+    if(formatted === el.value) return;
+    el.value = formatted;
+
+    var pos = 0, seen = 0;
+    if(digitsLeft > 0){
+      pos = formatted.length;
+      for(var i = 0; i < formatted.length; i++){
+        if(formatted.charAt(i) !== ','){
+          seen += 1;
+          if(seen === digitsLeft){ pos = i + 1; break; }
+        }
+      }
+    }
+    try { el.setSelectionRange(pos, pos); }
+    catch(err){ diag('金額欄のカーソル復元に失敗: ' + describe(err)); }
+  }
+
+  function findQuick(kind, category){
+    var hit = null;
+    state.quick.forEach(function(q){
+      if(!hit && q.kind === kind && q.category === category) hit = q;
+    });
+    return hit;
+  }
+
   function onSave(){
     formError('');
+    hide($('saved-ok'));
 
     var date = $('f-date').value;
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){
       formError('日付を選んでください。');
+      $('fold').open = true;
       return;
     }
 
     var amount = parseAmount($('f-amount').value);
     if(amount === null){
       formError('金額は1円以上の数字で入れてください（全角の数字でも大丈夫です）。');
+      $('f-amount').focus();
       return;
     }
 
-    var category = $('f-category').value;
+    var category = activeCategory || $('f-category').value;
     if(!category){
       formError('費目を選んでください。');
+      $('fold').open = true;
       return;
     }
 
-    var y = yearBucket(String(fiscalYearOf(date)));
+    var headcount = null;
+    if(currentKind === 'income'){
+      var hc = parseCount($('f-headcount').value);
+      if(hc === null){
+        formError('人数は数字で入れてください（空のままでも大丈夫です）。');
+        $('f-headcount').focus();
+        return;
+      }
+      if(hc > 0) headcount = hc;
+    }
+
+    var key = String(fiscalYearOf(date));
+    var y = yearBucket(key);
 
     if(isDuplicate(y, date, category, amount)){
       if(!window.confirm('同じ記録がすでにあります。もう1件追加しますか？\n\n' + date + '　' + category + '　' + yen(amount))){
@@ -694,7 +948,7 @@
       purpose: null,
       note: $('f-note').value,
       amount: amount,
-      headcount: null,
+      headcount: headcount,
       paidFrom: currentKind === 'expense' ? 'envelope' : null,
       receiptNo: null,
       createdAt: localStampISO(new Date()),
@@ -703,19 +957,39 @@
       voidedAt: null
     };
 
+    // 「押した回数」ではなく「記録できた回数」で数える。押し間違いで並びが崩れないように。
+    var quickHit = findQuick(currentKind, category);
+    if(quickHit) quickHit.count += 1;
+
     y.entries.push(entry);
 
-    if(save()){
+    var ok = save();
+    if(ok){
+      lastAdded = { key:key, id:entry.id };
       // 保存できた時だけ入力欄を空にする（消えた入力を作らない）
       $('f-amount').value = '';
       $('f-note').value = '';
+      $('f-headcount').value = '';
     } else {
       // 保存に失敗した記録は帳簿から戻す。画面の数字と端末の中身を食い違わせない。
       y.entries.pop();
+      if(quickHit) quickHit.count -= 1;
+      lastAdded = { key:null, id:null };
     }
 
     render();
     btn.disabled = false;
+
+    if(ok){
+      var cur = currentYearKey();
+      var msg = (key === cur)
+        ? '記録しました。残高は ' + yen(accountBalance(yearBucket(cur))) + ' です。'
+        : key + '年度の記録として保存しました（この画面は ' + cur + '年度 の残高です）。';
+      text($('saved-ok'), msg);
+      show($('saved-ok'));
+      try { $('recent-card').scrollIntoView({ block:'nearest' }); }
+      catch(err){ diag('記録一覧への移動に失敗: ' + describe(err)); }
+    }
   }
 
   /* =========================================================
@@ -739,6 +1013,9 @@
       return;
     }
     state = defaultData();
+    applySeed(state);
+    computeQuickOrder();
+    lastAdded = { key:null, id:null };
     saveBlocked = false;
     hide($('wipe-panel'));
     hide($('notice-corrupted'));
@@ -754,6 +1031,13 @@
     $('kind-expense').addEventListener('click', function(){ setKind('expense'); });
     $('kind-income').addEventListener('click',  function(){ setKind('income'); });
     $('btn-save').addEventListener('click', onSave);
+    $('f-amount').addEventListener('input', function(){ formatAmountField(); hide($('saved-ok')); });
+    $('f-date').addEventListener('change', function(){ updateFoldSummary(); hide($('saved-ok')); });
+    $('f-category').addEventListener('change', function(){
+      activeCategory = $('f-category').value;
+      renderQuick();
+      updateFoldSummary();
+    });
     $('btn-backup').addEventListener('click', backup);
     $('btn-backup-2').addEventListener('click', backup);
     $('btn-wipe-backup').addEventListener('click', backup);
@@ -782,9 +1066,24 @@
 
   function setKind(kind){
     currentKind = kind;
+    activeCategory = '';                 // 費目は種別ごとに選び直す
     $('kind-expense').setAttribute('aria-pressed', String(kind === 'expense'));
     $('kind-income').setAttribute('aria-pressed',  String(kind === 'income'));
+
+    if(kind === 'income'){
+      show($('wrap-headcount'));
+    } else {
+      hide($('wrap-headcount'));
+      $('f-headcount').value = '';       // 支出に戻したとき人数が残らないように
+    }
+
+    $('f-note').placeholder   = PLACEHOLDERS[kind].note;
+    $('f-amount').placeholder = PLACEHOLDERS[kind].amount;
+
+    hide($('saved-ok'));
     renderCategories();
+    renderQuick();
+    updateFoldSummary();
   }
 
   function requestPersist(){
@@ -805,18 +1104,31 @@
   }
 
   loadState();
+  applySeed(state);
+  computeQuickOrder();
   bind();
   $('f-date').value = localDateISO(new Date());
   setKind('expense');
   render();
   requestPersist();
 
-  // Phase 0 の自己テスト（画面下の診断行に出す）
+  // 自己テスト（画面下の診断行に出す）
   (function selfTest(){
     var cases = [['１０００', 1000], ['1,000', 1000], ['3000円', 3000], ['0', null], ['-5', null], ['abc', null], ['1.5', null]];
     var bad = cases.filter(function(c){ return parseAmount(c[0]) !== c[1]; });
     diag('金額の読み取りテスト: ' + (bad.length ? 'NG ' + bad.length + '件' : cases.length + '件すべてOK'));
     diag('年度の判定テスト: ' + ((fiscalYearOf('2026-03-31') === 2025 && fiscalYearOf('2026-04-01') === 2026) ? 'OK' : 'NG'));
+
+    var gcases = [['0', '0'], ['999', '999'], ['1000', '1,000'], ['12345', '12,345'], ['1234567', '1,234,567']];
+    var gbad = gcases.filter(function(c){ return groupDigits(c[0]) !== c[1]; });
+    diag('3桁区切りテスト: ' + (gbad.length ? 'NG ' + gbad.length + '件' : gcases.length + '件すべてOK'));
+
+    var hcases = [['', 0], ['24', 24], ['２４名', 24], ['0', null], ['あ', null]];
+    var hbad = hcases.filter(function(c){ return parseCount(c[0]) !== c[1]; });
+    diag('人数の読み取りテスト: ' + (hbad.length ? 'NG ' + hbad.length + '件' : hcases.length + '件すべてOK'));
+
+    diag('よく使う項目: 支出' + quickOrder.filter(function(q){ return q.kind === 'expense'; }).length +
+         '個／収入' + quickOrder.filter(function(q){ return q.kind === 'income'; }).length + '個');
   })();
 
 })();
