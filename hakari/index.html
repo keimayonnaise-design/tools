@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>Hakari⭐︎</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1b1d20; --sub:#5d646d; --line:#dfe3e8;
+    --accent:#1f6feb; --accent-ink:#ffffff;
+    --warn-bg:#fff6e5; --warn-line:#e6b25c; --warn-ink:#6b4a10;
+    --bad-bg:#fdecec; --bad-line:#d97070; --bad-ink:#7a2020;
+    --ok:#137a4b;
+    --radius:12px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#15171a; --card:#1e2126; --ink:#eceff3; --sub:#a2abb6; --line:#333941;
+      --accent:#4f8ff7; --accent-ink:#0d1117;
+      --warn-bg:#3a2f18; --warn-line:#8a6a2a; --warn-ink:#f3dfae;
+      --bad-bg:#3a1f1f; --bad-line:#8a4444; --bad-ink:#f5d2d2;
+      --ok:#4cc38a;
+    }
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    font-size:16px; line-height:1.6;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:560px; margin:0 auto; padding:12px 12px 64px;}
+  h1{font-size:1.15rem; margin:8px 0 2px; letter-spacing:.02em;}
+  h2{font-size:1rem; margin:0 0 10px;}
+  .lead{color:var(--sub); font-size:.8rem; margin:0 0 14px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:14px; margin-bottom:12px;
+  }
+  .balance{font-size:2rem; font-weight:700; letter-spacing:-.01em; margin:2px 0 0;}
+  .balance-label{color:var(--sub); font-size:.8rem;}
+  .meta{color:var(--sub); font-size:.78rem; margin-top:6px;}
+  label{display:block; font-size:.82rem; color:var(--sub); margin:12px 0 4px;}
+  input[type="text"],input[type="date"],select,textarea{
+    width:100%; font:inherit; color:var(--ink); background:var(--card);
+    border:1px solid var(--line); border-radius:10px; padding:11px 12px; min-height:48px;
+  }
+  /* iOS Safari は type="date" に独自の最小幅を持たせ、width:100% を無視して枠からはみ出す。
+     -webkit-appearance を切って min-width を0に落とすと、他の欄と同じ幅に収まる。 */
+  input[type="date"]{
+    -webkit-appearance:none; appearance:none;
+    min-width:0; max-width:100%; text-align:left;
+  }
+  /* 念のため：どの欄も親カードの幅を超えない */
+  .card > input, .card > select, .card > textarea{ max-width:100%; }
+  textarea{min-height:110px; font-size:.8rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  .seg{display:flex; gap:8px; margin-top:4px;}
+  .seg button{flex:1;}
+  button{
+    font:inherit; font-weight:600; color:var(--ink); background:var(--card);
+    border:1px solid var(--line); border-radius:10px; padding:12px 14px; min-height:48px;
+    cursor:pointer;
+  }
+  button[aria-pressed="true"]{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+  button.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); width:100%; margin-top:16px;}
+  button:disabled{opacity:.5; cursor:default;}
+  .row{display:flex; gap:8px; flex-wrap:wrap;}
+  .row button{flex:1 1 auto;}
+  ul.list{list-style:none; margin:0; padding:0;}
+  ul.list li{padding:10px 0; border-top:1px solid var(--line); font-size:.9rem;}
+  ul.list li:first-child{border-top:0;}
+  .li-main{display:flex; justify-content:space-between; gap:10px;}
+  .li-amt{font-variant-numeric:tabular-nums; white-space:nowrap; font-weight:600;}
+  .li-sub{color:var(--sub); font-size:.78rem;}
+  .amt-in{color:var(--ok);}
+  .empty{color:var(--sub); font-size:.85rem;}
+  .notice{border-radius:var(--radius); padding:12px 14px; margin-bottom:12px; font-size:.86rem; border:1px solid;}
+  .notice h3{margin:0 0 6px; font-size:.9rem;}
+  .notice.warn{background:var(--warn-bg); border-color:var(--warn-line); color:var(--warn-ink);}
+  .notice.bad{background:var(--bad-bg); border-color:var(--bad-line); color:var(--bad-ink);}
+  .notice button{margin-top:10px; background:transparent; color:inherit; border-color:currentColor; min-height:42px; padding:8px 12px;}
+  .hidden{display:none;}
+  .phase-note{font-size:.75rem; color:var(--sub); border-left:3px solid var(--line); padding-left:10px; margin:0 0 12px;}
+  .danger{color:var(--bad-ink);}
+  hr{border:0; border-top:1px solid var(--line); margin:18px 0;}
+  .diag{font-size:.72rem; color:var(--sub); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Hakari⭐︎</h1>
+  <p class="lead" id="lead">部費の記録</p>
+
+  <!-- ===== お知らせ領域（§6 データを失わない仕組み） ===== -->
+  <div id="notice-corrupted" class="notice bad hidden">
+    <h3>前回のデータが読み取れませんでした</h3>
+    <p id="corrupted-detail"></p>
+    <p>壊れたデータは<strong>消していません</strong>。下のボタンでファイルに書き出して保存しておいてください。</p>
+    <button type="button" id="btn-dump-corrupted">壊れたデータを書き出す</button>
+  </div>
+
+  <div id="notice-save-failed" class="notice bad hidden">
+    <h3>保存できませんでした</h3>
+    <p id="save-failed-detail"></p>
+    <p>この内容をコピーして退避してください（画面を閉じると失われます）。</p>
+    <textarea id="save-failed-json" readonly></textarea>
+    <button type="button" id="btn-backup-2">バックアップを書き出す</button>
+  </div>
+
+  <div id="notice-other-tab" class="notice warn hidden">
+    <h3>別の画面で変更がありました</h3>
+    <p>このタブの表示は古い可能性があります。読み込み直してください。</p>
+    <button type="button" id="btn-reload">読み込み直す</button>
+  </div>
+
+  <div id="notice-newer" class="notice bad hidden">
+    <h3>新しいバージョンで作られたデータです</h3>
+    <p>このデータを壊さないため、<strong>保存を止めています</strong>。新しいバージョンのHakariで開いてください。</p>
+  </div>
+
+  <div id="notice-no-storage" class="notice bad hidden">
+    <h3>この端末では保存できません</h3>
+    <p>ブラウザの保存領域が使えない状態です（プライベートモードなど）。<strong>記録は画面を閉じると消えます。</strong></p>
+  </div>
+
+  <!-- ===== 残高 ===== -->
+  <div class="card">
+    <div class="balance-label">会計残高</div>
+    <div class="balance" id="balance">0円</div>
+    <div class="meta" id="balance-meta"></div>
+  </div>
+
+  <!-- ===== 記録（Phase 0 の暫定フォーム） ===== -->
+  <div class="card">
+    <h2>記録する</h2>
+    <p class="phase-note">Phase 0 の暫定フォームです。Phase 1 で「3タップで終わる」本番の画面に差し替えます。立て替えは Phase 2。</p>
+
+    <div class="seg" role="group" aria-label="種別">
+      <button type="button" id="kind-expense" aria-pressed="true">支出</button>
+      <button type="button" id="kind-income" aria-pressed="false">収入</button>
+    </div>
+
+    <label for="f-date">日付</label>
+    <input type="date" id="f-date">
+
+    <label for="f-category">費目</label>
+    <select id="f-category"></select>
+
+    <label for="f-amount">金額（円）</label>
+    <input type="text" id="f-amount" inputmode="numeric" autocomplete="off" placeholder="3000">
+
+    <label for="f-note">内容メモ</label>
+    <input type="text" id="f-note" autocomplete="off" placeholder="○○中との練習試合 審判2名">
+
+    <p id="form-error" class="notice bad hidden"></p>
+    <button type="button" class="primary" id="btn-save">記録する</button>
+  </div>
+
+  <!-- ===== 最近の記録 ===== -->
+  <div class="card">
+    <h2>最近の記録</h2>
+    <ul class="list" id="recent"></ul>
+  </div>
+
+  <!-- ===== データの保全 ===== -->
+  <div class="card">
+    <h2>データ</h2>
+    <p class="lead" id="data-summary"></p>
+    <div class="row">
+      <button type="button" id="btn-backup">バックアップを書き出す</button>
+    </div>
+
+    <hr>
+
+    <button type="button" id="btn-wipe-open" class="danger">すべての記録を消す</button>
+    <div id="wipe-panel" class="notice bad hidden">
+      <h3>本当に消しますか？</h3>
+      <p id="wipe-detail"></p>
+      <p>先にバックアップを書き出してから、下の欄に <strong>削除</strong> と入力してください。</p>
+      <div class="row">
+        <button type="button" id="btn-wipe-backup">バックアップを書き出す</button>
+      </div>
+      <label for="wipe-confirm">確認</label>
+      <input type="text" id="wipe-confirm" autocomplete="off" placeholder="削除">
+      <div class="row">
+        <button type="button" id="btn-wipe-do" disabled>消す</button>
+        <button type="button" id="btn-wipe-cancel">やめる</button>
+      </div>
+    </div>
+
+    <hr>
+    <div class="diag" id="diag"></div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* =========================================================
+     0. 定数
+     ========================================================= */
+  var KEY = 'hakari.v1';
+  var SCHEMA_VERSION = 1;
+  var FISCAL_START_MONTH = 4;
+  var DUP_WINDOW_MS = 5 * 60 * 1000;   // 二重入力の確認窓（§5.1）
+
+  var DEFAULT_CATEGORIES = {
+    income:  ['部費徴収', '臨時徴収', '返金・戻り', '寄付・差し入れ'],
+    expense: ['審判費', '消耗品費', '用具・備品費', '遠征・交通費',
+              '救急・衛生用品', '記念品・卒部関係', '印刷・通信費', '雑費']
+  };
+
+  /* =========================================================
+     1. 小道具
+     ========================================================= */
+  function $(id){ return document.getElementById(id); }
+  function show(el){ el.classList.remove('hidden'); }
+  function hide(el){ el.classList.add('hidden'); }
+  function text(el, s){ el.textContent = s; }   // §7.3 innerHTML は使わない
+
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+
+  function localDateISO(d){
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+
+  function localStampISO(d){
+    var off = -d.getTimezoneOffset();
+    var sign = off >= 0 ? '+' : '-';
+    var a = Math.abs(off);
+    return localDateISO(d) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds())
+         + sign + pad(Math.floor(a / 60)) + ':' + pad(a % 60);
+  }
+
+  function fileStamp(d){
+    return String(d.getFullYear()) + pad(d.getMonth() + 1) + pad(d.getDate())
+         + '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+  }
+
+  // 全角数字・カンマ・「円」を吸収して整数に。ダメなら null（§11 Phase 1 受け入れ基準）
+  function parseAmount(raw){
+    var s = String(raw == null ? '' : raw);
+    s = s.replace(/[０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); });
+    s = s.replace(/[，、,\s　円]/g, '');
+    if(!/^[0-9]+$/.test(s)) return null;
+    var n = Number(s);
+    if(!isFinite(n) || Math.floor(n) !== n || n <= 0 || n > 999999999) return null;
+    return n;
+  }
+
+  function yen(n){
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '円';
+  }
+
+  function fiscalYearOf(dateISO){
+    var y = Number(dateISO.slice(0, 4));
+    var m = Number(dateISO.slice(5, 7));
+    return (m >= FISCAL_START_MONTH) ? y : y - 1;
+  }
+
+  /* =========================================================
+     2. 状態
+     ========================================================= */
+  var state = null;
+  var saveBlocked = false;        // 保存すると既存データを壊す状況では true
+  var corruptedRaw = null;        // 退避した壊れたデータ（書き出し用に持っておく）
+  var storageUsable = true;
+  var diagLines = [];
+
+  function diag(line){
+    diagLines.push(line);
+    text($('diag'), diagLines.join('\n'));
+  }
+
+  function defaultData(){
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      settings: {
+        schoolName: '',
+        clubName: '野球部',
+        authorName: '',
+        fiscalYearStartMonth: FISCAL_START_MONTH
+      },
+      categories: {
+        income:  DEFAULT_CATEGORIES.income.slice(),
+        expense: DEFAULT_CATEGORIES.expense.slice()
+      },
+      purposes: [],
+      years: {}
+    };
+  }
+
+  // 足りない項目を補う。既にある値は絶対に上書きしない。
+  function migrate(raw){
+    var d = defaultData();
+    var out = {
+      schemaVersion: SCHEMA_VERSION,
+      settings: {},
+      categories: {},
+      purposes: Array.isArray(raw.purposes) ? raw.purposes.filter(isNonEmptyString) : [],
+      years: {}
+    };
+
+    var rs = (raw.settings && typeof raw.settings === 'object') ? raw.settings : {};
+    out.settings.schoolName = typeof rs.schoolName === 'string' ? rs.schoolName : d.settings.schoolName;
+    out.settings.clubName   = typeof rs.clubName   === 'string' ? rs.clubName   : d.settings.clubName;
+    out.settings.authorName = typeof rs.authorName === 'string' ? rs.authorName : d.settings.authorName;
+    out.settings.fiscalYearStartMonth = FISCAL_START_MONTH;
+
+    var rc = (raw.categories && typeof raw.categories === 'object') ? raw.categories : {};
+    out.categories.income  = Array.isArray(rc.income)  && rc.income.length  ? rc.income.filter(isNonEmptyString)  : d.categories.income;
+    out.categories.expense = Array.isArray(rc.expense) && rc.expense.length ? rc.expense.filter(isNonEmptyString) : d.categories.expense;
+
+    var ry = (raw.years && typeof raw.years === 'object') ? raw.years : {};
+    Object.keys(ry).forEach(function(k){
+      var y = ry[k];
+      if(!y || typeof y !== 'object') return;
+      out.years[k] = {
+        openingBalance: Number.isSafeInteger(y.openingBalance) ? y.openingBalance : 0,
+        openingNote:    typeof y.openingNote === 'string' ? y.openingNote : '',
+        memberCount:    Number.isSafeInteger(y.memberCount) ? y.memberCount : 0,
+        entries:        Array.isArray(y.entries) ? y.entries : [],
+        counts:         Array.isArray(y.counts)  ? y.counts  : []
+      };
+    });
+
+    return out;
+  }
+
+  function isNonEmptyString(s){ return typeof s === 'string' && s.length > 0; }
+
+  function currentYearKey(){
+    return String(fiscalYearOf(localDateISO(new Date())));
+  }
+
+  function yearBucket(key){
+    if(!state.years[key]){
+      state.years[key] = { openingBalance:0, openingNote:'', memberCount:0, entries:[], counts:[] };
+    }
+    return state.years[key];
+  }
+
+  /* =========================================================
+     3. 読み込み（§6 壊れたデータは黙って初期化しない）
+     ========================================================= */
+  function loadState(){
+    var raw;
+    try {
+      raw = localStorage.getItem(KEY);
+    } catch(err){
+      storageUsable = false;
+      saveBlocked = true;
+      show($('notice-no-storage'));
+      diag('localStorage 読み取り不可: ' + describe(err));
+      state = defaultData();
+      return;
+    }
+
+    if(raw === null){
+      state = defaultData();
+      diag('新規データで開始しました。');
+      return;
+    }
+
+    var parsed = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch(err){
+      diag('JSONの解析に失敗: ' + describe(err));
+      quarantine(raw, '保存されていた記録の形が途中で壊れていました');
+      state = defaultData();
+      return;
+    }
+
+    if(!parsed || typeof parsed !== 'object' || Array.isArray(parsed)){
+      quarantine(raw, '保存されていた内容が、Hakariの記録の形ではありませんでした');
+      state = defaultData();
+      return;
+    }
+
+    if(typeof parsed.schemaVersion === 'number' && parsed.schemaVersion > SCHEMA_VERSION){
+      saveBlocked = true;
+      corruptedRaw = raw;
+      show($('notice-newer'));
+      diag('データのschemaVersion=' + parsed.schemaVersion + ' はこの版（' + SCHEMA_VERSION + '）より新しいため、保存を止めました。');
+      state = migrate(parsed);
+      return;
+    }
+
+    state = migrate(parsed);
+    diag('読み込み成功（schemaVersion=' + SCHEMA_VERSION + '）。');
+  }
+
+  function describe(err){
+    if(!err) return '原因不明';
+    return (err.name ? err.name : 'Error') + ': ' + (err.message ? err.message : String(err));
+  }
+
+  // 壊れたデータを別キーに退避する。退避に失敗したら元を消さない。
+  function quarantine(raw, why){
+    corruptedRaw = raw;
+    var qKey = 'hakari.corrupted.' + fileStamp(new Date());
+    var moved = false;
+    try {
+      localStorage.setItem(qKey, raw);
+      moved = true;
+    } catch(err){
+      diag('退避先への書き込みに失敗: ' + describe(err));
+    }
+
+    if(moved){
+      try {
+        localStorage.removeItem(KEY);
+        diag('壊れたデータを ' + qKey + ' に退避しました。');
+      } catch(err){
+        saveBlocked = true;
+        diag('退避後の削除に失敗: ' + describe(err));
+      }
+    } else {
+      // 退避できていないので、上書き保存は禁止（消えてしまう）
+      saveBlocked = true;
+    }
+
+    show($('notice-corrupted'));
+    text($('corrupted-detail'),
+      why + '。' + (moved ? '中身は ' + qKey + ' に退避しました。' : 'この端末に退避できなかったため、元のデータはそのまま残しています。'));
+  }
+
+  /* =========================================================
+     4. 保存（§6 setItem は必ず try/catch）
+     ========================================================= */
+  function save(){
+    if(saveBlocked){
+      failSave('データを壊さないため保存を止めています。上のお知らせを確認してください。', null);
+      return false;
+    }
+
+    var json;
+    try {
+      json = JSON.stringify(state);
+    } catch(err){
+      failSave('記録を文字列に変換できませんでした（' + describe(err) + '）。', null);
+      return false;
+    }
+
+    try {
+      localStorage.setItem(KEY, json);
+    } catch(err){
+      var msg = (err && err.name === 'QuotaExceededError')
+        ? '端末の保存領域がいっぱいです（' + describe(err) + '）。'
+        : '端末に書き込めませんでした（' + describe(err) + '）。';
+      failSave(msg, json);
+      return false;
+    }
+
+    hide($('notice-save-failed'));
+    return true;
+  }
+
+  function failSave(msg, json){
+    text($('save-failed-detail'), msg);
+    text($('save-failed-json'), json === null ? '（変換できなかったため内容を出せません）' : json);
+    show($('notice-save-failed'));
+    $('notice-save-failed').scrollIntoView({ block:'nearest' });
+  }
+
+  /* =========================================================
+     5. 書き出し
+     ========================================================= */
+  function download(filename, contents){
+    var ok = false;
+    try {
+      var blob = new Blob([contents], { type:'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){
+        try { URL.revokeObjectURL(url); }
+        catch(err){ diag('一時URLの解放に失敗: ' + describe(err)); }
+      }, 1000);
+      ok = true;
+    } catch(err){
+      diag('書き出しに失敗: ' + describe(err));
+      window.alert('ファイルに書き出せませんでした（' + describe(err) + '）。\nお使いのブラウザの設定で保存が止められている可能性があります。');
+    }
+    return ok;
+  }
+
+  function backup(){
+    var now = new Date();
+    var payload = {
+      exportedAt: localStampISO(now),
+      app: 'Hakari',
+      data: state
+    };
+    var body;
+    try {
+      body = JSON.stringify(payload, null, 2);
+    } catch(err){
+      window.alert('バックアップを作れませんでした（' + describe(err) + '）。');
+      diag('バックアップのJSON化に失敗: ' + describe(err));
+      return false;
+    }
+    var ok = download('hakari-backup-' + fileStamp(now) + '.json', body);
+    if(ok) diag('バックアップを書き出しました（' + localStampISO(now) + '）。');
+    return ok;
+  }
+
+  /* =========================================================
+     6. 集計（§5.3 のうち会計残高。3残高の残り2つは Phase 2）
+     ========================================================= */
+  function live(entries){
+    return entries.filter(function(e){ return e && !e.voided; });
+  }
+
+  function sumOf(entries, kind){
+    return live(entries).reduce(function(acc, e){
+      return acc + (e.kind === kind && Number.isSafeInteger(e.amount) ? e.amount : 0);
+    }, 0);
+  }
+
+  function accountBalance(y){
+    return y.openingBalance + sumOf(y.entries, 'income') - sumOf(y.entries, 'expense');
+  }
+
+  function nextId(y){
+    return y.entries.reduce(function(m, e){
+      return (e && Number.isSafeInteger(e.id) && e.id > m) ? e.id : m;
+    }, 0) + 1;
+  }
+
+  /* =========================================================
+     7. 描画
+     ========================================================= */
+  var currentKind = 'expense';
+
+  function render(){
+    var key = currentYearKey();
+    var y = yearBucket(key);
+
+    text($('lead'), state.settings.clubName + ' ' + key + '年度の部費');
+    text($('balance'), yen(accountBalance(y)));
+    text($('balance-meta'),
+      '期首 ' + yen(y.openingBalance) +
+      '／収入 ' + yen(sumOf(y.entries, 'income')) +
+      '／支出 ' + yen(sumOf(y.entries, 'expense')));
+
+    renderCategories();
+    renderRecent(y);
+    renderDataSummary();
+  }
+
+  function renderCategories(){
+    var sel = $('f-category');
+    var keep = sel.value;
+    var list = state.categories[currentKind];
+    while(sel.firstChild) sel.removeChild(sel.firstChild);
+    list.forEach(function(name){
+      var op = document.createElement('option');
+      op.value = name;
+      op.textContent = name;
+      sel.appendChild(op);
+    });
+    if(list.indexOf(keep) >= 0) sel.value = keep;
+  }
+
+  function renderRecent(y){
+    var ul = $('recent');
+    while(ul.firstChild) ul.removeChild(ul.firstChild);
+
+    var items = live(y.entries).slice().sort(function(a, b){
+      if(a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return b.id - a.id;
+    }).slice(0, 5);
+
+    if(!items.length){
+      var li = document.createElement('li');
+      li.className = 'empty';
+      li.textContent = 'まだ記録がありません。';
+      ul.appendChild(li);
+      return;
+    }
+
+    items.forEach(function(e){
+      var li = document.createElement('li');
+
+      var main = document.createElement('div');
+      main.className = 'li-main';
+
+      var left = document.createElement('span');
+      left.textContent = e.date.slice(5).replace('-', '/') + '　' + (e.category || '精算');
+
+      var amt = document.createElement('span');
+      amt.className = 'li-amt' + (e.kind === 'income' ? ' amt-in' : '');
+      amt.textContent = (e.kind === 'income' ? '+' : '−') + yen(e.amount);
+
+      main.appendChild(left);
+      main.appendChild(amt);
+      li.appendChild(main);
+
+      if(e.note){
+        var sub = document.createElement('div');
+        sub.className = 'li-sub';
+        sub.textContent = e.note;
+        li.appendChild(sub);
+      }
+      ul.appendChild(li);
+    });
+  }
+
+  function countAll(){
+    var entries = 0, years = 0;
+    Object.keys(state.years).forEach(function(k){
+      years += 1;
+      entries += state.years[k].entries.length;
+    });
+    return { entries:entries, years:years };
+  }
+
+  function renderDataSummary(){
+    var c = countAll();
+    text($('data-summary'), c.entries === 0
+      ? 'まだ保存された記録はありません。'
+      : '記録 ' + c.entries + '件／' + c.years + '年度分を、この端末の中だけに保存しています。');
+  }
+
+  /* =========================================================
+     8. 記録する
+     ========================================================= */
+  function formError(msg){
+    var el = $('form-error');
+    if(!msg){ hide(el); return; }
+    text(el, msg);
+    show(el);
+  }
+
+  function isDuplicate(y, date, category, amount){
+    var limit = Date.now() - DUP_WINDOW_MS;
+    return live(y.entries).some(function(e){
+      if(e.date !== date || e.category !== category || e.amount !== amount) return false;
+      var t = Date.parse(e.createdAt);
+      return isFinite(t) && t >= limit;
+    });
+  }
+
+  function onSave(){
+    formError('');
+
+    var date = $('f-date').value;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){
+      formError('日付を選んでください。');
+      return;
+    }
+
+    var amount = parseAmount($('f-amount').value);
+    if(amount === null){
+      formError('金額は1円以上の数字で入れてください（全角の数字でも大丈夫です）。');
+      return;
+    }
+
+    var category = $('f-category').value;
+    if(!category){
+      formError('費目を選んでください。');
+      return;
+    }
+
+    var y = yearBucket(String(fiscalYearOf(date)));
+
+    if(isDuplicate(y, date, category, amount)){
+      if(!window.confirm('同じ記録がすでにあります。もう1件追加しますか？\n\n' + date + '　' + category + '　' + yen(amount))){
+        return;
+      }
+    }
+
+    var btn = $('btn-save');
+    btn.disabled = true;
+
+    var entry = {
+      id: nextId(y),
+      date: date,
+      kind: currentKind,
+      category: category,
+      purpose: null,
+      note: $('f-note').value,
+      amount: amount,
+      headcount: null,
+      paidFrom: currentKind === 'expense' ? 'envelope' : null,
+      receiptNo: null,
+      createdAt: localStampISO(new Date()),
+      voided: false,
+      voidReason: '',
+      voidedAt: null
+    };
+
+    y.entries.push(entry);
+
+    if(save()){
+      // 保存できた時だけ入力欄を空にする（消えた入力を作らない）
+      $('f-amount').value = '';
+      $('f-note').value = '';
+    } else {
+      // 保存に失敗した記録は帳簿から戻す。画面の数字と端末の中身を食い違わせない。
+      y.entries.pop();
+    }
+
+    render();
+    btn.disabled = false;
+  }
+
+  /* =========================================================
+     9. 全削除（§6 確認＋件数明示＋直前のバックアップ）
+     ========================================================= */
+  function openWipe(){
+    var c = countAll();
+    text($('wipe-detail'), '記録 ' + c.entries + '件と ' + c.years + '年度分の設定が、この端末から消えます。元に戻せません。');
+    $('wipe-confirm').value = '';
+    $('btn-wipe-do').disabled = true;
+    show($('wipe-panel'));
+  }
+
+  function doWipe(){
+    var c = countAll();
+    try {
+      localStorage.removeItem(KEY);
+    } catch(err){
+      window.alert('削除できませんでした（' + describe(err) + '）。');
+      diag('全削除に失敗: ' + describe(err));
+      return;
+    }
+    state = defaultData();
+    saveBlocked = false;
+    hide($('wipe-panel'));
+    hide($('notice-corrupted'));
+    hide($('notice-save-failed'));
+    diag('全削除しました（記録 ' + c.entries + '件）。');
+    render();
+  }
+
+  /* =========================================================
+     10. 起動
+     ========================================================= */
+  function bind(){
+    $('kind-expense').addEventListener('click', function(){ setKind('expense'); });
+    $('kind-income').addEventListener('click',  function(){ setKind('income'); });
+    $('btn-save').addEventListener('click', onSave);
+    $('btn-backup').addEventListener('click', backup);
+    $('btn-backup-2').addEventListener('click', backup);
+    $('btn-wipe-backup').addEventListener('click', backup);
+    $('btn-reload').addEventListener('click', function(){ window.location.reload(); });
+
+    $('btn-dump-corrupted').addEventListener('click', function(){
+      if(corruptedRaw === null){
+        window.alert('書き出せる退避データがありません。');
+        return;
+      }
+      download('hakari-corrupted-' + fileStamp(new Date()) + '.txt', corruptedRaw);
+    });
+
+    $('btn-wipe-open').addEventListener('click', openWipe);
+    $('btn-wipe-cancel').addEventListener('click', function(){ hide($('wipe-panel')); });
+    $('wipe-confirm').addEventListener('input', function(){
+      $('btn-wipe-do').disabled = ($('wipe-confirm').value.trim() !== '削除');
+    });
+    $('btn-wipe-do').addEventListener('click', doWipe);
+
+    // §6 複数タブ
+    window.addEventListener('storage', function(e){
+      if(e.key === KEY || e.key === null) show($('notice-other-tab'));
+    });
+  }
+
+  function setKind(kind){
+    currentKind = kind;
+    $('kind-expense').setAttribute('aria-pressed', String(kind === 'expense'));
+    $('kind-income').setAttribute('aria-pressed',  String(kind === 'income'));
+    renderCategories();
+  }
+
+  function requestPersist(){
+    // 効けば削除されにくくなる。保証には数えない（§6）。
+    try {
+      if(navigator.storage && typeof navigator.storage.persist === 'function'){
+        navigator.storage.persist().then(function(granted){
+          diag('保存領域の永続化: ' + (granted ? '許可されました' : '許可されませんでした（消える可能性は残ります）'));
+        }, function(err){
+          diag('保存領域の永続化の問い合わせに失敗: ' + describe(err));
+        });
+      } else {
+        diag('保存領域の永続化: このブラウザでは問い合わせできません。');
+      }
+    } catch(err){
+      diag('保存領域の永続化で例外: ' + describe(err));
+    }
+  }
+
+  loadState();
+  bind();
+  $('f-date').value = localDateISO(new Date());
+  setKind('expense');
+  render();
+  requestPersist();
+
+  // Phase 0 の自己テスト（画面下の診断行に出す）
+  (function selfTest(){
+    var cases = [['１０００', 1000], ['1,000', 1000], ['3000円', 3000], ['0', null], ['-5', null], ['abc', null], ['1.5', null]];
+    var bad = cases.filter(function(c){ return parseAmount(c[0]) !== c[1]; });
+    diag('金額の読み取りテスト: ' + (bad.length ? 'NG ' + bad.length + '件' : cases.length + '件すべてOK'));
+    diag('年度の判定テスト: ' + ((fiscalYearOf('2026-03-31') === 2025 && fiscalYearOf('2026-04-01') === 2026) ? 'OK' : 'NG'));
+  })();
+
+})();
+</script>
+</body>
+</html>
