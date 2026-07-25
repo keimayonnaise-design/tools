@@ -1770,8 +1770,10 @@
     pendingOpening = { counted:counted, value:opening };
 
     text($('opening-result-title'), '期首残高は ' + yen(opening) + ' になります');
+    // 判明分が赤字（支出のほうが多い）のときに「− -5,000円」と出ると読めない。符号を言葉で出す
     text($('opening-result-detail'),
-      '数えた額 ' + yen(counted) + ' − 判明分の収支 ' + yen(net) +
+      '数えた額 ' + yen(counted) +
+      (net >= 0 ? ' − 判明分の収支 ' + yen(net) : ' ＋ 判明分の不足 ' + yen(-net)) +
       (adv === 0 ? '' : ' − 立て替え未精算 ' + yen(adv)) +
       ' ＝ ' + yen(opening) + '（判明分 ' + n + '件）');
 
@@ -2085,6 +2087,10 @@
     $('btn-opening-cancel').addEventListener('click', function(){
       pendingOpening = null;
       hide($('opening-result'));
+      formErrorAt('opening-error', '');
+      $('f-opening-count').value = '';
+      openingFormOpen = false;      // 計算し直しをやめたら欄も閉じる（初回セットアップ中は開いたまま）
+      render();
     });
     $('btn-opening-open').addEventListener('click', function(){
       openingFormOpen = true;
