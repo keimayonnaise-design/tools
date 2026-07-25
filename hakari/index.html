@@ -148,11 +148,19 @@
     <p>ブラウザの保存領域が使えない状態です（プライベートモードなど）。<strong>記録は画面を閉じると消えます。</strong></p>
   </div>
 
-  <!-- ===== 残高 ===== -->
+  <!-- ===== 残高（§5.3 3つの残高。大きい数字は「封筒にあるべき額」＝数えて確かめられる値） ===== -->
   <div class="card">
-    <div class="balance-label">会計残高</div>
+    <div class="balance-label">封筒にあるべき額</div>
     <div class="balance" id="balance">0円</div>
+    <!-- 立て替え未精算が0円のときは内訳を出さない（ふだんは1つの数字だけ見えていればよい） -->
+    <div class="meta" id="balance-breakdown"></div>
     <div class="meta" id="balance-meta"></div>
+    <div class="meta" id="count-meta"></div>
+  </div>
+
+  <!-- 立て替えたままのお金が30日続いたときだけ、静かに出す（§5.3・急かさない） -->
+  <div id="notice-advance-old" class="notice warn hidden">
+    <p id="advance-old-detail"></p>
   </div>
 
   <!-- 取り消したまま入れ直していない記録（§5.7 取り消しっぱなしを作らない） -->
@@ -161,7 +169,7 @@
     <p id="void-open-detail"></p>
     <div class="row">
       <button type="button" id="btn-void-refill">正しい記録を入れ直す</button>
-      <button type="button" id="btn-void-done">入れ直しは済んでいる</button>
+      <button type="button" id="btn-void-done">入れ直さなくてよい</button>
     </div>
   </div>
 
@@ -172,6 +180,15 @@
     <div class="seg" role="group" aria-label="種別">
       <button type="button" id="kind-expense" aria-pressed="true">支出</button>
       <button type="button" id="kind-income" aria-pressed="false">収入</button>
+    </div>
+
+    <!-- 支払い元（§5.3）。ここを間違えると封筒が合わなくなるので、支出のときは必ず見える位置に置く -->
+    <div id="wrap-paidfrom">
+      <div class="fieldlabel" id="paidfrom-label">支払い元</div>
+      <div class="seg" role="group" aria-labelledby="paidfrom-label">
+        <button type="button" id="pf-envelope" aria-pressed="true">封筒から出した</button>
+        <button type="button" id="pf-advance" aria-pressed="false">自腹で立て替えた</button>
+      </div>
     </div>
 
     <div class="fieldlabel" id="quick-label">よく使う項目</div>
@@ -203,7 +220,46 @@
     <p id="form-error" class="notice bad hidden"></p>
     <button type="button" class="primary" id="btn-save">記録する</button>
     <p id="saved-ok" class="saved-ok hidden"></p>
-    <p class="phase-note" style="margin-top:14px">立て替えの記録は Phase 2 で入ります。いまの支出はすべて「封筒から払った」扱いで保存されます。</p>
+  </div>
+
+  <!-- ===== 立て替えの精算（§5.3 収支ではなく現金の移動） ===== -->
+  <div class="card hidden" id="settle-card">
+    <h2>立て替えの精算</h2>
+    <p class="lead" id="settle-lead"></p>
+    <label for="f-settle">封筒から自分にもどす額（円）</label>
+    <input type="text" id="f-settle" inputmode="numeric" autocomplete="off" placeholder="3000">
+    <p id="settle-error" class="notice bad hidden"></p>
+    <button type="button" class="primary" id="btn-settle">もどした</button>
+    <p id="settle-ok" class="saved-ok hidden"></p>
+    <p class="phase-note" style="margin-top:14px">精算は収入にも支出にも入りません。封筒のお金が自分の財布に戻るだけだからです。</p>
+  </div>
+
+  <!-- ===== 実査（§5.4 名前の由来。数えて合わせる） ===== -->
+  <div class="card">
+    <h2>数えて合わせる</h2>
+    <p class="lead" id="count-lead"></p>
+    <label for="f-count">実際に数えた額（円）</label>
+    <input type="text" id="f-count" inputmode="numeric" autocomplete="off" placeholder="24000">
+    <p id="count-error" class="notice bad hidden"></p>
+    <button type="button" class="primary" id="btn-count">合わせる</button>
+
+    <div id="count-ok" class="notice warn hidden">
+      <h3 id="count-ok-title"></h3>
+      <p id="count-ok-detail"></p>
+    </div>
+
+    <!-- 不一致のとき。勝手に帳尻を合わせない（§5.4） -->
+    <div id="count-diff" class="notice bad hidden">
+      <h3 id="count-diff-title"></h3>
+      <p>差額をこの場で埋めることはしません。まず、入れ忘れた記録がないか見てみてください。</p>
+      <div class="row">
+        <button type="button" id="btn-count-list">記録を全部見る</button>
+      </div>
+      <p>どうしても原因が分からないときは、ごまかさずに「原因不明の差額」として記録できます。</p>
+      <div class="row">
+        <button type="button" id="btn-count-unknown"></button>
+      </div>
+    </div>
   </div>
 
   <!-- ===== 最近の記録 ===== -->
@@ -276,6 +332,7 @@
   // 人数を聞くのは「部員から頭割りで集める」費目だけ。寄付や返金で人数を聞かれても答えようがない
   var HEADCOUNT_CATEGORIES = ['部費徴収', '臨時徴収'];
   var VOID_PRESETS = ['金額のまちがい', '費目のまちがい', '二重に入れた'];
+  var ADVANCE_ALERT_DAYS = 30;         // 立て替えたままを知らせるまでの日数（§5.3）
 
   var SEED_VERSION = 1;                // 初期セットを1度だけ入れるための版番号
 
@@ -343,11 +400,13 @@
   }
 
   // 全角数字・カンマ・「円」を吸収して整数に。ダメなら null（§11 Phase 1 受け入れ基準）
-  function parseAmount(raw){
+  // allowZero は実査で使う。封筒を使い切って0円ということは普通にある
+  function parseAmount(raw, allowZero){
     var s = toHalfDigits(raw).replace(/[，、,\s　円]/g, '');
     if(!/^[0-9]+$/.test(s)) return null;
     var n = Number(s);
-    if(!isFinite(n) || Math.floor(n) !== n || n <= 0 || n > 999999999) return null;
+    if(!isFinite(n) || Math.floor(n) !== n || n > 999999999) return null;
+    if(allowZero ? n < 0 : n <= 0) return null;
     return n;
   }
 
@@ -679,6 +738,43 @@
     return y.openingBalance + sumOf(y.entries, 'income') - sumOf(y.entries, 'expense');
   }
 
+  // §5.3 立て替え未精算額 = Σ(支出 かつ paidFrom=advance) − Σ(精算額)
+  function advanceOutstanding(y){
+    return live(y.entries).reduce(function(acc, e){
+      if(!Number.isSafeInteger(e.amount)) return acc;
+      if(e.kind === 'expense' && e.paidFrom === 'advance') return acc + e.amount;
+      if(e.kind === 'settlement') return acc - e.amount;
+      return acc;
+    }, 0);
+  }
+
+  // §5.3 封筒にあるべき額 = 会計残高 + 立て替え未精算額。数えて確かめられる唯一の数字
+  function envelopeExpected(y){
+    return accountBalance(y) + advanceOutstanding(y);
+  }
+
+  // まだ精算していない立て替えのうち、いちばん古い日。30日の判定に使う
+  function oldestAdvanceDate(y){
+    var out = null;
+    live(y.entries).forEach(function(e){
+      if(e.kind !== 'expense' || e.paidFrom !== 'advance') return;
+      if(out === null || e.date < out) out = e.date;
+    });
+    return out;
+  }
+
+  function lastCount(y){
+    var list = Array.isArray(y.counts) ? y.counts : [];
+    return list.length ? list[list.length - 1] : null;
+  }
+
+  function daysBetween(fromISO, toISO){
+    var a = Date.parse(fromISO + 'T00:00:00');
+    var b = Date.parse(toISO + 'T00:00:00');
+    if(!Number.isFinite(a) || !Number.isFinite(b)) return 0;
+    return Math.round((b - a) / 86400000);
+  }
+
   function nextId(y){
     return y.entries.reduce(function(m, e){
       return (e && Number.isSafeInteger(e.id) && e.id > m) ? e.id : m;
@@ -696,6 +792,9 @@
   var sessionAdded = [];                     // このセッションで入れた記録（'年度#id'）＝理由なしで消せる対象
   var voidTarget = { key:null, id:null };    // 取消パネルが対象にしている記録
   var refillFrom = { key:null, id:null };    // 取消から「入れ直す」でフォームに移した元記録
+  var currentPaidFrom = 'envelope';          // 支出の支払い元（§5.3）
+  var settleTouched = false;                 // 精算額を自分で書き換えたか（勝手に上書きしないため）
+  var countGap = 0;                          // 直近の実査のずれ [円]（+なら多い）
 
   // 並びは「開いたとき」に決めて、使っている最中は動かさない。
   // 記録するたびにボタンが入れ替わると、次の1件で押し間違える。
@@ -713,12 +812,31 @@
     var y = yearBucket(key);
 
     text($('lead'), state.settings.clubName + ' ' + key + '年度の部費');
-    text($('balance'), yen(accountBalance(y)));
+
+    var acct = accountBalance(y);
+    var adv  = advanceOutstanding(y);
+    text($('balance'), yen(envelopeExpected(y)));
+    text($('balance-breakdown'), adv === 0
+      ? ''                                   // ふだんは1つの数字だけ見えていればよい（§5.3）
+      : (adv > 0
+          ? '内訳: 帳簿 ' + yen(acct) + ' ＋ 立て替え未精算 ' + yen(adv)
+          // 精算済みの立て替えを取り消すとここに来る。黙って0にせず、原因を書いて見せる
+          : '内訳: 帳簿 ' + yen(acct) + ' − もどしすぎ ' + yen(-adv) +
+            '（取り消した立て替えの精算が残っています。精算の記録も取り消してください）'));
     text($('balance-meta'),
       '期首 ' + yen(y.openingBalance) +
       '／収入 ' + yen(sumOf(y.entries, 'income')) +
       '／支出 ' + yen(sumOf(y.entries, 'expense')));
 
+    var lc = lastCount(y);
+    text($('count-meta'), lc
+      ? '最後に数えた日 ' + lc.date.slice(5).replace('-', '/') +
+        (lc.counted === lc.expected ? ' ✓ 合っていた' : ' ⚠ ' + yen(Math.abs(lc.counted - lc.expected)) + 'ずれていた')
+      : 'まだ数えていません');
+
+    renderSettle(y, adv);
+    renderCount(y);
+    renderAdvanceNotice(y, adv);
     renderCategories();
     renderQuick();
     updateFoldSummary();
@@ -865,17 +983,21 @@
       main.className = 'li-main';
 
       var left = document.createElement('span');
-      left.textContent = e.date.slice(5).replace('-', '/') + '　' + (e.category || '精算');
+      left.textContent = e.date.slice(5).replace('-', '/') + '　' +
+        (e.kind === 'settlement' ? '精算（封筒→自分）' : (e.category || '—'));
 
+      // 精算は収支ではないので符号を付けない。付けると足し引きされているように見える
       var amt = document.createElement('span');
       amt.className = 'li-amt' + (e.kind === 'income' ? ' amt-in' : '');
-      amt.textContent = (e.kind === 'income' ? '+' : '−') + yen(e.amount);
+      amt.textContent = (e.kind === 'settlement' ? '' : (e.kind === 'income' ? '+' : '−')) + yen(e.amount);
 
       main.appendChild(left);
       main.appendChild(amt);
       li.appendChild(main);
 
       var parts = [];
+      // 立て替えたままかどうかは、あとから見て一番知りたいこと（§5.3）
+      if(e.kind === 'expense' && e.paidFrom === 'advance') parts.push('立て替え');
       // 「この12,000円は何?」に一発で答えられるようにする（§5.2）。
       // 割り切れなくても警告は出さない（欠席者の免除など、正当な理由が普通にある）
       if(Number.isSafeInteger(e.headcount) && e.headcount > 0){
@@ -946,8 +1068,10 @@
   /* =========================================================
      8. 記録する
      ========================================================= */
-  function formError(msg){
-    var el = $('form-error');
+  function formError(msg){ formErrorAt('form-error', msg); }
+
+  function formErrorAt(id, msg){
+    var el = $(id);
     if(!msg){ hide(el); return; }
     text(el, msg);
     show(el);
@@ -1055,7 +1179,7 @@
       note: $('f-note').value,
       amount: amount,
       headcount: headcount,
-      paidFrom: currentKind === 'expense' ? 'envelope' : null,
+      paidFrom: currentKind === 'expense' ? currentPaidFrom : null,
       receiptNo: null,
       createdAt: localStampISO(new Date()),
       voided: false,
@@ -1083,6 +1207,7 @@
       $('f-amount').value = '';
       $('f-note').value = '';
       $('f-headcount').value = '';
+      setPaidFrom('envelope');   // 立て替えは1件ごとに選び直す（前の選択を引きずらせない）
     } else {
       if(refilled) refilled.voidRefilled = false;
       // 保存に失敗した記録は帳簿から戻す。画面の数字と端末の中身を食い違わせない。
@@ -1104,6 +1229,183 @@
       try { $('recent-card').scrollIntoView({ block:'nearest' }); }
       catch(err){ diag('記録一覧への移動に失敗: ' + describe(err)); }
     }
+  }
+
+  /* =========================================================
+     8.3 精算と実査（§5.3・§5.4）
+     ========================================================= */
+  function renderSettle(y, adv){
+    if(adv <= 0){
+      hide($('settle-card'));                 // 立て替えが無いときは存在ごと隠す
+      return;
+    }
+    var oldest = oldestAdvanceDate(y);
+    text($('settle-lead'),
+      'いま ' + yen(adv) + ' を立て替えたままです' +
+      (oldest ? '（いちばん古いのは ' + oldest.slice(5).replace('-', '/') + '）' : '') + '。');
+    if(!settleTouched) $('f-settle').value = groupDigits(String(adv));
+    show($('settle-card'));
+  }
+
+  function renderCount(y){
+    text($('count-lead'), '封筒にあるべき額は ' + yen(envelopeExpected(y)) + ' です。実際に数えた額を入れてください。');
+  }
+
+  function renderAdvanceNotice(y, adv){
+    var oldest = adv > 0 ? oldestAdvanceDate(y) : null;
+    var days = oldest ? daysBetween(oldest, localDateISO(new Date())) : 0;
+    if(!oldest || days < ADVANCE_ALERT_DAYS){
+      hide($('notice-advance-old'));
+      return;
+    }
+    // 罪悪感を煽らない。事実と選択肢だけ置く（憲法 §1-6）
+    text($('advance-old-detail'),
+      '立て替えたままのお金が ' + yen(adv) + ' あります（' + days + '日）。精算しますか？');
+    show($('notice-advance-old'));
+  }
+
+  function onSettle(){
+    formErrorAt('settle-error', '');
+    hide($('settle-ok'));
+
+    var key = currentYearKey();
+    var y = yearBucket(key);
+    var adv = advanceOutstanding(y);
+
+    var amount = parseAmount($('f-settle').value);
+    if(amount === null){
+      formErrorAt('settle-error', 'もどす額は1円以上の数字で入れてください。');
+      $('f-settle').focus();
+      return;
+    }
+    if(amount > adv){
+      formErrorAt('settle-error', '立て替えている ' + yen(adv) + ' より多くはもどせません。');
+      $('f-settle').focus();
+      return;
+    }
+
+    var entry = {
+      id: nextId(y),
+      date: localDateISO(new Date()),
+      kind: 'settlement',
+      category: null,
+      purpose: null,
+      note: '立て替えの精算',
+      amount: amount,
+      headcount: null,
+      paidFrom: null,
+      receiptNo: null,
+      createdAt: localStampISO(new Date()),
+      voided: false,
+      voidReason: '',
+      voidedAt: null
+    };
+
+    var btn = $('btn-settle');
+    btn.disabled = true;
+    y.entries.push(entry);
+
+    if(save()){
+      lastAdded = { key:key, id:entry.id };
+      sessionAdded.push(key + '#' + entry.id);
+      settleTouched = false;
+      $('f-settle').value = '';
+      text($('settle-ok'), yen(amount) + ' を封筒から自分にもどしました。残りの立て替えは ' +
+        yen(advanceOutstanding(y)) + ' です。');
+      show($('settle-ok'));
+    } else {
+      y.entries.pop();
+    }
+    render();
+    btn.disabled = false;
+  }
+
+  function onCount(){
+    formErrorAt('count-error', '');
+    hide($('count-ok'));
+    hide($('count-diff'));
+
+    var key = currentYearKey();
+    var y = yearBucket(key);
+    var expected = envelopeExpected(y);
+
+    var counted = parseAmount($('f-count').value, true);   // 0円もあり得る（使い切った封筒）
+    if(counted === null){
+      formErrorAt('count-error', '数えた額は0以上の数字で入れてください。');
+      $('f-count').focus();
+      return;
+    }
+
+    var rec = { date: localDateISO(new Date()), counted: counted, expected: expected, note: '' };
+    var btn = $('btn-count');
+    btn.disabled = true;
+    y.counts.push(rec);
+
+    if(!save()){
+      y.counts.pop();
+      btn.disabled = false;
+      render();
+      return;
+    }
+
+    $('f-count').value = '';
+    if(counted === expected){
+      text($('count-ok-title'), '✓ 合っていました');
+      text($('count-ok-detail'), yen(counted) + ' で一致です。最後に数えた日を更新しました。');
+      show($('count-ok'));
+      diag('実査: 一致（' + yen(counted) + '）。');
+    } else {
+      var gap = counted - expected;
+      countGap = gap;
+      text($('count-diff-title'),
+        '⚠ ' + yen(Math.abs(gap)) + ' ' + (gap > 0 ? '多い' : '足りない') + 'です');
+      text($('btn-count-unknown'),
+        gap > 0 ? '原因不明の差額 ' + yen(gap) + ' を収入として記録する'
+                : '原因不明の差額 ' + yen(-gap) + ' を支出として記録する');
+      show($('count-diff'));
+      diag('実査: 不一致（数えた ' + yen(counted) + '／あるべき ' + yen(expected) + '）。帳尻は合わせていない。');
+    }
+    render();
+    btn.disabled = false;
+  }
+
+  // ごまかさずに残すための道（§5.4）。押されたときだけ計上する
+  function recordUnknownGap(){
+    if(countGap === 0) return;
+    var key = currentYearKey();
+    var y = yearBucket(key);
+    var today = localDateISO(new Date());
+    var amount = Math.abs(countGap);
+    var isPlus = countGap > 0;
+
+    var entry = {
+      id: nextId(y),
+      date: today,
+      kind: isPlus ? 'income' : 'expense',
+      category: isPlus ? '返金・戻り' : '雑費',
+      purpose: null,
+      note: today.slice(5).replace('-', '/') + 'の実査で判明した原因不明の差額',
+      amount: amount,
+      headcount: null,
+      paidFrom: isPlus ? null : 'envelope',
+      receiptNo: null,
+      createdAt: localStampISO(new Date()),
+      voided: false,
+      voidReason: '',
+      voidedAt: null
+    };
+
+    y.entries.push(entry);
+    if(save()){
+      lastAdded = { key:key, id:entry.id };
+      sessionAdded.push(key + '#' + entry.id);
+      countGap = 0;
+      hide($('count-diff'));
+      diag('原因不明の差額を記録しました（' + entryLabel(entry) + '）。');
+    } else {
+      y.entries.pop();
+    }
+    render();
   }
 
   /* =========================================================
@@ -1203,7 +1505,7 @@
     text($('void-open-detail'),
       entryLabel(first.e) + '　を取り消しました。' +
       (list.length > 1 ? '（ほかに ' + (list.length - 1) + '件）' : '') +
-      ' 正しい記録は入れ直しましたか？');
+      ' 正しい記録を入れ直しますか？（もう入れ直した／そもそも要らない記録だった場合は右のボタンで消せます）');
     show($('notice-void-open'));
   }
 
@@ -1269,6 +1571,11 @@
     lastAdded = { key:null, id:null };
     sessionAdded = [];
     showAll = false;
+    settleTouched = false;
+    countGap = 0;
+    setPaidFrom('envelope');
+    hide($('count-ok'));
+    hide($('count-diff'));
     voidTarget = { key:null, id:null };
     refillFrom = { key:null, id:null };
     saveBlocked = false;
@@ -1296,6 +1603,27 @@
       updateFoldSummary();
       hide($('saved-ok'));
     });
+
+    // §5.3 支払い元
+    $('pf-envelope').addEventListener('click', function(){ setPaidFrom('envelope'); hide($('saved-ok')); });
+    $('pf-advance').addEventListener('click',  function(){ setPaidFrom('advance');  hide($('saved-ok')); });
+
+    // §5.3 精算
+    $('f-settle').addEventListener('input', function(){
+      settleTouched = true;                  // 自分で書き換えたら、こちらから上書きしない
+      hide($('settle-ok'));
+    });
+    $('btn-settle').addEventListener('click', onSettle);
+
+    // §5.4 実査
+    $('btn-count').addEventListener('click', onCount);
+    $('btn-count-list').addEventListener('click', function(){
+      showAll = true;
+      render();
+      try { $('recent-card').scrollIntoView({ block:'start' }); }
+      catch(err){ diag('記録一覧への移動に失敗: ' + describe(err)); }
+    });
+    $('btn-count-unknown').addEventListener('click', recordUnknownGap);
 
     $('btn-more').addEventListener('click', function(){
       showAll = !showAll;
@@ -1355,6 +1683,11 @@
     $('kind-expense').setAttribute('aria-pressed', String(kind === 'expense'));
     $('kind-income').setAttribute('aria-pressed',  String(kind === 'income'));
 
+    // 支払い元は支出だけの概念。収入では出さない。
+    // 既定は毎回「封筒から」に戻す（前回の選択が残っていると、立て替えでない支出が黙って立て替えになる）
+    setPaidFrom('envelope');
+    if(kind === 'expense'){ show($('wrap-paidfrom')); } else { hide($('wrap-paidfrom')); }
+
     $('f-note').placeholder   = PLACEHOLDERS[kind].note;
     $('f-amount').placeholder = PLACEHOLDERS[kind].amount;
 
@@ -1363,6 +1696,12 @@
     renderQuick();
     syncHeadcount();
     updateFoldSummary();
+  }
+
+  function setPaidFrom(pf){
+    currentPaidFrom = (pf === 'advance') ? 'advance' : 'envelope';
+    $('pf-envelope').setAttribute('aria-pressed', String(currentPaidFrom === 'envelope'));
+    $('pf-advance').setAttribute('aria-pressed',  String(currentPaidFrom === 'advance'));
   }
 
   function requestPersist(){
@@ -1411,6 +1750,19 @@
     diag('取消の除外テスト: ' + (sumOf(vt, 'expense') === 1000 ? 'OK' : 'NG'));
     diag('人数欄の出し分け: ' + ((HEADCOUNT_CATEGORIES.indexOf('部費徴収') >= 0 &&
          HEADCOUNT_CATEGORIES.indexOf('寄付・差し入れ') < 0) ? 'OK' : 'NG'));
+
+    // §5.3 の検算例をそのまま機械で回す（Phase 2 の受け入れ基準）。
+    // 期首0 → 部費24,000集金 → 審判代3,000を立て替え → 精算、の順で3つの数字を見る
+    var y3 = { openingBalance:0, entries:[
+      { kind:'income',  amount:24000, voided:false },
+      { kind:'expense', amount:3000, paidFrom:'advance', voided:false }
+    ]};
+    var before = [accountBalance(y3), advanceOutstanding(y3), envelopeExpected(y3)].join('/');
+    y3.entries.push({ kind:'settlement', amount:3000, voided:false });
+    var after = [accountBalance(y3), advanceOutstanding(y3), envelopeExpected(y3)].join('/');
+    diag('3つの残高テスト（§5.3の検算例）: 精算前 ' + before + '＝' +
+      (before === '21000/3000/24000' ? 'OK' : 'NG') + '／精算後 ' + after + '＝' +
+      (after === '21000/0/21000' ? 'OK' : 'NG'));
 
     diag('よく使う項目: 支出' + quickOrder.filter(function(q){ return q.kind === 'expense'; }).length +
          '個／収入' + quickOrder.filter(function(q){ return q.kind === 'income'; }).length + '個');
