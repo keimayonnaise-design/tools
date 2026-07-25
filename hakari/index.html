@@ -81,6 +81,10 @@
     padding:10px 8px; font-size:.92rem; line-height:1.3; text-align:center;
   }
   .quick .q-note{display:block; font-weight:400; font-size:.72rem; opacity:.75; margin-top:2px;}
+  /* 目的タグ（§5.5）。費目より一段小さく見せる——任意の欄が主役の顔をすると、3タップの流れが濁る */
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;}
+  .chips button{min-height:40px; padding:8px 12px; font-size:.84rem; font-weight:500;}
+  .chips button.chip-new{color:var(--sub);}
   .saved-ok{color:var(--ok); font-size:.86rem; font-weight:600; margin:10px 0 0; text-align:center;}
   /* 記録が入った行を一瞬光らせる（トーストだけで済ませない・§5.1） */
   li.just-added{animation:flash 2.2s ease-out 1;}
@@ -169,6 +173,14 @@
     <div class="meta" id="count-meta"></div>
   </div>
 
+  <!-- ===== 目的別のお金（§5.5 都度集金の見張り） =====
+       残りがあることを忘れないために出すだけ。返すか繰り越すかの既定は置かない（要判断④） -->
+  <div class="card hidden" id="purpose-card">
+    <h2>目的別のお金</h2>
+    <p class="lead">目的ごとに集めた分と使った分です。残りをどうするか（返す・次に繰り越す）は、年度末の報告書を見てから決めます。</p>
+    <ul class="list" id="purpose-list"></ul>
+  </div>
+
   <!-- 初回だけ。「4月から完璧に記録がある」ふりをさせないための入り口（§5.8） -->
   <div id="notice-first-run" class="notice warn hidden">
     <h3>今年度の途中から始めますか？</h3>
@@ -249,6 +261,36 @@
     <!-- placeholder は種別で入れ替える（setKind）。ここは支出のときの文言 -->
     <label for="f-note">内容メモ（任意）</label>
     <input type="text" id="f-note" autocomplete="off" placeholder="○○高校との練習試合 審判2名">
+
+    <!-- 目的タグ（§5.5）。遠征のように「集めて・使って・残る」お金を、報告書で目的別に出すための印。
+         既定は毎回「なし」に戻す（setPurpose(null)）。前の選択が残ると、関係ない記録が
+         目的に混ざって、保護者に出す目的別収支が黙って嘘になる -->
+    <div id="wrap-purpose">
+      <div class="fieldlabel" id="purpose-label">目的（任意）</div>
+      <div class="chips" id="purpose-chips" role="group" aria-labelledby="purpose-label"></div>
+      <!-- 打ち間違えて作った目的を消す道。まだ1件も使っていないときだけ出る -->
+      <button type="button" class="subtle hidden" id="btn-purpose-del"></button>
+      <div id="purpose-new" class="hidden">
+        <label for="f-purpose-new">新しい目的の名前</label>
+        <input type="text" id="f-purpose-new" autocomplete="off" placeholder="6月遠征">
+        <p id="purpose-error" class="notice bad hidden"></p>
+        <div class="row">
+          <button type="button" id="btn-purpose-add">この目的を作る</button>
+          <button type="button" id="btn-purpose-cancel">やめる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 領収書（§5.6）。ツールが番号を振り、人が同じ番号を実物に書いてファイルに入れる。
+         この対応がついて初めて、報告書に「領収書はすべて保管しています」と書ける -->
+    <div id="wrap-receipt">
+      <div class="fieldlabel" id="receipt-label">領収書</div>
+      <div class="seg" role="group" aria-labelledby="receipt-label">
+        <button type="button" id="rc-yes" aria-pressed="true">ある</button>
+        <button type="button" id="rc-no" aria-pressed="false">ない</button>
+      </div>
+      <p class="meta" id="receipt-next"></p>
+    </div>
 
     <details class="fold" id="fold">
       <summary id="fold-summary">日付</summary>
@@ -356,6 +398,22 @@
         <button type="button" id="btn-void-cancel">やめる</button>
       </div>
     </div>
+  </div>
+
+  <!-- ===== 設定 ===== -->
+  <div class="card">
+    <h2>設定</h2>
+    <p class="lead">ふだんは触りません。使い方が変わったときだけ。</p>
+
+    <!-- 目的タグ（§5.5）を使うかどうか。都度集金をしない年度では、入力欄が1つ増えるだけになる。
+         「使わない」でも機能を消してはいない——記録の中の目的も、目的別に足す仕組みも残っている。
+         あとで「使う」に戻せば、その日から続きを使える -->
+    <div class="fieldlabel" id="use-purpose-label">目的タグ（遠征などで、別に集めることがあるとき）</div>
+    <div class="seg" role="group" aria-labelledby="use-purpose-label">
+      <button type="button" id="up-off" aria-pressed="true">使わない</button>
+      <button type="button" id="up-on" aria-pressed="false">使う</button>
+    </div>
+    <p class="meta" id="use-purpose-meta"></p>
   </div>
 
   <!-- ===== データの保全 ===== -->
@@ -532,7 +590,8 @@
         clubName: '野球部',
         authorName: '',
         fiscalYearStartMonth: FISCAL_START_MONTH,
-        seedVersion: 0
+        seedVersion: 0,
+        usePurpose: false            // 目的タグ（§5.5）を入力画面に出すか。既定は出さない
       },
       categories: {
         income:  DEFAULT_CATEGORIES.income.slice(),
@@ -584,10 +643,20 @@
       };
     });
 
+    // 目的タグを出すかどうか。設定が無い既存データでは、**すでに使っているなら出す**。
+    // 使っている人から黙って取り上げないための既定（新しく始める人には出さない）
+    out.settings.usePurpose = (typeof rs.usePurpose === 'boolean')
+      ? rs.usePurpose
+      : (out.purposes.length > 0 || Object.keys(out.years).some(function(k){
+          return out.years[k].entries.some(function(e){ return e && isNonEmptyString(e.purpose); });
+        }));
+
     return out;
   }
 
   function isNonEmptyString(s){ return typeof s === 'string' && s.length > 0; }
+
+  function usePurpose(){ return state.settings.usePurpose === true; }
 
   function isQuickLike(q){
     return q && typeof q === 'object' && isNonEmptyString(q.category);
@@ -936,6 +1005,73 @@
            'に封筒を数えた額と一致しています（期首残高は0円）。';
   }
 
+  /* --- §5.5 目的タグ --------------------------------------------------------
+     都度集金（遠征など）を「集めた・使った・残り」で見るための任意の印。
+     費目とは別の軸なので、費目に「6月遠征」を作ってはいけない（費目別の内訳が壊れる） */
+
+  // 目的ごとの収支（今年度）。取消行は外す＝残高と同じ扱い。精算は現金移動なので数えない
+  function purposeTotals(y){
+    var map = {};
+    y.entries.forEach(function(e){
+      if(!e || e.voided) return;
+      if(e.kind !== 'income' && e.kind !== 'expense') return;
+      if(!isNonEmptyString(e.purpose)) return;
+      if(!map[e.purpose]) map[e.purpose] = { income:0, expense:0, count:0, last:'' };
+      var m = map[e.purpose];
+      m[e.kind] += e.amount;
+      m.count += 1;
+      if(e.date > m.last) m.last = e.date;
+    });
+    return map;
+  }
+
+  // 候補の並び用。こちらは取消行も数える——取り消して入れ直すとき、
+  // 候補から消えていると同じ目的を選び直せない
+  function purposeSeenThisYear(y){
+    var map = {};
+    y.entries.forEach(function(e){
+      if(!e || !isNonEmptyString(e.purpose)) return;
+      if(!map[e.purpose] || e.date > map[e.purpose]) map[e.purpose] = e.date;
+    });
+    return map;
+  }
+
+  function purposeUsedAnywhere(name){
+    return Object.keys(state.years).some(function(k){
+      var list = state.years[k].entries;
+      return Array.isArray(list) && list.some(function(e){ return e && e.purpose === name; });
+    });
+  }
+
+  // 入力の候補＝「今年度で使っている目的（最後に使った日の新しい順）」＋「作ったばかりでまだ未使用のもの」。
+  // 前年度で使い終わった目的は今年度の候補から自然に消える（§5.5「使われなくなったタグは下がる」）。
+  // 消すのではなく候補から外すだけなので、過去の記録も報告書もそのまま残る
+  function purposeChoices(y){
+    var seen = purposeSeenThisYear(y);
+    var used = Object.keys(seen).sort(function(a, b){
+      if(seen[a] !== seen[b]) return seen[a] < seen[b] ? 1 : -1;
+      return state.purposes.indexOf(b) - state.purposes.indexOf(a);
+    });
+    var unused = state.purposes.filter(function(p){
+      return used.indexOf(p) < 0 && !purposeUsedAnywhere(p);
+    });
+    unused.reverse();                        // 作ったばかりのものほど前に
+    return used.concat(unused);
+  }
+
+  /* --- §5.6 領収書番号 ------------------------------------------------------
+     年度内の連番。人はこの番号を実物の領収書に書いて、番号順にファイルへ入れる。
+     取り消した記録の番号も数に入れる＝欠番は欠番のまま残す。
+     詰め直すと、すでに書いてある実物の番号と帳簿がずれる（現物が正、ツールは後追い）。
+     日付順ではなく入れた順に振られるが、それでよい——ファイルに入る順もその順だから */
+  function nextReceiptNo(y){
+    var max = 0;
+    y.entries.forEach(function(e){
+      if(e && e.kind === 'expense' && Number.isSafeInteger(e.receiptNo) && e.receiptNo > max) max = e.receiptNo;
+    });
+    return max + 1;
+  }
+
   function nextId(y){
     return y.entries.reduce(function(m, e){
       return (e && Number.isSafeInteger(e.id) && e.id > m) ? e.id : m;
@@ -952,7 +1088,9 @@
   var showAll = false;                       // 一覧を全件出しているか
   var sessionAdded = [];                     // このセッションで入れた記録（'年度#id'）＝理由なしで消せる対象
   var voidTarget = { key:null, id:null };    // 取消パネルが対象にしている記録
-  var refillFrom = { key:null, id:null };    // 取消から「入れ直す」でフォームに移した元記録
+  var refillFrom = { key:null, id:null, receiptNo:null };  // 取消から「入れ直す」でフォームに移した元記録
+  var currentPurpose = null;                 // 選んでいる目的タグ（§5.5）。既定は毎回なし
+  var currentHasReceipt = true;              // 領収書があるか（§5.6）。既定は毎回「ある」
   var currentPaidFrom = 'envelope';          // 支出の支払い元（§5.3）
   var lastSettled = { key:null, id:null };   // 直前に精算した立て替え（押し間違いを戻すため）
   var countGap = 0;                          // 直近の実査のずれ [円]（+なら多い）
@@ -1005,8 +1143,12 @@
     renderBackdate();
     renderCount(y);
     renderAdvanceNotice(y, adv);
+    renderPurposeCard(y);
     renderCategories();
     renderQuick();
+    renderPurposeChips();
+    renderUsePurpose();
+    renderReceipt();
     updateFoldSummary();
     renderRecent(key, y);
     renderVoidNotice();
@@ -1071,6 +1213,210 @@
       p.textContent = 'よく使う項目はまだありません。下の「ほかの費目から選ぶ」から選んでください。';
       box.appendChild(p);
     }
+  }
+
+  /* --- §5.5 目的タグの画面 -------------------------------------------------- */
+
+  // 目的別の残り。使われていなければカードごと出さない（使わない人の画面を増やさない）
+  function renderPurposeCard(y){
+    if(!usePurpose()){ hide($('purpose-card')); return; }
+    var t = purposeTotals(y);
+    var names = Object.keys(t).sort(function(a, b){ return t[a].last < t[b].last ? 1 : -1; });
+    var ul = $('purpose-list');
+    while(ul.firstChild) ul.removeChild(ul.firstChild);
+
+    if(!names.length){ hide($('purpose-card')); return; }
+
+    names.forEach(function(n){
+      var p = t[n];
+      var rest = p.income - p.expense;
+      var li = document.createElement('li');
+
+      var main = document.createElement('div');
+      main.className = 'li-main';
+      var left = document.createElement('span');
+      left.textContent = n;
+      var amt = document.createElement('span');
+      amt.className = 'li-amt';
+      // 集めた分より使っていることは普通に起きる（部費から足す）。0に丸めず向きを言葉で出す
+      amt.textContent = (rest < 0 ? '不足 ' + yen(-rest) : '残り ' + yen(rest));
+      main.appendChild(left);
+      main.appendChild(amt);
+      li.appendChild(main);
+
+      var sub = document.createElement('div');
+      sub.className = 'li-sub';
+      sub.textContent = '集めた ' + yen(p.income) + '　使った ' + yen(p.expense) + '　' + p.count + '件';
+      li.appendChild(sub);
+
+      ul.appendChild(li);
+    });
+    show($('purpose-card'));
+  }
+
+  function renderPurposeChips(){
+    // 使わない設定のときは、欄ごと出さない。選択も必ず空に戻す——
+    // 隠れた欄の値が黙って記録に入るのがいちばん怖い（人数欄と同じ扱い）
+    if(!usePurpose()){
+      currentPurpose = null;
+      closePurposeNew();
+      hide($('wrap-purpose'));
+      hide($('btn-purpose-del'));
+      return;
+    }
+    show($('wrap-purpose'));
+
+    var box = $('purpose-chips');
+    while(box.firstChild) box.removeChild(box.firstChild);
+
+    // 「なし」を先頭に置く。選ばないのが既定であることを、押せる形で見せる
+    box.appendChild(purposeChip('なし', null));
+    purposeChoices(yearBucket(formYearKey())).forEach(function(p){
+      box.appendChild(purposeChip(p, p));
+    });
+
+    var add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'chip-new';
+    add.textContent = '＋ 新しい目的';
+    add.addEventListener('click', openPurposeNew);
+    box.appendChild(add);
+
+    renderPurposeDelete();
+  }
+
+  // 打ち間違えて作った目的を消せるようにする。ただし1件でも使っていたら消さない——
+  // 消すと、その記録が目的なしになって報告書の目的別収支から静かに落ちる（費目の categoryInUse と同じ理屈）
+  function renderPurposeDelete(){
+    var b = $('btn-purpose-del');
+    if(!isNonEmptyString(currentPurpose) || purposeUsedAnywhere(currentPurpose)){
+      hide(b);
+      return;
+    }
+    text(b, '「' + currentPurpose + '」を消す（まだ1件も使っていません）');
+    show(b);
+  }
+
+  function deletePurpose(){
+    var name = currentPurpose;
+    if(!isNonEmptyString(name) || purposeUsedAnywhere(name)) return;
+    var i = state.purposes.indexOf(name);
+    if(i < 0) return;
+
+    state.purposes.splice(i, 1);
+    if(!save()){
+      state.purposes.splice(i, 0, name);     // 保存できなければ消さなかったことにする
+      return;
+    }
+    currentPurpose = null;
+    diag('目的を消しました: ' + name);
+    render();
+  }
+
+  function purposeChip(label, value){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.setAttribute('aria-pressed', String(currentPurpose === value));
+    b.addEventListener('click', function(){ setPurpose(value); });
+    return b;
+  }
+
+  function setPurpose(p){
+    currentPurpose = isNonEmptyString(p) ? p : null;
+    closePurposeNew();
+    renderPurposeChips();
+  }
+
+  function openPurposeNew(){
+    formErrorAt('purpose-error', '');
+    $('f-purpose-new').value = '';
+    show($('purpose-new'));
+    $('f-purpose-new').focus();
+  }
+
+  function closePurposeNew(){
+    $('f-purpose-new').value = '';
+    formErrorAt('purpose-error', '');
+    hide($('purpose-new'));
+  }
+
+  function addPurpose(){
+    var name = $('f-purpose-new').value.trim();
+    if(!name){
+      formErrorAt('purpose-error', '目的の名前を入れてください（例: 6月遠征）。');
+      return;
+    }
+    if(name.length > 20){
+      formErrorAt('purpose-error', '目的の名前は20文字までにしてください（報告書の1行に収まらなくなります）。');
+      return;
+    }
+    // 同じ名前を2つ作らせない。「6月遠征」と「6月遠征」に割れると目的別収支がばらばらになる（費目と同じ理屈）
+    if(state.purposes.indexOf(name) >= 0){
+      setPurpose(name);
+      return;
+    }
+
+    state.purposes.push(name);
+    if(!save()){
+      state.purposes.pop();
+      formErrorAt('purpose-error', '保存できませんでした。画面の上のお知らせを見てください。');
+      return;
+    }
+    currentPurpose = name;
+    closePurposeNew();
+    diag('目的を作りました: ' + name);
+    render();
+  }
+
+  // 使うかどうかの切り替え。畳んでも機能は残っているので、戻せばその日から続きを使える
+  function setUsePurpose(on){
+    var before = state.settings.usePurpose;
+    state.settings.usePurpose = !!on;
+    if(!save()){
+      state.settings.usePurpose = before;
+      return;
+    }
+    diag('目的タグ: ' + (on ? '使う' : '使わない') + ' に切り替えました。');
+    render();
+  }
+
+  function renderUsePurpose(){
+    var on = usePurpose();
+    $('up-on').setAttribute('aria-pressed',  String(on));
+    $('up-off').setAttribute('aria-pressed', String(!on));
+    text($('use-purpose-meta'), on
+      ? '入力画面に「目的（任意）」が出ます。集めた分と使った分を目的ごとに突き合わせて、残りを報告書に出せます。'
+      : '入力画面には出しません。遠征や合宿の費用を別に集めることになったら「使う」にしてください。'
+        + 'これまでの記録に付けた目的は消えていません。');
+  }
+
+  /* --- §5.6 領収書番号の画面 ------------------------------------------------ */
+
+  // 入力中の日付が属する年度。さかのぼり入力では今日と違う年度になる＝番号もその年度の続きから振る
+  function formYearKey(){
+    var d = $('f-date').value;
+    return String(fiscalYearOf(/^\d{4}-\d{2}-\d{2}$/.test(d) ? d : localDateISO(new Date())));
+  }
+
+  function setReceipt(has){
+    currentHasReceipt = !!has;
+    $('rc-yes').setAttribute('aria-pressed', String(currentHasReceipt));
+    $('rc-no').setAttribute('aria-pressed',  String(!currentHasReceipt));
+    renderReceipt();
+  }
+
+  function renderReceipt(){
+    if(currentKind !== 'expense'){ text($('receipt-next'), ''); return; }
+    if(!currentHasReceipt){
+      text($('receipt-next'), '番号を振りません（自販機・実費など、領収書が出ないもの）。');
+      return;
+    }
+    // 入れ直しは元の番号をそのまま使う。実物にはもう番号が書いてある
+    var no = Number.isSafeInteger(refillFrom.receiptNo)
+      ? refillFrom.receiptNo
+      : nextReceiptNo(yearBucket(formYearKey()));
+    text($('receipt-next'), '次は No.' + no + ' です。記録したら、同じ番号を領収書に書いてファイルに入れてください。');
   }
 
   // 人数欄は費目で出し入れする。関係ない収入で人数を聞かれると、手が止まる
@@ -1171,6 +1517,8 @@
       li.appendChild(main);
 
       var parts = [];
+      // 目的は先頭に置く。「この支出は何の案件か」が、費目より先に知りたいことだから（§5.5）
+      if(isNonEmptyString(e.purpose)) parts.push('［' + e.purpose + '］');
       // 立て替えたままかどうかは、あとから見て一番知りたいこと（§5.3）
       if(e.kind === 'expense' && e.paidFrom === 'advance') parts.push('立て替え中');
       else if(e.kind === 'expense' && e.settledAt) parts.push('立て替え→' + e.settledAt.slice(5).replace('-', '/') + 'に精算');
@@ -1182,6 +1530,8 @@
           : e.headcount + '名');
       }
       if(e.note) parts.push(e.note);
+      // 実物のファイルを引くための番号。ここに出ていないと、報告書の別紙でしか照合できない（§5.6）
+      if(Number.isSafeInteger(e.receiptNo)) parts.push('領収書 No.' + e.receiptNo);
 
       if(parts.length){
         var sub = document.createElement('div');
@@ -1359,17 +1709,24 @@
     var btn = $('btn-save');
     btn.disabled = true;
 
+    // §5.6 領収書番号は支出だけ。取消からの入れ直しは元の番号をそのまま使う——
+    // 実物の領収書にはもう番号が書いてあるので、新しい番号を振ると現物と合わなくなる
+    var receiptNo = null;
+    if(currentKind === 'expense' && currentHasReceipt){
+      receiptNo = Number.isSafeInteger(refillFrom.receiptNo) ? refillFrom.receiptNo : nextReceiptNo(y);
+    }
+
     var entry = {
       id: nextId(y),
       date: date,
       kind: currentKind,
       category: category,
-      purpose: null,
+      purpose: currentPurpose,
       note: $('f-note').value,
       amount: amount,
       headcount: headcount,
       paidFrom: currentKind === 'expense' ? currentPaidFrom : null,
-      receiptNo: null,
+      receiptNo: receiptNo,
       createdAt: localStampISO(new Date()),
       settledAt: null,
       voided: false,
@@ -1392,12 +1749,16 @@
     if(ok){
       lastAdded = { key:key, id:entry.id };
       sessionAdded.push(key + '#' + entry.id);
-      refillFrom = { key:null, id:null };
+      refillFrom = { key:null, id:null, receiptNo:null };
       // 保存できた時だけ入力欄を空にする（消えた入力を作らない）
       $('f-amount').value = '';
       $('f-note').value = '';
       $('f-headcount').value = '';
       setPaidFrom('envelope');   // 立て替えは1件ごとに選び直す（前の選択を引きずらせない）
+      // 目的と領収書も1件ごとに選び直す。引きずると、関係ない記録が目的に入り、
+      // 領収書のない支出に番号が振られる。どちらも画面には出ず、報告書で初めて分かる種類の間違い
+      setPurpose(null);
+      setReceipt(true);
     } else {
       if(refilled) refilled.voidRefilled = false;
       // 保存に失敗した記録は帳簿から戻す。画面の数字と端末の中身を食い違わせない。
@@ -1414,6 +1775,10 @@
       var msg = (key === cur)
         ? '記録しました。残高は ' + yen(accountBalance(yearBucket(cur))) + ' です。'
         : key + '年度の記録として保存しました（この画面は ' + cur + '年度 の残高です）。';
+      // 番号は実物に書かれて初めて意味を持つ。ここで言わないと、番号だけが帳簿に溜まる（§5.6）
+      if(Number.isSafeInteger(entry.receiptNo)){
+        msg += '　領収書に「No.' + entry.receiptNo + '」と書いてファイルに入れてください。';
+      }
       text($('saved-ok'), msg);
       show($('saved-ok'));
 
@@ -1654,7 +2019,15 @@
     hide($('saved-ok'));
     updateFoldSummary();
     renderBackdate();
+    onFormDateChanged();
     renderFirstRun(yearBucket(currentYearKey()));   // 案内を押して始めたのに案内が残っていると迷う
+  }
+
+  // 入力欄の日付が動くと、その日付が属する年度も動く（§5.5 の候補・§5.6 の番号は年度ごと）。
+  // さかのぼりで前年度に入ると、番号は前年度の続きから振らなければならない
+  function onFormDateChanged(){
+    renderPurposeChips();
+    renderReceipt();
   }
 
   function renderBackdate(){
@@ -1684,6 +2057,7 @@
     $('f-date').value = localDateISO(base);
     updateFoldSummary();
     renderBackdate();
+    onFormDateChanged();
     hide($('saved-ok'));
   }
 
@@ -1975,7 +2349,10 @@
     if(needsHeadcount() && Number.isSafeInteger(e.headcount) && e.headcount > 0){
       $('f-headcount').value = String(e.headcount);
     }
-    refillFrom = { key:list[0].key, id:e.id };
+    // 目的と領収書も元のまま戻す。入れ直しは同じ1件の書き直しであって、別の記録ではない
+    setPurpose(e.purpose);
+    refillFrom = { key:list[0].key, id:e.id, receiptNo:Number.isSafeInteger(e.receiptNo) ? e.receiptNo : null };
+    setReceipt(Number.isSafeInteger(e.receiptNo));
 
     renderQuick();
     updateFoldSummary();
@@ -2036,7 +2413,10 @@
     hide($('count-ok'));
     hide($('count-diff'));
     voidTarget = { key:null, id:null };
-    refillFrom = { key:null, id:null };
+    refillFrom = { key:null, id:null, receiptNo:null };
+    setPurpose(null);                        // 目的の選択も初期化する（消えたタグが選ばれたまま残らないように）
+    setReceipt(true);
+    closePurposeNew();
     saveBlocked = false;
     hide($('void-panel'));
     hide($('wipe-panel'));
@@ -2062,8 +2442,20 @@
     $('f-date').addEventListener('change', function(){
       updateFoldSummary();
       renderBackdate();
+      onFormDateChanged();
       hide($('saved-ok'));
     });
+
+    // §5.5 目的タグ
+    $('btn-purpose-add').addEventListener('click', addPurpose);
+    $('btn-purpose-cancel').addEventListener('click', closePurposeNew);
+    $('btn-purpose-del').addEventListener('click', deletePurpose);
+    $('up-on').addEventListener('click',  function(){ setUsePurpose(true); });
+    $('up-off').addEventListener('click', function(){ setUsePurpose(false); });
+
+    // §5.6 領収書
+    $('rc-yes').addEventListener('click', function(){ setReceipt(true); });
+    $('rc-no').addEventListener('click',  function(){ setReceipt(false); });
 
     // §11 Phase 3 さかのぼり入力
     $('btn-back-toggle').addEventListener('click', function(){ setBackdate(true); });
@@ -2079,6 +2471,7 @@
       $('f-date').value = localDateISO(new Date());
       updateFoldSummary();
       renderBackdate();
+      onFormDateChanged();
     });
 
     // §5.8 期首残高
@@ -2185,12 +2578,17 @@
     setPaidFrom('envelope');
     if(kind === 'expense'){ show($('wrap-paidfrom')); } else { hide($('wrap-paidfrom')); }
 
+    // 領収書番号は支出だけの概念（§5.6）。収入では欄ごと出さない
+    setReceipt(true);
+    if(kind === 'expense'){ show($('wrap-receipt')); } else { hide($('wrap-receipt')); }
+
     $('f-note').placeholder   = PLACEHOLDERS[kind].note;
     $('f-amount').placeholder = PLACEHOLDERS[kind].amount;
 
     hide($('saved-ok'));
     renderCategories();                  // ここで費目が決まってから人数欄を出し入れする
     renderQuick();
+    renderPurposeChips();                // 目的は支出にも収入にも付く（集めた分と使った分を突き合わせるため）
     syncHeadcount();
     updateFoldSummary();
   }
@@ -2288,6 +2686,39 @@
     diag('期首の脚注テスト: ' + (uniq.length === 4 ? '4通りすべてOK' : 'NG ' + (4 - uniq.length) + '件'));
     diag('年度の範囲表示テスト: ' + ((fiscalRangeLabel('2026', '2026-07-25') === '2026年4月〜7月' &&
          fiscalRangeLabel('2026', '2027-01-10') === '2026年4月〜翌年1月') ? 'OK' : 'NG'));
+
+    // §5.5 目的別の集計。取消行を数えると、報告書の目的別収支が残高と食い違う
+    var y5 = { entries:[
+      { kind:'income',  amount:24000, purpose:'6月遠征', date:'2026-06-01', voided:false },
+      { kind:'expense', amount:22000, purpose:'6月遠征', date:'2026-06-10', voided:false },
+      { kind:'expense', amount: 5000, purpose:'6月遠征', date:'2026-06-11', voided:true  },
+      { kind:'settlement', amount:3000, purpose:'6月遠征', date:'2026-06-12', voided:false },
+      { kind:'expense', amount: 1000, purpose:null,      date:'2026-06-13', voided:false }
+    ]};
+    var t5 = purposeTotals(y5);
+    var k5 = Object.keys(t5);
+    diag('目的別の集計テスト（§5.5）: ' +
+      ((k5.length === 1 && t5['6月遠征'].income === 24000 && t5['6月遠征'].expense === 22000 &&
+        t5['6月遠征'].count === 2) ? 'OK（集めた24,000／使った22,000／残り2,000）' : 'NG'));
+
+    // 目的タグを出すかどうかの既定。新しく始める人には出さず、すでに使っている人からは取り上げない
+    var up = [
+      migrate({ years:{} }).settings.usePurpose,                                        // 新規＝出さない
+      migrate({ purposes:['6月遠征'], years:{} }).settings.usePurpose,                  // タグを作ってある＝出す
+      migrate({ years:{ '2026':{ entries:[{ purpose:'6月遠征' }] } } }).settings.usePurpose, // 記録に付いている＝出す
+      migrate({ settings:{ usePurpose:false }, purposes:['6月遠征'], years:{} }).settings.usePurpose // 本人が畳んだ＝尊重
+    ].join(',');
+    diag('目的タグの既定テスト: ' + (up === 'false,true,true,false' ? '4通りすべてOK' : 'NG（' + up + '）'));
+
+    // §5.6 領収書番号。取消した番号は飛ばす＝欠番のまま残す（実物に書いた番号を詰め直さない）
+    var y6 = { entries:[
+      { kind:'expense', receiptNo:1, voided:false },
+      { kind:'expense', receiptNo:2, voided:true  },
+      { kind:'expense', receiptNo:null, voided:false },
+      { kind:'income',  receiptNo:null, voided:false }
+    ]};
+    diag('領収書番号テスト（§5.6）: ' + (nextReceiptNo(y6) === 3 ? 'OK（取消の2番は欠番のまま）' : 'NG'));
+    diag('領収書番号の初回: ' + (nextReceiptNo({ entries:[] }) === 1 ? 'OK' : 'NG'));
 
     diag('よく使う項目: 支出' + quickOrder.filter(function(q){ return q.kind === 'expense'; }).length +
          '個／収入' + quickOrder.filter(function(q){ return q.kind === 'income'; }).length + '個');
