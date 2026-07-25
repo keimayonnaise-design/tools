@@ -14,6 +14,8 @@
     --warn-bg:#fff6e5; --warn-line:#e6b25c; --warn-ink:#6b4a10;
     --bad-bg:#fdecec; --bad-line:#d97070; --bad-ink:#7a2020;
     --ok:#137a4b;
+    /* 実査の「合わせる」だけ別色。青いボタンが並ぶと、どれが何か一瞬で分からない */
+    --accent2:#0f766e; --accent2-ink:#ffffff;
     --radius:12px;
   }
   @media (prefers-color-scheme: dark){
@@ -23,6 +25,7 @@
       --warn-bg:#3a2f18; --warn-line:#8a6a2a; --warn-ink:#f3dfae;
       --bad-bg:#3a1f1f; --bad-line:#8a4444; --bad-ink:#f5d2d2;
       --ok:#4cc38a;
+      --accent2:#2dd4bf; --accent2-ink:#0d1117;
     }
   }
   *{box-sizing:border-box;}
@@ -67,6 +70,7 @@
   }
   button[aria-pressed="true"]{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
   button.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); width:100%; margin-top:16px;}
+  button.primary2{background:var(--accent2); color:var(--accent2-ink); border-color:var(--accent2);}
   button:disabled{opacity:.5; cursor:default;}
   .row{display:flex; gap:8px; flex-wrap:wrap;}
   .row button{flex:1 1 auto;}
@@ -163,6 +167,16 @@
     <p id="advance-old-detail"></p>
   </div>
 
+  <!-- 確認（ブラウザの確認ダイアログは端末によって出ないことがあるので、画面の中で聞く） -->
+  <div id="ask-panel" class="notice bad hidden">
+    <h3 id="ask-title"></h3>
+    <p id="ask-detail"></p>
+    <div class="row">
+      <button type="button" id="btn-ask-yes"></button>
+      <button type="button" id="btn-ask-no">やめる</button>
+    </div>
+  </div>
+
   <!-- 取り消したまま入れ直していない記録（§5.7 取り消しっぱなしを作らない） -->
   <div id="notice-void-open" class="notice warn hidden">
     <h3>取り消したままの記録があります</h3>
@@ -186,8 +200,8 @@
     <div id="wrap-paidfrom">
       <div class="fieldlabel" id="paidfrom-label">支払い元</div>
       <div class="seg" role="group" aria-labelledby="paidfrom-label">
-        <button type="button" id="pf-envelope" aria-pressed="true">封筒から出した</button>
-        <button type="button" id="pf-advance" aria-pressed="false">自腹で立て替えた</button>
+        <button type="button" id="pf-envelope" aria-pressed="true">封筒から</button>
+        <button type="button" id="pf-advance" aria-pressed="false">立て替え</button>
       </div>
     </div>
 
@@ -222,16 +236,15 @@
     <p id="saved-ok" class="saved-ok hidden"></p>
   </div>
 
-  <!-- ===== 立て替えの精算（§5.3 収支ではなく現金の移動） ===== -->
+  <!-- ===== 立て替え中（§5.3 精算＝立て替えの印が外れてふつうの支出になる） ===== -->
   <div class="card hidden" id="settle-card">
-    <h2>立て替えの精算</h2>
-    <p class="lead" id="settle-lead"></p>
-    <label for="f-settle">封筒から自分にもどす額（円）</label>
-    <input type="text" id="f-settle" inputmode="numeric" autocomplete="off" placeholder="3000">
-    <p id="settle-error" class="notice bad hidden"></p>
-    <button type="button" class="primary" id="btn-settle">もどした</button>
+    <h2 id="settle-title"></h2>
+    <p class="lead">封筒から自分の財布にお金が戻ったら「封筒から戻った」を押してください。立て替えの印が外れて、ふつうの支出になります。</p>
+    <ul class="list" id="advance-list"></ul>
     <p id="settle-ok" class="saved-ok hidden"></p>
-    <p class="phase-note" style="margin-top:14px">精算は収入にも支出にも入りません。封筒のお金が自分の財布に戻るだけだからです。</p>
+    <div class="row hidden" id="settle-undo-row">
+      <button type="button" id="btn-settle-undo">いまの精算を取り消す</button>
+    </div>
   </div>
 
   <!-- ===== 実査（§5.4 名前の由来。数えて合わせる） ===== -->
@@ -241,7 +254,7 @@
     <label for="f-count">実際に数えた額（円）</label>
     <input type="text" id="f-count" inputmode="numeric" autocomplete="off" placeholder="24000">
     <p id="count-error" class="notice bad hidden"></p>
-    <button type="button" class="primary" id="btn-count">合わせる</button>
+    <button type="button" class="primary primary2" id="btn-count">合わせる</button>
 
     <div id="count-ok" class="notice warn hidden">
       <h3 id="count-ok-title"></h3>
@@ -334,10 +347,11 @@
   var VOID_PRESETS = ['金額のまちがい', '費目のまちがい', '二重に入れた'];
   var ADVANCE_ALERT_DAYS = 30;         // 立て替えたままを知らせるまでの日数（§5.3）
 
-  var SEED_VERSION = 1;                // 初期セットを1度だけ入れるための版番号
+  var SEED_VERSION = 2;                // 初期セットを1度だけ入れるための版番号（2で収入の費目を2つ引き上げ）
 
+  // 2026-07-25 本人の判断で「臨時徴収」「返金・戻り」を外した（使わないものが並ぶと選ぶ手が止まる）
   var DEFAULT_CATEGORIES = {
-    income:  ['部費徴収', '臨時徴収', '返金・戻り', '寄付・差し入れ'],
+    income:  ['部費徴収', '寄付・差し入れ'],
     expense: ['審判費', '消耗品費', '用具・備品費', '球場・施設使用料', '遠征・交通費',
               '救急・衛生用品', '記念品・卒部関係', '印刷・通信費', '雑費']
   };
@@ -357,10 +371,14 @@
     { kind:'expense', category:'球場・施設使用料', note:'' },
     { kind:'expense', category:'記念品・卒部関係', note:'' },
     { kind:'income',  category:'部費徴収',         note:'' },
-    { kind:'income',  category:'臨時徴収',         note:'' },
-    { kind:'income',  category:'返金・戻り',       note:'' },
     { kind:'income',  category:'寄付・差し入れ',   note:'' }
   ];
+
+  // 一度入れてしまった費目を、使われていなければ引き上げる（SEED_VERSION 2 で実行）
+  var RETIRED_CATEGORIES = { income: ['臨時徴収', '返金・戻り'], expense: [] };
+
+  // 実査の差額だけに使う費目。入力候補には出さないが、記録にも報告書にも正直に残る（§5.4）
+  var GAP_CATEGORY = '原因不明の差額';
 
   /* =========================================================
      1. 小道具
@@ -535,9 +553,26 @@
       if(!exists) d.quick.push({ kind:q.kind, category:q.category, note:q.note, count:0 });
     });
 
+    // 使わないと決めた費目を引き上げる。ただし**過去に1件でも使っていたら残す**
+    // （消すと、その記録が費目なしになって報告書に出せなくなる。§3.3）
+    ['income', 'expense'].forEach(function(kind){
+      RETIRED_CATEGORIES[kind].forEach(function(name){
+        if(categoryInUse(d, name)) return;
+        d.categories[kind] = d.categories[kind].filter(function(x){ return x !== name; });
+        d.quick = d.quick.filter(function(q){ return !(q.kind === kind && q.category === name); });
+      });
+    });
+
     d.settings.seedVersion = SEED_VERSION;
     // ここでは保存しない。次に記録を1件入れたときに一緒に書き込まれる。
     // （起動しただけで書き込むと、保存に失敗したとき何もしていないのに警告が出る）
+  }
+
+  function categoryInUse(d, name){
+    return Object.keys(d.years).some(function(k){
+      var list = d.years[k].entries;
+      return Array.isArray(list) && list.some(function(e){ return e && e.category === name; });
+    });
   }
 
   function currentYearKey(){
@@ -793,7 +828,7 @@
   var voidTarget = { key:null, id:null };    // 取消パネルが対象にしている記録
   var refillFrom = { key:null, id:null };    // 取消から「入れ直す」でフォームに移した元記録
   var currentPaidFrom = 'envelope';          // 支出の支払い元（§5.3）
-  var settleTouched = false;                 // 精算額を自分で書き換えたか（勝手に上書きしないため）
+  var lastSettled = { key:null, id:null };   // 直前に精算した立て替え（押し間違いを戻すため）
   var countGap = 0;                          // 直近の実査のずれ [円]（+なら多い）
 
   // 並びは「開いたとき」に決めて、使っている最中は動かさない。
@@ -997,7 +1032,8 @@
 
       var parts = [];
       // 立て替えたままかどうかは、あとから見て一番知りたいこと（§5.3）
-      if(e.kind === 'expense' && e.paidFrom === 'advance') parts.push('立て替え');
+      if(e.kind === 'expense' && e.paidFrom === 'advance') parts.push('立て替え中');
+      else if(e.kind === 'expense' && e.settledAt) parts.push('立て替え→' + e.settledAt.slice(5).replace('-', '/') + 'に精算');
       // 「この12,000円は何?」に一発で答えられるようにする（§5.2）。
       // 割り切れなくても警告は出さない（欠席者の免除など、正当な理由が普通にある）
       if(Number.isSafeInteger(e.headcount) && e.headcount > 0){
@@ -1122,7 +1158,8 @@
     return hit;
   }
 
-  function onSave(){
+  // force = 二重入力の確認を通ったあとの再実行（クリックイベントを直接受けないこと）
+  function onSave(force){
     formError('');
     hide($('saved-ok'));
 
@@ -1161,10 +1198,11 @@
     var key = String(fiscalYearOf(date));
     var y = yearBucket(key);
 
-    if(isDuplicate(y, date, category, amount)){
-      if(!window.confirm('同じ記録がすでにあります。もう1件追加しますか？\n\n' + date + '　' + category + '　' + yen(amount))){
-        return;
-      }
+    if(!force && isDuplicate(y, date, category, amount)){
+      ask('同じ記録がすでにあります',
+          date + '　' + category + '　' + yen(amount) + '　が5分以内に入っています。もう1件追加しますか？',
+          'もう1件追加する', function(){ onSave(true); });
+      return;
     }
 
     var btn = $('btn-save');
@@ -1182,6 +1220,7 @@
       paidFrom: currentKind === 'expense' ? currentPaidFrom : null,
       receiptNo: null,
       createdAt: localStampISO(new Date()),
+      settledAt: null,
       voided: false,
       voidReason: '',
       voidedAt: null
@@ -1234,16 +1273,56 @@
   /* =========================================================
      8.3 精算と実査（§5.3・§5.4）
      ========================================================= */
+  // 立て替え中の1件ずつを出す。「合計いくら」だけだと、どの支出が戻っていないのか分からない
   function renderSettle(y, adv){
-    if(adv <= 0){
+    var key = currentYearKey();
+    var list = live(y.entries).filter(function(e){
+      return e.kind === 'expense' && e.paidFrom === 'advance';
+    }).sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+
+    var ul = $('advance-list');
+    while(ul.firstChild) ul.removeChild(ul.firstChild);
+
+    if(!list.length){
       hide($('settle-card'));                 // 立て替えが無いときは存在ごと隠す
       return;
     }
-    var oldest = oldestAdvanceDate(y);
-    text($('settle-lead'),
-      'いま ' + yen(adv) + ' を立て替えたままです' +
-      (oldest ? '（いちばん古いのは ' + oldest.slice(5).replace('-', '/') + '）' : '') + '。');
-    if(!settleTouched) $('f-settle').value = groupDigits(String(adv));
+
+    text($('settle-title'), yen(adv) + ' 立て替え中です');
+
+    list.forEach(function(e){
+      var li = document.createElement('li');
+
+      var main = document.createElement('div');
+      main.className = 'li-main';
+      var left = document.createElement('span');
+      left.textContent = e.date.slice(5).replace('-', '/') + '　' + (e.category || '—');
+      var amt = document.createElement('span');
+      amt.className = 'li-amt';
+      amt.textContent = yen(e.amount);
+      main.appendChild(left);
+      main.appendChild(amt);
+      li.appendChild(main);
+
+      if(e.note){
+        var sub = document.createElement('div');
+        sub.className = 'li-sub';
+        sub.textContent = e.note;
+        li.appendChild(sub);
+      }
+
+      var act = document.createElement('div');
+      act.className = 'li-act';
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = '封筒から戻った';
+      b.addEventListener('click', function(){ settleOne(key, e.id); });
+      act.appendChild(b);
+      li.appendChild(act);
+
+      ul.appendChild(li);
+    });
+
     show($('settle-card'));
   }
 
@@ -1264,60 +1343,44 @@
     show($('notice-advance-old'));
   }
 
-  function onSettle(){
-    formErrorAt('settle-error', '');
-    hide($('settle-ok'));
+  // 精算＝立て替えの印を外して、ふつうの「封筒から出した」支出に戻すこと。
+  // 金額も費目も日付も動かないので、報告書の数字は1円も変わらない（§5.7 の上書き禁止には当たらない）
+  function settleOne(key, id){
+    var e = findEntry(key, id);
+    if(!e || e.paidFrom !== 'advance') return;
 
-    var key = currentYearKey();
-    var y = yearBucket(key);
-    var adv = advanceOutstanding(y);
-
-    var amount = parseAmount($('f-settle').value);
-    if(amount === null){
-      formErrorAt('settle-error', 'もどす額は1円以上の数字で入れてください。');
-      $('f-settle').focus();
-      return;
-    }
-    if(amount > adv){
-      formErrorAt('settle-error', '立て替えている ' + yen(adv) + ' より多くはもどせません。');
-      $('f-settle').focus();
-      return;
-    }
-
-    var entry = {
-      id: nextId(y),
-      date: localDateISO(new Date()),
-      kind: 'settlement',
-      category: null,
-      purpose: null,
-      note: '立て替えの精算',
-      amount: amount,
-      headcount: null,
-      paidFrom: null,
-      receiptNo: null,
-      createdAt: localStampISO(new Date()),
-      voided: false,
-      voidReason: '',
-      voidedAt: null
-    };
-
-    var btn = $('btn-settle');
-    btn.disabled = true;
-    y.entries.push(entry);
+    var before = e.settledAt;
+    e.paidFrom = 'envelope';
+    e.settledAt = localDateISO(new Date());
 
     if(save()){
-      lastAdded = { key:key, id:entry.id };
-      sessionAdded.push(key + '#' + entry.id);
-      settleTouched = false;
-      $('f-settle').value = '';
-      text($('settle-ok'), yen(amount) + ' を封筒から自分にもどしました。残りの立て替えは ' +
-        yen(advanceOutstanding(y)) + ' です。');
+      lastSettled = { key:key, id:id };
+      text($('settle-ok'), yen(e.amount) + '（' + (e.category || '—') + '）が封筒から戻りました。ふつうの支出になっています。');
       show($('settle-ok'));
+      show($('settle-undo-row'));
+      diag('立て替えを精算しました（' + entryLabel(e) + '）。');
     } else {
-      y.entries.pop();
+      e.paidFrom = 'advance';                 // 保存できなければ立て替えのまま
+      e.settledAt = before;
     }
     render();
-    btn.disabled = false;
+  }
+
+  // 押し間違いをその場で戻せるようにする。1件だけ・直前だけ
+  function undoSettle(){
+    var e = (lastSettled.id !== null) ? findEntry(lastSettled.key, lastSettled.id) : null;
+    if(!e) return;
+    e.paidFrom = 'advance';
+    e.settledAt = null;
+    if(save()){
+      lastSettled = { key:null, id:null };
+      hide($('settle-ok'));
+      hide($('settle-undo-row'));
+      diag('精算を取り消しました（' + entryLabel(e) + '）。');
+    } else {
+      e.paidFrom = 'envelope';
+    }
+    render();
   }
 
   function onCount(){
@@ -1382,7 +1445,7 @@
       id: nextId(y),
       date: today,
       kind: isPlus ? 'income' : 'expense',
-      category: isPlus ? '返金・戻り' : '雑費',
+      category: GAP_CATEGORY,        // 雑費に混ぜない。あとから「これは何?」に答えられなくなる
       purpose: null,
       note: today.slice(5).replace('-', '/') + 'の実査で判明した原因不明の差額',
       amount: amount,
@@ -1390,6 +1453,7 @@
       paidFrom: isPlus ? null : 'envelope',
       receiptNo: null,
       createdAt: localStampISO(new Date()),
+      settledAt: null,
       voided: false,
       voidReason: '',
       voidedAt: null
@@ -1411,6 +1475,31 @@
   /* =========================================================
      8.5 取消と削除（§5.7 上書きしない）
      ========================================================= */
+  // 画面の中で聞く確認。window.confirm は端末や表示のしかたによって黙って無視される
+  var askPending = null;
+
+  function ask(title, detail, yesLabel, onYes){
+    text($('ask-title'), title);
+    text($('ask-detail'), detail);
+    text($('btn-ask-yes'), yesLabel);
+    askPending = onYes;
+    show($('ask-panel'));
+    try { $('ask-panel').scrollIntoView({ block:'center' }); }
+    catch(err){ diag('確認パネルへの移動に失敗: ' + describe(err)); }
+  }
+
+  function askYes(){
+    var f = askPending;
+    askPending = null;
+    hide($('ask-panel'));
+    if(f) f();
+  }
+
+  function askNo(){
+    askPending = null;
+    hide($('ask-panel'));
+  }
+
   function findEntry(key, id){
     var y = state.years[key];
     if(!y) return null;
@@ -1464,10 +1553,16 @@
   }
 
   function deleteJustEntered(key, id){
+    var e = findEntry(key, id);
+    if(!e) return;
+    ask('この記録を削除しますか？', entryLabel(e) + '　を消します（入れた直後なので理由は要りません）。',
+        '削除する', function(){ doDelete(key, id); });
+  }
+
+  function doDelete(key, id){
     var y = state.years[key];
     var e = findEntry(key, id);
     if(!y || !e) return;
-    if(!window.confirm('この記録を削除しますか？\n\n' + entryLabel(e))) return;
 
     var at = y.entries.indexOf(e);
     y.entries.splice(at, 1);
@@ -1571,8 +1666,11 @@
     lastAdded = { key:null, id:null };
     sessionAdded = [];
     showAll = false;
-    settleTouched = false;
+    lastSettled = { key:null, id:null };
     countGap = 0;
+    hide($('settle-ok'));
+    hide($('settle-undo-row'));
+    askNo();
     setPaidFrom('envelope');
     hide($('count-ok'));
     hide($('count-diff'));
@@ -1593,7 +1691,9 @@
   function bind(){
     $('kind-expense').addEventListener('click', function(){ setKind('expense'); });
     $('kind-income').addEventListener('click',  function(){ setKind('income'); });
-    $('btn-save').addEventListener('click', onSave);
+    $('btn-save').addEventListener('click', function(){ onSave(false); });
+    $('btn-ask-yes').addEventListener('click', askYes);
+    $('btn-ask-no').addEventListener('click', askNo);
     $('f-amount').addEventListener('input', function(){ formatAmountField(); hide($('saved-ok')); });
     $('f-date').addEventListener('change', function(){ updateFoldSummary(); hide($('saved-ok')); });
     $('f-category').addEventListener('change', function(){
@@ -1608,12 +1708,8 @@
     $('pf-envelope').addEventListener('click', function(){ setPaidFrom('envelope'); hide($('saved-ok')); });
     $('pf-advance').addEventListener('click',  function(){ setPaidFrom('advance');  hide($('saved-ok')); });
 
-    // §5.3 精算
-    $('f-settle').addEventListener('input', function(){
-      settleTouched = true;                  // 自分で書き換えたら、こちらから上書きしない
-      hide($('settle-ok'));
-    });
-    $('btn-settle').addEventListener('click', onSettle);
+    // §5.3 精算の押し間違いを戻す
+    $('btn-settle-undo').addEventListener('click', undoSettle);
 
     // §5.4 実査
     $('btn-count').addEventListener('click', onCount);
