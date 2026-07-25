@@ -112,6 +112,13 @@
   .danger{color:var(--bad-ink);}
   hr{border:0; border-top:1px solid var(--line); margin:18px 0;}
   .diag{font-size:.72rem; color:var(--sub); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap;}
+  /* 主役ではないボタン（モードの切り替え・やり直し）。青いボタンと並べても役割が読み取れるように */
+  .subtle{width:100%; margin-top:10px; min-height:42px; font-size:.82rem; color:var(--sub); font-weight:500;}
+  /* 日付を1日ずつ動かす（さかのぼり入力）。同じ日の記録をまとめて入れてから隣の日へ移る */
+  #date-nav{margin-top:8px;}
+  #date-nav button{min-height:42px; font-size:.82rem; font-weight:500;}
+  /* 報告書にそのまま出る脚注。JSONの退避欄と違って、ふつうの文章として読めるようにする */
+  .note-edit{min-height:80px; font-family:inherit; font-size:.86rem; line-height:1.5;}
 </style>
 </head>
 <body>
@@ -162,6 +169,15 @@
     <div class="meta" id="count-meta"></div>
   </div>
 
+  <!-- 初回だけ。「4月から完璧に記録がある」ふりをさせないための入り口（§5.8） -->
+  <div id="notice-first-run" class="notice warn hidden">
+    <h3>今年度の途中から始めますか？</h3>
+    <p>4月からの記録がすべてそろっていなくても大丈夫です。<strong>思い出せる分・レシートがある分だけ</strong>先に入れて、最後に封筒を数えれば、差額を「期首残高」として正直に計上できます。</p>
+    <div class="row">
+      <button type="button" id="btn-first-backdate">4月からさかのぼって入れる</button>
+    </div>
+  </div>
+
   <!-- 立て替えたままのお金が30日続いたときだけ、静かに出す（§5.3・急かさない） -->
   <div id="notice-advance-old" class="notice warn hidden">
     <p id="advance-old-detail"></p>
@@ -190,6 +206,15 @@
   <!-- ===== 記録（§5.1 ★F1 3タップ入力） ===== -->
   <div class="card">
     <h2>記録する</h2>
+
+    <!-- さかのぼり入力中の目印（§11 Phase 3）。今どの日付で入れているのかを、常に見える位置に出す -->
+    <div id="back-banner" class="notice warn hidden">
+      <h3 id="back-title">さかのぼって入力中</h3>
+      <p id="back-detail"></p>
+      <div class="row">
+        <button type="button" id="btn-back-end">さかのぼりを終える</button>
+      </div>
+    </div>
 
     <div class="seg" role="group" aria-label="種別">
       <button type="button" id="kind-expense" aria-pressed="true">支出</button>
@@ -229,7 +254,14 @@
       <summary id="fold-summary">日付</summary>
       <label for="f-date">日付</label>
       <input type="date" id="f-date">
+      <!-- 日付ピッカーを開き直さずに隣の日へ移れるようにする（さかのぼり入力のときだけ出す） -->
+      <div class="row hidden" id="date-nav">
+        <button type="button" id="btn-date-prev">← 前の日</button>
+        <button type="button" id="btn-date-today">今日</button>
+        <button type="button" id="btn-date-next">次の日 →</button>
+      </div>
     </details>
+    <button type="button" class="subtle" id="btn-back-toggle">さかのぼって入れる</button>
 
     <p id="form-error" class="notice bad hidden"></p>
     <button type="button" class="primary" id="btn-save">記録する</button>
@@ -244,6 +276,36 @@
     <p id="settle-ok" class="saved-ok hidden"></p>
     <div class="row hidden" id="settle-undo-row">
       <button type="button" id="btn-settle-undo">いまの精算を取り消す</button>
+    </div>
+  </div>
+
+  <!-- ===== 期首残高と未詳分（§5.8 不完全さを隠す機能は作らない） ===== -->
+  <div class="card" id="opening-card">
+    <h2>期首残高（年度の途中から始めるとき）</h2>
+    <p class="lead" id="opening-lead"></p>
+    <p class="meta" id="opening-note-view"></p>
+    <p class="meta" id="opening-stale"></p>
+
+    <div id="opening-form" class="hidden">
+      <p class="lead">判明分を入れ終えたら、<strong>いま封筒に実際にいくらあるか</strong>を数えて入れてください。判明分との差額を期首残高として計上し、その説明を報告書の脚注に載せます。</p>
+      <label for="f-opening-count">今、封筒に実際にいくらありますか？（円）</label>
+      <input type="text" id="f-opening-count" inputmode="numeric" autocomplete="off" placeholder="24000">
+      <p id="opening-error" class="notice bad hidden"></p>
+      <button type="button" class="primary primary2" id="btn-opening-calc">差額を計算する</button>
+    </div>
+
+    <button type="button" class="subtle hidden" id="btn-opening-open">期首残高を計算し直す</button>
+
+    <div id="opening-result" class="notice warn hidden">
+      <h3 id="opening-result-title"></h3>
+      <p id="opening-result-detail"></p>
+      <p id="opening-result-warn"></p>
+      <label for="f-opening-note">報告書に出る脚注（直せます）</label>
+      <textarea id="f-opening-note" class="note-edit"></textarea>
+      <div class="row">
+        <button type="button" id="btn-opening-apply">この内容で期首残高にする</button>
+        <button type="button" id="btn-opening-cancel">やめる</button>
+      </div>
     </div>
   </div>
 
@@ -512,6 +574,10 @@
       out.years[k] = {
         openingBalance: Number.isSafeInteger(y.openingBalance) ? y.openingBalance : 0,
         openingNote:    typeof y.openingNote === 'string' ? y.openingNote : '',
+        // 期首残高をいつ・いくら数えて決めたか（§5.8）。あとから過去の記録が出てきたときに、
+        // 「計算し直したほうがいい」と気づけるようにするために持つ。無くても動く（既存データは null）
+        openingSetAt:   typeof y.openingSetAt === 'string' ? y.openingSetAt : null,
+        openingCounted: Number.isSafeInteger(y.openingCounted) ? y.openingCounted : null,
         memberCount:    Number.isSafeInteger(y.memberCount) ? y.memberCount : 0,
         entries:        Array.isArray(y.entries) ? y.entries : [],
         counts:         Array.isArray(y.counts)  ? y.counts  : []
@@ -581,7 +647,10 @@
 
   function yearBucket(key){
     if(!state.years[key]){
-      state.years[key] = { openingBalance:0, openingNote:'', memberCount:0, entries:[], counts:[] };
+      state.years[key] = {
+        openingBalance:0, openingNote:'', openingSetAt:null, openingCounted:null,
+        memberCount:0, entries:[], counts:[]
+      };
     }
     return state.years[key];
   }
@@ -810,6 +879,63 @@
     return Math.round((b - a) / 86400000);
   }
 
+  /* --- §5.8 期首残高と未詳分 ------------------------------------------------
+     年度の途中から始めるとき、4月からの記録は一部しか残っていない。
+     判明分を入れたうえで封筒を数え、説明のつかない差額を「期首残高」として正直に出す。
+     ごまかして帳尻を合わせるのではなく、**差額があることを報告書に書く**ための仕組み。 */
+
+  // 判明分の収支（期首残高を含まない）。ここに期首残高を足したものが会計残高になる
+  function netOfEntries(y){
+    return sumOf(y.entries, 'income') - sumOf(y.entries, 'expense');
+  }
+
+  // 封筒にあるべき額 = 期首 + 判明分の収支 + 立て替え未精算 なので、
+  // 「数えた額 = 封筒にあるべき額」となる期首残高は、この式で一意に決まる
+  function openingFromCount(y, counted){
+    return counted - netOfEntries(y) - advanceOutstanding(y);
+  }
+
+  // 期首残高を決めたあとに、それ以前の日付の記録を入れた件数。
+  // 後から領収書が出てくるのは普通に起きる。そのままだと帳簿と封筒が黙ってずれていく
+  function lateBackdatedCount(y){
+    if(typeof y.openingSetAt !== 'string') return 0;
+    var day = y.openingSetAt.slice(0, 10);
+    return live(y.entries).filter(function(e){
+      return e.date <= day && typeof e.createdAt === 'string' && e.createdAt > y.openingSetAt;
+    }).length;
+  }
+
+  function mdJP(iso){ return Number(iso.slice(5, 7)) + '月' + Number(iso.slice(8, 10)) + '日'; }
+  function ymdJP(iso){ return Number(iso.slice(0, 4)) + '年' + mdJP(iso); }
+
+  function fiscalRangeLabel(key, todayISO){
+    var m = Number(todayISO.slice(5, 7));
+    var end = (m >= FISCAL_START_MONTH) ? (m + '月') : ('翌年' + m + '月');
+    return key + '年' + FISCAL_START_MONTH + '月〜' + end;
+  }
+
+  // 報告書の脚注にそのまま出る文（§5.9 構成8）。差額の向きで書き分ける。
+  // 「4月から完璧に記録がある」ふりをした報告書より、こう書いてある方が信頼される
+  function buildOpeningNote(key, opening, counted, entryCount, todayISO){
+    var when = ymdJP(todayISO);
+    var range = fiscalRangeLabel(key, todayISO);
+    if(entryCount === 0){
+      return range + '分の記録が残っていないため、' + when + 'に封筒を数えた ' + yen(counted) +
+             ' を期首残高として計上しています。';
+    }
+    if(opening > 0){
+      return range + '分は領収書が一部のみのため、判明分を明細に記載し、差額 ' + yen(opening) +
+             ' を期首残高として計上しています（' + when + 'に封筒を数えて算出）。';
+    }
+    if(opening < 0){
+      return range + '分は領収書が一部のみのため、判明分を明細に記載しています。' + when +
+             'に封筒を数えたところ、判明分より ' + yen(-opening) +
+             ' 少なかったため、その差額を期首残高から差し引いています。';
+    }
+    return range + '分は判明分をすべて明細に記載しており、' + when +
+           'に封筒を数えた額と一致しています（期首残高は0円）。';
+  }
+
   function nextId(y){
     return y.entries.reduce(function(m, e){
       return (e && Number.isSafeInteger(e.id) && e.id > m) ? e.id : m;
@@ -830,6 +956,10 @@
   var currentPaidFrom = 'envelope';          // 支出の支払い元（§5.3）
   var lastSettled = { key:null, id:null };   // 直前に精算した立て替え（押し間違いを戻すため）
   var countGap = 0;                          // 直近の実査のずれ [円]（+なら多い）
+  var backdate = false;                      // さかのぼり入力中か（§11 Phase 3）
+  var backdateCount = 0;                     // このさかのぼりで入れた件数＝進んでいる実感
+  var openingFormOpen = false;               // 期首残高の入力欄を開いているか
+  var pendingOpening = null;                 // 計算済みでまだ確定していない期首残高
 
   // 並びは「開いたとき」に決めて、使っている最中は動かさない。
   // 記録するたびにボタンが入れ替わると、次の1件で押し間違える。
@@ -870,6 +1000,9 @@
       : 'まだ数えていません');
 
     renderSettle(y, adv);
+    renderOpening(key, y);
+    renderFirstRun(y);
+    renderBackdate();
     renderCount(y);
     renderAdvanceNotice(y, adv);
     renderCategories();
@@ -973,9 +1106,16 @@
   function updateFoldSummary(){
     var d = $('f-date').value;
     var today = localDateISO(new Date());
-    var when = /^\d{4}-\d{2}-\d{2}$/.test(d)
-      ? d.slice(5).replace('-', '/') + (d === today ? '（今日）' : '')
-      : '未選択';
+    var when;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){
+      when = '未選択';
+    } else if(d === today){
+      when = d.slice(5).replace('-', '/') + '（今日）';
+    } else {
+      // 日付は保存しても残る。前の記録の日付のまま次を入れてしまうのを防ぐため、
+      // 今日でないことをたたんだ状態でも見える位置に出す（さかのぼり中は上の帯が言うので繰り返さない）
+      when = d.slice(5).replace('-', '/') + (backdate ? '' : '（今日ではありません）');
+    }
     text($('fold-summary'), '日付 ' + when);
   }
 
@@ -1124,8 +1264,8 @@
 
   // 入力中に3桁区切りを出す（§5.1）。
   // カーソルは「左に数字が何桁あるか」で数え直す。カンマが増減しても位置がずれない。
-  function formatAmountField(){
-    var el = $('f-amount');
+  function formatAmountField(id){
+    var el = $(id);
     var caret = (typeof el.selectionStart === 'number') ? el.selectionStart : el.value.length;
     var digitsLeft = toHalfDigits(el.value.slice(0, caret)).replace(/[^0-9]/g, '').length;
 
@@ -1158,8 +1298,10 @@
     return hit;
   }
 
-  // force = 二重入力の確認を通ったあとの再実行（クリックイベントを直接受けないこと）
-  function onSave(force){
+  // skip = 確認を1つ通したあとの再実行（{future:true, dup:true}）。
+  // 通した確認だけを持ち回すので、確認どうしが堂々巡りにならない。クリックイベントを直接受けないこと
+  function onSave(skip){
+    skip = skip || {};
     formError('');
     hide($('saved-ok'));
 
@@ -1198,10 +1340,19 @@
     var key = String(fiscalYearOf(date));
     var y = yearBucket(key);
 
-    if(!force && isDuplicate(y, date, category, amount)){
+    // さかのぼりで何件も入れていると、年を打ち間違えて未来に飛ぶことがある。
+    // 未来日付は別年度のバケツに入って画面から消えるので、止めずに一度だけ聞く
+    if(!skip.future && date > localDateISO(new Date())){
+      ask('未来の日付です',
+          ymdJP(date) + ' は今日より先の日付です。このまま記録しますか？',
+          'このまま記録する', function(){ onSave({ future:true, dup:skip.dup }); });
+      return;
+    }
+
+    if(!skip.dup && isDuplicate(y, date, category, amount)){
       ask('同じ記録がすでにあります',
           date + '　' + category + '　' + yen(amount) + '　が5分以内に入っています。もう1件追加しますか？',
-          'もう1件追加する', function(){ onSave(true); });
+          'もう1件追加する', function(){ onSave({ future:skip.future, dup:true }); });
       return;
     }
 
@@ -1265,8 +1416,19 @@
         : key + '年度の記録として保存しました（この画面は ' + cur + '年度 の残高です）。';
       text($('saved-ok'), msg);
       show($('saved-ok'));
-      try { $('recent-card').scrollIntoView({ block:'nearest' }); }
-      catch(err){ diag('記録一覧への移動に失敗: ' + describe(err)); }
+
+      if(backdate){
+        // さかのぼり中は一覧へ飛ばさない。次の1件をすぐ打てる場所に手を残す（30分で入れ終える）
+        backdateCount += 1;
+        renderBackdate();
+        var amt2 = $('f-amount');
+        amt2.focus();
+        try { amt2.scrollIntoView({ block:'center' }); }
+        catch(err){ diag('入力欄への移動に失敗: ' + describe(err)); }
+      } else {
+        try { $('recent-card').scrollIntoView({ block:'nearest' }); }
+        catch(err){ diag('記録一覧への移動に失敗: ' + describe(err)); }
+      }
     }
   }
 
@@ -1473,6 +1635,197 @@
   }
 
   /* =========================================================
+     8.4 さかのぼり入力（§11 Phase 3・4月〜今日の判明分を一気に入れる）
+     ========================================================= */
+  // ふだんの入力は「今日・3タップ」に最適化してある。さかのぼりはそれと目的が違う——
+  // 同じ日の記録を何件も、日付を見ながら続けて入れる。だからモードとして分けた。
+  function setBackdate(on, startDate){
+    backdate = !!on;
+    if(backdate){
+      backdateCount = 0;
+      if(startDate) $('f-date').value = startDate;
+      $('fold').open = true;              // 日付をたたまない。今どこを入れているかが最重要
+      hide($('btn-back-toggle'));
+    } else {
+      $('f-date').value = localDateISO(new Date());   // 出るときは必ず今日へ戻す
+      $('fold').open = false;
+      show($('btn-back-toggle'));
+    }
+    hide($('saved-ok'));
+    updateFoldSummary();
+    renderBackdate();
+    renderFirstRun(yearBucket(currentYearKey()));   // 案内を押して始めたのに案内が残っていると迷う
+  }
+
+  function renderBackdate(){
+    if(!backdate){
+      hide($('back-banner'));
+      hide($('date-nav'));
+      show($('btn-back-toggle'));
+      return;
+    }
+    show($('back-banner'));
+    show($('date-nav'));
+    hide($('btn-back-toggle'));
+
+    var d = $('f-date').value;
+    var when = /^\d{4}-\d{2}-\d{2}$/.test(d) ? ymdJP(d) : '（日付が未選択です）';
+    text($('back-detail'),
+      when + ' の記録として保存します。日付は保存しても消えないので、同じ日の分を続けて入れられます。' +
+      (backdateCount ? '　このさかのぼりで ' + backdateCount + '件 入れました。' : ''));
+  }
+
+  function shiftDate(days){
+    var d = $('f-date').value;
+    // 正午を基準にする。0時ちょうどだと、夏時間のある地域で1日ずれることがある
+    var base = /^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(d + 'T12:00:00') : new Date();
+    if(!Number.isFinite(base.getTime())) base = new Date();
+    base.setDate(base.getDate() + days);
+    $('f-date').value = localDateISO(base);
+    updateFoldSummary();
+    renderBackdate();
+    hide($('saved-ok'));
+  }
+
+  // 入れ終わったら、そのまま封筒を数える流れへつなぐ。
+  // ここで止まると「判明分は入れたが期首が空のまま」＝帳簿と封筒が合わない状態が残る
+  function endBackdate(){
+    var entered = backdateCount;
+    setBackdate(false);
+    var y = yearBucket(currentYearKey());
+    if(entered > 0 && y.openingSetAt === null){
+      openingFormOpen = true;
+      render();
+      try { $('opening-card').scrollIntoView({ block:'start' }); }
+      catch(err){ diag('期首残高の欄への移動に失敗: ' + describe(err)); }
+    } else {
+      render();
+    }
+  }
+
+  /* =========================================================
+     8.45 期首残高と未詳分（§5.8）
+     ========================================================= */
+  // 記録がまだ1件もないときだけ、年度の途中から始める道を示す。
+  // 1件でも入れば消える（この案内が居座ると、ふだんの入力の邪魔になる）
+  function renderFirstRun(y){
+    if(y.entries.length === 0 && y.openingSetAt === null && y.openingBalance === 0 && !backdate){
+      show($('notice-first-run'));
+    } else {
+      hide($('notice-first-run'));
+    }
+  }
+
+  function renderOpening(key, y){
+    var isSet = (y.openingSetAt !== null);
+    var showForm = openingFormOpen || (!isSet && y.openingBalance === 0);
+
+    if(isSet){
+      text($('opening-lead'),
+        '期首残高 ' + yen(y.openingBalance) + '（' + mdJP(y.openingSetAt.slice(0, 10)) + 'に数えた ' +
+        yen(y.openingCounted === null ? 0 : y.openingCounted) + ' から計算）');
+    } else if(y.openingBalance !== 0){
+      text($('opening-lead'), '期首残高 ' + yen(y.openingBalance));
+    } else {
+      text($('opening-lead'), 'まだ設定していません（期首残高 0円）。年度の初めから記録がそろっているなら、このままで大丈夫です。');
+    }
+
+    text($('opening-note-view'), y.openingNote ? '報告書の脚注: ' + y.openingNote : '');
+
+    // 期首を決めたあとに過去の日付を足すと、帳簿だけが動いて封筒と合わなくなる。
+    // 責める書き方はしない。何が起きていて、どうすれば戻るかだけ書く
+    var late = lateBackdatedCount(y);
+    text($('opening-stale'), late > 0
+      ? '⚠ 期首残高を決めたあとに、それ以前の日付の記録を ' + late +
+        '件 入れています。もう一度封筒を数えて計算し直すと、帳簿と封筒がまた合います。'
+      : '');
+
+    if(showForm){ show($('opening-form')); } else { hide($('opening-form')); }
+    if(showForm){ hide($('btn-opening-open')); } else { show($('btn-opening-open')); }
+  }
+
+  function onOpeningCalc(){
+    formErrorAt('opening-error', '');
+    hide($('opening-result'));
+
+    var key = currentYearKey();
+    var y = yearBucket(key);
+    var counted = parseAmount($('f-opening-count').value, true);   // 使い切って0円もあり得る
+    if(counted === null){
+      formErrorAt('opening-error', '数えた額は0以上の数字で入れてください（全角の数字でも大丈夫です）。');
+      $('f-opening-count').focus();
+      return;
+    }
+    showOpeningResult(key, y, counted);
+  }
+
+  // 計算しただけでは何も保存しない。式と結果と脚注を見せて、本人が決める（§5.4 と同じ姿勢）
+  function showOpeningResult(key, y, counted){
+    var today = localDateISO(new Date());
+    var net = netOfEntries(y);
+    var adv = advanceOutstanding(y);
+    var opening = openingFromCount(y, counted);
+    var n = live(y.entries).length;
+
+    pendingOpening = { counted:counted, value:opening };
+
+    text($('opening-result-title'), '期首残高は ' + yen(opening) + ' になります');
+    text($('opening-result-detail'),
+      '数えた額 ' + yen(counted) + ' − 判明分の収支 ' + yen(net) +
+      (adv === 0 ? '' : ' − 立て替え未精算 ' + yen(adv)) +
+      ' ＝ ' + yen(opening) + '（判明分 ' + n + '件）');
+
+    // マイナス＝封筒が判明分より少ない。ほぼ確実に「入れ忘れた収入」がある。
+    // 黙って計上させず、先に思い出す機会を作る
+    text($('opening-result-warn'), opening < 0
+      ? '数えた額が判明分より ' + yen(-opening) + ' 少なくなっています。入れ忘れた集金（収入）はありませんか？ 思い当たるものがあれば、先に記録してからもう一度計算してください。'
+      : '');
+
+    $('f-opening-note').value = buildOpeningNote(key, opening, counted, n, today);
+    show($('opening-result'));
+    try { $('opening-result').scrollIntoView({ block:'nearest' }); }
+    catch(err){ diag('計算結果への移動に失敗: ' + describe(err)); }
+  }
+
+  function applyOpening(){
+    if(!pendingOpening) return;
+    var key = currentYearKey();
+    var y = yearBucket(key);
+
+    // 計算してから確定するまでに記録が増えていたら、古い数字で確定しない
+    var fresh = openingFromCount(y, pendingOpening.counted);
+    if(fresh !== pendingOpening.value){
+      showOpeningResult(key, y, pendingOpening.counted);
+      formErrorAt('opening-error', '計算してから記録が変わったため、数字を計算し直しました。内容を確かめて、もう一度押してください。');
+      return;
+    }
+
+    var before = {
+      balance: y.openingBalance, note: y.openingNote,
+      setAt: y.openingSetAt, counted: y.openingCounted
+    };
+    y.openingBalance = pendingOpening.value;
+    y.openingNote    = $('f-opening-note').value.trim();
+    y.openingSetAt   = localStampISO(new Date());
+    y.openingCounted = pendingOpening.counted;
+
+    if(save()){
+      diag('期首残高を ' + yen(y.openingBalance) + ' にしました（数えた額 ' + yen(y.openingCounted) + '）。');
+      pendingOpening = null;
+      openingFormOpen = false;
+      $('f-opening-count').value = '';
+      hide($('opening-result'));
+      formErrorAt('opening-error', '');
+    } else {
+      y.openingBalance = before.balance;      // 保存できなければ元に戻す（画面と端末を食い違わせない）
+      y.openingNote    = before.note;
+      y.openingSetAt   = before.setAt;
+      y.openingCounted = before.counted;
+    }
+    render();
+  }
+
+  /* =========================================================
      8.5 取消と削除（§5.7 上書きしない）
      ========================================================= */
   // 画面の中で聞く確認。window.confirm は端末や表示のしかたによって黙って無視される
@@ -1668,6 +2021,12 @@
     showAll = false;
     lastSettled = { key:null, id:null };
     countGap = 0;
+    openingFormOpen = false;
+    pendingOpening = null;
+    hide($('opening-result'));
+    formErrorAt('opening-error', '');
+    $('f-opening-count').value = '';
+    setBackdate(false);
     hide($('settle-ok'));
     hide($('settle-undo-row'));
     askNo();
@@ -1691,11 +2050,47 @@
   function bind(){
     $('kind-expense').addEventListener('click', function(){ setKind('expense'); });
     $('kind-income').addEventListener('click',  function(){ setKind('income'); });
-    $('btn-save').addEventListener('click', function(){ onSave(false); });
+    $('btn-save').addEventListener('click', function(){ onSave(); });
     $('btn-ask-yes').addEventListener('click', askYes);
     $('btn-ask-no').addEventListener('click', askNo);
-    $('f-amount').addEventListener('input', function(){ formatAmountField(); hide($('saved-ok')); });
-    $('f-date').addEventListener('change', function(){ updateFoldSummary(); hide($('saved-ok')); });
+    $('f-amount').addEventListener('input', function(){ formatAmountField('f-amount'); hide($('saved-ok')); });
+    // 数える額も入力中に3桁区切りにする。桁を目で確かめながら打てる欄は、間違いに気づける
+    $('f-count').addEventListener('input', function(){ formatAmountField('f-count'); });
+    $('f-opening-count').addEventListener('input', function(){ formatAmountField('f-opening-count'); });
+    $('f-date').addEventListener('change', function(){
+      updateFoldSummary();
+      renderBackdate();
+      hide($('saved-ok'));
+    });
+
+    // §11 Phase 3 さかのぼり入力
+    $('btn-back-toggle').addEventListener('click', function(){ setBackdate(true); });
+    $('btn-back-end').addEventListener('click', endBackdate);
+    $('btn-first-backdate').addEventListener('click', function(){
+      setBackdate(true, currentYearKey() + '-04-01');
+      try { $('f-amount').scrollIntoView({ block:'center' }); }
+      catch(err){ diag('入力欄への移動に失敗: ' + describe(err)); }
+    });
+    $('btn-date-prev').addEventListener('click',  function(){ shiftDate(-1); });
+    $('btn-date-next').addEventListener('click',  function(){ shiftDate(1); });
+    $('btn-date-today').addEventListener('click', function(){
+      $('f-date').value = localDateISO(new Date());
+      updateFoldSummary();
+      renderBackdate();
+    });
+
+    // §5.8 期首残高
+    $('btn-opening-calc').addEventListener('click', onOpeningCalc);
+    $('btn-opening-apply').addEventListener('click', applyOpening);
+    $('btn-opening-cancel').addEventListener('click', function(){
+      pendingOpening = null;
+      hide($('opening-result'));
+    });
+    $('btn-opening-open').addEventListener('click', function(){
+      openingFormOpen = true;
+      render();
+      $('f-opening-count').focus();
+    });
     $('f-category').addEventListener('change', function(){
       activeCategory = $('f-category').value;
       renderQuick();
@@ -1859,6 +2254,34 @@
     diag('3つの残高テスト（§5.3の検算例）: 精算前 ' + before + '＝' +
       (before === '21000/3000/24000' ? 'OK' : 'NG') + '／精算後 ' + after + '＝' +
       (after === '21000/0/21000' ? 'OK' : 'NG'));
+
+    // §5.8 期首残高の自動計算。「数えた額 − 判明分の収支 − 立て替え未精算」で期首を決めると、
+    // 封筒にあるべき額が数えた額とぴったり一致する。ここが崩れると初回セットアップの意味がなくなる
+    var y8 = { openingBalance:0, entries:[
+      { kind:'income',  amount:24000, voided:false },
+      { kind:'expense', amount:3000, paidFrom:'advance',  voided:false },
+      { kind:'expense', amount:2000, paidFrom:'envelope', voided:false }
+    ]};
+    var op8 = openingFromCount(y8, 25000);
+    y8.openingBalance = op8;
+    diag('期首残高の自動計算テスト（§5.8）: 期首 ' + op8 + '／封筒 ' + envelopeExpected(y8) + '＝' +
+      ((op8 === 3000 && envelopeExpected(y8) === 25000) ? 'OK' : 'NG'));
+
+    // 判明分がぴったりのときは期首0円。差額を作り出さない
+    var y8b = { openingBalance:0, entries:[{ kind:'income', amount:12000, voided:false }] };
+    diag('期首0円のテスト: ' + (openingFromCount(y8b, 12000) === 0 ? 'OK' : 'NG'));
+
+    // 脚注は差額の向きで書き分ける（＋／−／0／記録なし）。空文や同じ文が出たら報告書で嘘になる
+    var notes = [
+      buildOpeningNote('2026',  3000, 25000, 3, '2026-07-25'),
+      buildOpeningNote('2026', -3000, 19000, 3, '2026-07-25'),
+      buildOpeningNote('2026',     0, 22000, 3, '2026-07-25'),
+      buildOpeningNote('2026', 24000, 24000, 0, '2026-07-25')
+    ];
+    var uniq = notes.filter(function(s, i){ return s.length > 20 && notes.indexOf(s) === i; });
+    diag('期首の脚注テスト: ' + (uniq.length === 4 ? '4通りすべてOK' : 'NG ' + (4 - uniq.length) + '件'));
+    diag('年度の範囲表示テスト: ' + ((fiscalRangeLabel('2026', '2026-07-25') === '2026年4月〜7月' &&
+         fiscalRangeLabel('2026', '2027-01-10') === '2026年4月〜翌年1月') ? 'OK' : 'NG'));
 
     diag('よく使う項目: 支出' + quickOrder.filter(function(q){ return q.kind === 'expense'; }).length +
          '個／収入' + quickOrder.filter(function(q){ return q.kind === 'income'; }).length + '個');
