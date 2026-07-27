@@ -123,6 +123,61 @@
   #date-nav button{min-height:42px; font-size:.82rem; font-weight:500;}
   /* 報告書にそのまま出る脚注。JSONの退避欄と違って、ふつうの文章として読めるようにする */
   .note-edit{min-height:80px; font-family:inherit; font-size:.86rem; line-height:1.5;}
+
+  /* =========================================================
+     §5.9 収支報告書。ここだけ画面の配色から切り離して白地・黒字に固定する。
+     紙はダークモードにならないし、この画面は「刷る前の紙」だから。
+     ========================================================= */
+  #report{
+    position:fixed; inset:0; z-index:50; overflow:auto;
+    background:#ffffff; color:#14171a;
+    padding:14px 12px 72px;
+    /* 10.5pt＝14px。画面と紙で文字の大きさも行の詰め方も同じにしてある。
+       そうしておくと「画面で測った高さ＝紙の高さ」になり、1枚に収まるかを先に知らせられる */
+    font-size:14px;
+  }
+  body.report-open{overflow:hidden;}
+  #report .sheet{max-width:184mm; margin:0 auto;}
+  #report .tools{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+  #report .tools button{flex:1 1 auto; background:#fff; color:#14171a; border-color:#c9ced6; margin-top:0; width:auto;}
+  #report .tools button.primary{background:#1f6feb; color:#fff; border-color:#1f6feb;}
+  #report .r-note{font-size:.78rem; color:#5d646d; margin:0 0 18px;}
+  #report .r-title{font-size:1.12rem; font-weight:700; text-align:center; margin:0 0 4px; letter-spacing:.02em;}
+  #report .r-range{font-size:.82rem; color:#41474e; text-align:center; margin:0 0 12px;}
+  #report h3{font-size:.9rem; margin:12px 0 5px; padding-bottom:3px; border-bottom:1px solid #14171a;}
+  #report table{width:100%; border-collapse:collapse; font-size:.8rem;}
+  #report th,#report td{padding:3px 6px; border-bottom:1px solid #e2e6eb; text-align:left; vertical-align:top;}
+  #report th{font-weight:600; color:#41474e; white-space:nowrap;}
+  #report td.num,#report th.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+  #report td.date{white-space:nowrap; color:#41474e;}
+  #report tr.total td{border-top:1.5px solid #14171a; border-bottom:0; font-weight:700;}
+  #report tr.group td{background:#eef1f5; font-weight:600; border-bottom:1px solid #c9ced6;}
+  #report tr.sub td{font-weight:600;}
+  /* 取り消した記録も紙に残す（受け入れ基準）。集計に入っていないことが目で分かる形で。
+     取消線はセル（td）でなく中身（span）に引く——td に引くと、同じセルに書く取消理由まで
+     線が貫通して読めなくなる（子要素では打ち消せない） */
+  #report .strike{text-decoration:line-through; color:#7b828b;}
+  #report .reason{display:block; color:#7b828b; font-size:.92em;}
+  /* 割合の横棒。印刷で背景色が落ちる環境があるので、必ず数字も併記する */
+  #report .bar{height:7px; background:#e2e6eb; border-radius:4px; overflow:hidden; min-width:52px;}
+  #report .bar span{display:block; height:100%; background:#1f6feb;}
+  #report .foot{font-size:.78rem; line-height:1.75; margin-top:14px;}
+  #report .foot p{margin:0;}
+  #report .note-line{font-size:.78rem; line-height:1.7; margin:14px 0 0; padding:8px 10px; background:#f4f6f9; border-left:3px solid #c9ced6;}
+  #report .annex{margin-top:28px;}
+
+  @media print{
+    body.report-open{overflow:visible; background:#fff;}
+    body.report-open .wrap{display:none !important;}
+    #report{position:static; overflow:visible; padding:0; font-size:10.5pt;
+            -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+    #report .sheet{max-width:none;}
+    #report .screen-only{display:none !important;}
+    /* 別紙は必ず次のページから。本文（A4 1枚）と混ざらないように */
+    #report .annex{break-before:page; page-break-before:always; margin-top:0;}
+    #report table,#report tr,#report .keep{break-inside:avoid; page-break-inside:avoid;}
+    @page{size:A4 portrait; margin:14mm;}
+  }
 </style>
 </head>
 <body>
@@ -400,10 +455,42 @@
     </div>
   </div>
 
+  <!-- ===== 収支報告書（§5.9 ここが目的地） ===== -->
+  <div class="card" id="report-card">
+    <h2>収支報告書</h2>
+    <p class="lead">これまでの記録から、保護者に配るA4 1枚を作ります。</p>
+
+    <label for="f-report-year">どの年度</label>
+    <select id="f-report-year"></select>
+
+    <p class="meta" id="report-hint"></p>
+
+    <!-- 数字が合わないまま紙にしない（§5.9 品質ガード・silent failure の禁止） -->
+    <div id="report-error" class="notice bad hidden">
+      <h3>数字が合わないので、報告書を作りませんでした</h3>
+      <p>下の食い違いを直してから、もう一度作ってください。</p>
+      <ul class="list" id="report-error-list"></ul>
+    </div>
+
+    <button type="button" id="btn-report" class="primary">報告書を作る</button>
+    <button type="button" id="btn-csv" class="subtle">明細をCSVで書き出す（自分用）</button>
+  </div>
+
   <!-- ===== 設定 ===== -->
   <div class="card">
     <h2>設定</h2>
     <p class="lead">ふだんは触りません。使い方が変わったときだけ。</p>
+
+    <!-- 報告書の表題と末尾に出る3つ（§5.9 構成1・9／要判断②）。端末の中だけに保存する -->
+    <label for="f-school">学校名</label>
+    <input type="text" id="f-school" autocomplete="off" placeholder="○○高等学校">
+    <label for="f-club">部の名前</label>
+    <input type="text" id="f-club" autocomplete="off" placeholder="野球部">
+    <label for="f-author">作成者名</label>
+    <input type="text" id="f-author" autocomplete="off" placeholder="山田 太郎">
+    <p class="meta">報告書の表題と末尾に出ます。<strong>この端末の中だけ</strong>に保存され、どこにも送られません。</p>
+
+    <hr>
 
     <!-- 目的タグ（§5.5）を使うかどうか。都度集金をしない年度では、入力欄が1つ増えるだけになる。
          「使わない」でも機能を消してはいない——記録の中の目的も、目的別に足す仕組みも残っている。
@@ -446,6 +533,20 @@
     <div class="diag" id="diag"></div>
   </div>
 
+</div>
+
+<!-- ===== 報告書の紙面（§5.9）。.wrap の外に置く＝印刷のときアプリ画面だけを隠せる ===== -->
+<div id="report" class="hidden" role="dialog" aria-label="収支報告書" aria-modal="true">
+  <div class="sheet">
+    <div class="tools screen-only">
+      <button type="button" id="btn-report-print" class="primary">印刷する</button>
+      <button type="button" id="btn-report-csv">CSVで書き出す</button>
+      <button type="button" id="btn-report-close">閉じる</button>
+    </div>
+    <p class="r-note screen-only" id="report-note"></p>
+    <div id="report-main"></div>
+    <div id="report-annex" class="annex"></div>
+  </div>
 </div>
 
 <script>
@@ -507,6 +608,15 @@
   function show(el){ el.classList.remove('hidden'); }
   function hide(el){ el.classList.add('hidden'); }
   function text(el, s){ el.textContent = s; }   // §7.3 innerHTML は使わない
+  function clear(n){ while(n.firstChild) n.removeChild(n.firstChild); }
+
+  // 報告書は要素の数が多いので、1行で作れる形にしておく（§7.3 textContent 固定）
+  function el(tag, cls, txt){
+    var n = document.createElement(tag);
+    if(cls) n.className = cls;
+    if(txt !== undefined && txt !== null) n.textContent = txt;
+    return n;
+  }
 
   function pad(n){ return (n < 10 ? '0' : '') + n; }
 
@@ -851,10 +961,10 @@
   /* =========================================================
      5. 書き出し
      ========================================================= */
-  function download(filename, contents){
+  function download(filename, contents, mime){
     var ok = false;
     try {
-      var blob = new Blob([contents], { type:'application/json' });
+      var blob = new Blob([contents], { type: mime || 'application/json' });
       var url = URL.createObjectURL(blob);
       var a = document.createElement('a');
       a.href = url;
@@ -1114,7 +1224,8 @@
     var key = currentYearKey();
     var y = yearBucket(key);
 
-    text($('lead'), state.settings.clubName + ' ' + key + '年度の部費');
+    text($('lead'), (isNonEmptyString(state.settings.clubName) ? state.settings.clubName + ' ' : '') +
+      key + '年度の部費');
 
     var acct = accountBalance(y);
     var adv  = advanceOutstanding(y);
@@ -1152,6 +1263,7 @@
     updateFoldSummary();
     renderRecent(key, y);
     renderVoidNotice();
+    renderReportCard();
     renderDataSummary();
   }
 
@@ -2373,6 +2485,545 @@
   }
 
   /* =========================================================
+     8.5 収支報告書（§5.9 ★このツールの目的地）
+
+     読者は保護者。だから紙の上では「会計残高」「立て替え未精算」のような
+     こちらの都合の言葉を裸で出さず、必ず一言そえる。
+     そして**数字が合わないときは紙を作らない**（§5.9 品質ガード）。
+     合わない報告書を配ってしまうことは、記録が無いことより悪い。
+     ========================================================= */
+
+  // 年度の期間。まだ終わっていない年度は「今日まで」で切る＝
+  // 3月31日までの紙を7月に配ると、これから起きることまで確定したように見える
+  function fiscalPeriod(key, todayISO){
+    var y = Number(key);
+    var full = (y + 1) + '-03-31';
+    var closed = todayISO > full;
+    return { start: y + '-' + pad(FISCAL_START_MONTH) + '-01', end: closed ? full : todayISO, closed: closed };
+  }
+
+  // 費目別の内訳（§5.9 構成5）。金額の大きい順＝「どこに使ったか」が一行目に来る
+  function categoryTotals(y, kind){
+    var map = {}, order = [];
+    live(y.entries).forEach(function(e){
+      if(e.kind !== kind) return;
+      if(!isNonEmptyString(e.category)) return;   // 費目なしはここで落ちる＝検算がずれとして拾う
+      if(!map[e.category]){ map[e.category] = { name:e.category, total:0, count:0 }; order.push(e.category); }
+      map[e.category].total += e.amount;
+      map[e.category].count += 1;
+    });
+    return order.map(function(n){ return map[n]; })
+      .sort(function(a, b){ return (b.total - a.total) || (a.name < b.name ? -1 : 1); });
+  }
+
+  function byDateThenId(a, b){
+    if(a.date !== b.date) return a.date < b.date ? -1 : 1;
+    return (a.id || 0) - (b.id || 0);
+  }
+
+  // 別紙（§5.9 別紙）。収入は日付順、支出は費目ごと（費目の中は日付順）＝2026-07-26 本人の指定。
+  // 精算は収支ではない現金移動なので明細には出さない。代わりに支出の行に「◯月◯日に精算」と書く
+  function buildAnnex(y){
+    var income = y.entries.filter(function(e){ return e && e.kind === 'income'; }).sort(byDateThenId);
+    var order = [], map = {};
+    categoryTotals(y, 'expense').forEach(function(c){
+      map[c.name] = { name:c.name, rows:[], total:0 };
+      order.push(c.name);
+    });
+    var orphan = { name:'（費目が入っていない記録）', rows:[], total:0 };
+    y.entries.forEach(function(e){
+      if(!e || e.kind !== 'expense') return;
+      var g;
+      if(isNonEmptyString(e.category)){
+        // 取消行しかない費目は categoryTotals に出てこない。ここで受け皿を作る
+        if(!map[e.category]){ map[e.category] = { name:e.category, rows:[], total:0 }; order.push(e.category); }
+        g = map[e.category];
+      } else {
+        g = orphan;
+      }
+      g.rows.push(e);
+      // 読めない金額は足さない。足すと小計が数でなくなり、検算のずれ額まで読めなくなる
+      if(!e.voided && Number.isSafeInteger(e.amount)) g.total += e.amount;
+    });
+    var groups = order.map(function(n){ map[n].rows.sort(byDateThenId); return map[n]; });
+    if(orphan.rows.length){ orphan.rows.sort(byDateThenId); groups.push(orphan); }
+    var settlements = live(y.entries).filter(function(e){ return e.kind === 'settlement'; }).length;
+    return { income:income, groups:groups, settlements:settlements };
+  }
+
+  // §5.9 品質ガード。合計を**別の経路で**足し直して突き合わせる。
+  // 紙に並べる行を積み上げた額と、残高が使っている合計が一致しなければ、
+  // どちらかが嘘なので報告書を作らない（silent failure の禁止）
+  function auditReport(y){
+    var problems = [];
+    var income = sumOf(y.entries, 'income');
+    var expense = sumOf(y.entries, 'expense');
+
+    if(!Number.isSafeInteger(y.openingBalance)) problems.push('期首残高が数として読み取れません。');
+
+    // 1件ずつの形。読めない行が1つでもあると、どの合計も信用できない
+    live(y.entries).forEach(function(e){
+      var where = (e && isNonEmptyString(e.date) ? ymdJP(e.date) : '日付なし') +
+                  'の「' + ((e && isNonEmptyString(e.category)) ? e.category : '費目なし') + '」';
+      if(!e || ['income', 'expense', 'settlement'].indexOf(e.kind) < 0){
+        problems.push(where + '：収入か支出かが読み取れません。');
+        return;
+      }
+      if(!Number.isSafeInteger(e.amount) || e.amount <= 0){
+        problems.push(where + '：金額が読み取れません。');
+        return;
+      }
+      if(!isNonEmptyString(e.date)) problems.push(where + '：日付が入っていません。');
+      if(e.kind !== 'settlement' && !isNonEmptyString(e.category)){
+        problems.push(where + '：費目が入っていないため、報告書に出せません。');
+      }
+    });
+
+    // 本文の費目別の内訳（構成5）に並ぶ行の積み上げ ＝ 合計欄か。
+    // 費目の無い記録があると、行の合計と「合計」の欄が紙の上で食い違う
+    var sum = function(a, c){ return a + c.total; };
+    var ci = categoryTotals(y, 'income').reduce(sum, 0);
+    var ce = categoryTotals(y, 'expense').reduce(sum, 0);
+    if(ci !== income) problems.push('費目別の内訳に出せない収入が ' + yen(Math.abs(income - ci)) + ' あります。');
+    if(ce !== expense) problems.push('費目別の内訳に出せない支出が ' + yen(Math.abs(expense - ce)) + ' あります。');
+
+    // 別紙に並ぶ行の積み上げ ＝ 残高が使っている合計か
+    var annex = buildAnnex(y);
+    var ai = annex.income.reduce(function(a, e){
+      return a + ((e.voided || !Number.isSafeInteger(e.amount)) ? 0 : e.amount);
+    }, 0);
+    var ae = annex.groups.reduce(function(a, g){ return a + g.total; }, 0);
+    if(ai !== income) problems.push('明細に並ぶ収入の合計が、収入合計と ' + yen(Math.abs(income - ai)) + ' ずれています。');
+    if(ae !== expense) problems.push('明細に並ぶ支出の合計が、支出合計と ' + yen(Math.abs(expense - ae)) + ' ずれています。');
+
+    // 3つの残高の式（§5.3）。今日の実装では必ず通るが、式を書き換えたときの番人として置く
+    var acct = accountBalance(y);
+    if(y.openingBalance + income - expense !== acct){
+      problems.push('収支のまとめが合いません（期首＋収入−支出＝残高 になっていません）。');
+    }
+    if(envelopeExpected(y) !== acct + advanceOutstanding(y)){
+      problems.push('現金の所在が合いません（残高＋立て替え未精算＝封筒 になっていません）。');
+    }
+    return problems;
+  }
+
+  // 紙の上の金額。マイナスを「−」1文字で出すと読み落とされる（Phase 3.1 と同じ考え方＝符号は言葉で出す）。
+  // 部費がマイナスになるのは立て替えで回している時期に実際に起きる
+  function yenReport(n){
+    return n < 0 ? ('不足 ' + yen(-n)) : yen(n);
+  }
+
+  function pctLabel(part, whole){
+    if(whole <= 0) return '—';
+    var p = part / whole * 100;
+    if(p > 0 && p < 0.5) return '1%未満';       // 0% と書くと「使っていない」に見える
+    return Math.round(p) + '%';
+  }
+
+  function kindLabel(kind){
+    return kind === 'income' ? '収入' : (kind === 'settlement' ? '精算' : '支出');
+  }
+
+  // 表のセル。取消線は td でなく中身の span に引く（同じセルに書く取消理由まで消さないため）
+  function cell(cls, txt, voided){
+    var td = el('td', cls);
+    td.appendChild(el('span', voided ? 'strike' : null, txt));
+    return td;
+  }
+
+  function twoColRow(tbody, label, value, cls){
+    var tr = el('tr', cls || null);
+    tr.appendChild(el('td', null, label));
+    tr.appendChild(el('td', 'num', value));
+    tbody.appendChild(tr);
+    return tr;
+  }
+
+  // 明細の「内容」欄。この1件が何だったかを、あとから読む人が分かる形にまとめる
+  function detailText(e){
+    var parts = [];
+    if(isNonEmptyString(e.purpose)) parts.push('［' + e.purpose + '］');
+    if(isNonEmptyString(e.note)) parts.push(e.note);
+    if(Number.isSafeInteger(e.headcount) && e.headcount > 0){
+      parts.push(e.amount % e.headcount === 0
+        ? e.headcount + '名×' + yen(e.amount / e.headcount)
+        : e.headcount + '名');
+    }
+    if(e.kind === 'expense' && e.paidFrom === 'advance') parts.push('（立て替え中）');
+    else if(e.kind === 'expense' && isNonEmptyString(e.settledAt)) parts.push('（立て替え・' + mdJP(e.settledAt) + 'に精算）');
+    return parts.join('　');
+  }
+
+  function head(row, cols){
+    cols.forEach(function(c){
+      var th = el('th', c[1] || null, c[0]);
+      if(c[2]) th.colSpan = c[2];
+      row.appendChild(th);
+    });
+  }
+
+  function newTable(){
+    var t = el('table', 'keep');
+    return t;
+  }
+
+  function buildReport(key, y){
+    var today = localDateISO(new Date());
+    var per = fiscalPeriod(key, today);
+    var s = state.settings;
+    var income  = sumOf(y.entries, 'income');
+    var expense = sumOf(y.entries, 'expense');
+    var acct = accountBalance(y);
+    var adv  = advanceOutstanding(y);
+    var annex = buildAnnex(y);
+    var main = $('report-main');
+    clear(main);
+
+    /* --- 1 表題（空の欄は静かに省く。「○○高校」と書かれた紙を配らせない） --- */
+    var title = [key + '年度'];
+    if(isNonEmptyString(s.schoolName)) title.push(s.schoolName);
+    if(isNonEmptyString(s.clubName))   title.push(s.clubName);
+    title.push('部費 収支報告書');
+    main.appendChild(el('div', 'r-title', title.join(' ')));
+
+    /* --- 2 期間 --- */
+    main.appendChild(el('div', 'r-range',
+      ymdJP(per.start) + '〜' + ymdJP(per.end) + (per.closed ? '' : '現在')));
+
+    /* --- 4 収支のまとめ --- */
+    main.appendChild(el('h3', null, '収支のまとめ'));
+    var t1 = newTable();
+    var b1 = el('tbody');
+    twoColRow(b1, '前年度からの繰越（期首残高）', yenReport(y.openingBalance));
+    twoColRow(b1, '収入の合計', yen(income));
+    twoColRow(b1, '支出の合計', yen(expense));
+    twoColRow(b1, per.closed ? '年度末の残高' : (ymdJP(per.end) + '現在の残高'), yenReport(acct), 'total');
+    t1.appendChild(b1);
+    main.appendChild(t1);
+
+    /* --- 5 費目別の内訳 --- */
+    var ce = categoryTotals(y, 'expense');
+    main.appendChild(el('h3', null, '何に使ったか（費目別）'));
+    if(!ce.length){
+      main.appendChild(el('p', null, 'この期間の支出はありません。'));
+    } else {
+      var t2 = newTable();
+      var h2 = el('thead'); var hr2 = el('tr');
+      head(hr2, [['費目'], ['件数', 'num'], ['金額', 'num'], ['割合', 'num']]);
+      h2.appendChild(hr2); t2.appendChild(h2);
+      var b2 = el('tbody');
+      ce.forEach(function(c){
+        var tr = el('tr');
+        tr.appendChild(el('td', null, c.name));
+        tr.appendChild(el('td', 'num', c.count + '件'));
+        tr.appendChild(el('td', 'num', yen(c.total)));
+        var td = el('td', 'num');
+        td.appendChild(el('div', null, pctLabel(c.total, expense)));
+        var bar = el('div', 'bar');
+        var fill = el('span');
+        fill.style.width = (expense > 0 ? Math.max(1, Math.round(c.total / expense * 100)) : 0) + '%';
+        bar.appendChild(fill);
+        td.appendChild(bar);
+        tr.appendChild(td);
+        b2.appendChild(tr);
+      });
+      var trT = el('tr', 'total');
+      trT.appendChild(el('td', null, '合計'));
+      trT.appendChild(el('td', 'num', ce.reduce(function(a, c){ return a + c.count; }, 0) + '件'));
+      trT.appendChild(el('td', 'num', yen(expense)));
+      trT.appendChild(el('td', 'num', ''));
+      b2.appendChild(trT);
+      t2.appendChild(b2);
+      main.appendChild(t2);
+    }
+
+    var ci = categoryTotals(y, 'income');
+    if(ci.length){
+      // 収入は費目が少ないので棒は描かない（2本の棒は割合の情報にならない）
+      main.appendChild(el('h3', null, 'どこから入ったか（費目別）'));
+      var t3 = newTable();
+      var h3e = el('thead'); var hr3 = el('tr');
+      head(hr3, [['費目'], ['件数', 'num'], ['金額', 'num']]);
+      h3e.appendChild(hr3); t3.appendChild(h3e);
+      var b3 = el('tbody');
+      ci.forEach(function(c){
+        var tr = el('tr');
+        tr.appendChild(el('td', null, c.name));
+        tr.appendChild(el('td', 'num', c.count + '件'));
+        tr.appendChild(el('td', 'num', yen(c.total)));
+        b3.appendChild(tr);
+      });
+      var trI = el('tr', 'total');
+      trI.appendChild(el('td', null, '合計'));
+      trI.appendChild(el('td', 'num', ci.reduce(function(a, c){ return a + c.count; }, 0) + '件'));
+      trI.appendChild(el('td', 'num', yen(income)));
+      b3.appendChild(trI);
+      t3.appendChild(b3);
+      main.appendChild(t3);
+    }
+
+    /* --- 7 現金の所在（§5.3 の3つの残高を、保護者の言葉で1つずつ） --- */
+    main.appendChild(el('h3', null, 'いまお金がどこにあるか'));
+    var t4 = newTable();
+    var b4 = el('tbody');
+    if(adv === 0){
+      // 立て替えが無いときに2行に分けると、同じ数字が2回出て読む人が混乱する
+      twoColRow(b4, '部費の封筒にあるはずの額', yenReport(envelopeExpected(y)));
+    } else {
+      twoColRow(b4, '帳簿の上の残高', yenReport(acct));
+      twoColRow(b4, '顧問が立て替えたまま、まだ戻していない額', yenReport(adv));
+      twoColRow(b4, '部費の封筒にあるはずの額', yenReport(envelopeExpected(y)), 'total');
+    }
+    t4.appendChild(b4);
+    main.appendChild(t4);
+
+    var lc = lastCount(y);
+    main.appendChild(el('p', 'r-range',
+      lc ? ('最後に封筒を数えた日：' + ymdJP(lc.date) +
+            (lc.counted === lc.expected ? '（記録と一致していました）'
+                                        : '（記録と ' + yen(Math.abs(lc.counted - lc.expected)) + ' の差がありました）'))
+         : 'この期間はまだ封筒を数えていません。'));
+
+    /* --- 8 脚注（§5.8 で入った文。ここを落とすと「4月から完璧に記録がある」ふりになる） --- */
+    if(isNonEmptyString(y.openingNote)){
+      main.appendChild(el('p', 'note-line', y.openingNote));
+    }
+
+    /* --- 9 末尾の3行 --- */
+    var count = annex.income.length + annex.groups.reduce(function(a, g){ return a + g.rows.length; }, 0);
+    var foot = el('div', 'foot');
+    // 記録が1件も無い年度で「保管しています」と書くと、無いものを保管したことになる
+    if(count){
+      foot.appendChild(el('p', null, '領収書は保管しています。ご希望の方はいつでもご確認いただけます。'));
+    }
+    foot.appendChild(el('p', null, count
+      ? ('明細（全' + count + '件）は別紙のとおりです。')
+      : 'この期間の明細はまだありません。'));
+    foot.appendChild(el('p', null, ymdJP(today) + '　作成' +
+      (isNonEmptyString(s.authorName) ? '：' + s.authorName : '')));
+    main.appendChild(foot);
+
+    buildAnnexPage(key, y, annex, income, expense);
+  }
+
+  function buildAnnexPage(key, y, annex, income, expense){
+    var box = $('report-annex');
+    clear(box);
+    box.appendChild(el('div', 'r-title', key + '年度　部費 明細（別紙）'));
+
+    /* 収入は日付順 */
+    box.appendChild(el('h3', null, '収入の明細'));
+    if(!annex.income.length){
+      box.appendChild(el('p', null, 'この期間の収入はありません。'));
+    } else {
+      var t = newTable();
+      var th = el('thead'); var hr = el('tr');
+      head(hr, [['日付'], ['費目'], ['内容'], ['金額', 'num']]);
+      th.appendChild(hr); t.appendChild(th);
+      var tb = el('tbody');
+      annex.income.forEach(function(e){
+        var tr = el('tr');
+        tr.appendChild(cell('date', mdJP(e.date), e.voided));
+        tr.appendChild(cell(null, e.category || '—', e.voided));
+        var td = cell(null, detailText(e), e.voided);
+        if(e.voided) td.appendChild(el('div', 'reason', '取消：' + (e.voidReason || '理由なし')));
+        tr.appendChild(td);
+        tr.appendChild(cell('num', yen(e.amount), e.voided));
+        tb.appendChild(tr);
+      });
+      var trT = el('tr', 'total');
+      var tdL = el('td', null, '収入の合計'); tdL.colSpan = 3;
+      trT.appendChild(tdL);
+      trT.appendChild(el('td', 'num', yen(income)));
+      tb.appendChild(trT);
+      t.appendChild(tb);
+      box.appendChild(t);
+    }
+
+    /* 支出は費目ごと（費目の中は日付順） */
+    box.appendChild(el('h3', null, '支出の明細（費目ごと）'));
+    if(!annex.groups.length){
+      box.appendChild(el('p', null, 'この期間の支出はありません。'));
+    } else {
+      var t2 = newTable();
+      var th2 = el('thead'); var hr2 = el('tr');
+      head(hr2, [['日付'], ['内容'], ['金額', 'num']]);
+      th2.appendChild(hr2); t2.appendChild(th2);
+      var tb2 = el('tbody');
+      annex.groups.forEach(function(g){
+        var gr = el('tr', 'group');
+        var gl = el('td', null, g.name); gl.colSpan = 2;
+        gr.appendChild(gl);
+        gr.appendChild(el('td', 'num', yen(g.total)));
+        tb2.appendChild(gr);
+        g.rows.forEach(function(e){
+          var tr = el('tr');
+          tr.appendChild(cell('date', mdJP(e.date), e.voided));
+          var td = cell(null, detailText(e) || '—', e.voided);
+          if(e.voided) td.appendChild(el('div', 'reason', '取消：' + (e.voidReason || '理由なし')));
+          tr.appendChild(td);
+          tr.appendChild(cell('num', yen(e.amount), e.voided));
+          tb2.appendChild(tr);
+        });
+      });
+      var trT2 = el('tr', 'total');
+      var tdL2 = el('td', null, '支出の合計'); tdL2.colSpan = 2;
+      trT2.appendChild(tdL2);
+      trT2.appendChild(el('td', 'num', yen(expense)));
+      tb2.appendChild(trT2);
+      t2.appendChild(tb2);
+      box.appendChild(t2);
+    }
+
+    // 件数が合わない理由を先に書いておく（読む人が数え直したときに詰まらないように）
+    if(annex.settlements){
+      box.appendChild(el('p', 'r-range',
+        '※ 立て替えの精算（顧問が立て替えた分を封筒から戻したこと）は ' + annex.settlements +
+        '件ありますが、収入でも支出でもないため明細には載せていません。'));
+    }
+  }
+
+  function reportYearKeys(){
+    var keys = Object.keys(state.years).filter(function(k){
+      var y = state.years[k];
+      return y.entries.length > 0 || y.openingBalance !== 0;
+    });
+    var cur = currentYearKey();
+    if(keys.indexOf(cur) < 0) keys.push(cur);
+    return keys.sort().reverse();
+  }
+
+  function renderReportCard(){
+    var sel = $('f-report-year');
+    var want = sel.value;
+    var keys = reportYearKeys();
+    clear(sel);
+    keys.forEach(function(k){
+      var op = document.createElement('option');
+      op.value = k;
+      op.textContent = k + '年度';
+      sel.appendChild(op);
+    });
+    sel.value = (keys.indexOf(want) >= 0) ? want : currentYearKey();
+
+    var miss = [];
+    if(!isNonEmptyString(state.settings.schoolName)) miss.push('学校名');
+    if(!isNonEmptyString(state.settings.authorName)) miss.push('作成者名');
+    text($('report-hint'), miss.length
+      ? ('設定に' + miss.join('と') + 'を入れると、そのまま配れる形になります（無くても作れます）。')
+      : '印刷すると、本文がA4 1枚・明細が別紙になります。');
+  }
+
+  function openReport(){
+    var key = $('f-report-year').value || currentYearKey();
+    var y = yearBucket(key);
+    var problems = auditReport(y);
+    var box = $('report-error');
+    var list = $('report-error-list');
+    clear(list);
+    if(problems.length){
+      problems.forEach(function(p){ list.appendChild(el('li', null, p)); });
+      show(box);
+      try { box.scrollIntoView({ block:'center' }); }
+      catch(err){ diag('食い違いの表示への移動に失敗: ' + describe(err)); }
+      diag('報告書を作りませんでした（食い違い ' + problems.length + '件）。');
+      return;
+    }
+    hide(box);
+    buildReport(key, y);
+
+    // 画面にだけ出す行。領収書の「ある/ない」は紙に書かないと決めたので、
+    // 本人があとから確かめられる場所をここに用意する（2026-07-26 本人判断）
+    var noReceipt = live(y.entries).filter(function(e){
+      return e.kind === 'expense' && !Number.isSafeInteger(e.receiptNo);
+    }).length;
+
+    show($('report'));
+    document.body.classList.add('report-open');
+    $('report').scrollTop = 0;
+
+    // 高さは表示してからでないと測れない（display:none のあいだは0になる）
+    var mm = heightInMM($('report-main'));
+    // 使えるのは269mm。費目9つ（いまの費目リストの上限）で実測262mmなので、
+    // 265mmを超えたときだけ知らせる（毎回出る警告は読まれなくなる）
+    var tight = (mm !== null && mm > 265);
+
+    text($('report-note'),
+      'この行は画面だけに出ます（紙には印刷されません）。' +
+      (noReceipt ? '　領収書「ない」で記録した支出が ' + noReceipt + '件あります。'
+                 : '　この年度の支出は、すべて領収書ありで記録されています。') +
+      (tight ? '　⚠ いまの内容は本文がA4 1枚に収まらないかもしれません（印刷プレビューで確かめてください）。' : '') +
+      '　印刷が始まらないときは、ブラウザのメニューから「プリント」を選んでください。');
+  }
+
+  // 本文の高さをミリで測る。A4縦297mm − 上下余白14mm×2 ＝ 使えるのは269mm。
+  // はみ出しても紙は黙って2枚になるだけなので、印刷する前に画面で知らせる（§5.9 受け入れ基準）
+  function heightInMM(node){
+    var probe = document.createElement('div');
+    probe.style.cssText = 'width:100mm;position:absolute;visibility:hidden;pointer-events:none;';
+    document.body.appendChild(probe);
+    var perMM = probe.getBoundingClientRect().width / 100;
+    probe.parentNode.removeChild(probe);
+    if(!(perMM > 0)) return null;
+
+    // 測るあいだだけ紙の本文幅（A4 210mm − 余白14mm×2 ＝ 182mm）にする。
+    // スマホの細い画面で測ると行が折り返して、実際より高く出てしまう
+    var sheet = node.parentNode;
+    var prev = sheet.style.width;
+    sheet.style.width = (182 * perMM) + 'px';
+    var mm = node.getBoundingClientRect().height / perMM;
+    sheet.style.width = prev;
+    return mm;
+  }
+
+  function closeReport(){
+    hide($('report'));
+    document.body.classList.remove('report-open');
+    clear($('report-main'));
+    clear($('report-annex'));
+  }
+
+  function printReport(){
+    try { window.print(); }
+    catch(err){
+      diag('印刷の呼び出しに失敗: ' + describe(err));
+      text($('report-note'), '印刷を呼び出せませんでした。ブラウザのメニューから「プリント」を選んでください。');
+    }
+  }
+
+  /* --- CSV（明細のみ・BOM付きUTF-8・§5.10）。これは本人用なので領収書Noも入れる --- */
+  function csvCell(v){
+    var s = (v === null || v === undefined) ? '' : String(v);
+    if(/^[0-9]+$/.test(s)) return s;                 // 数はそのまま＝Excelで足せる
+    if(/^[=+\-@]/.test(s)) s = "'" + s;              // 表計算に式として読ませない
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+
+  function exportCsv(){
+    var key = $('f-report-year').value || currentYearKey();
+    var y = yearBucket(key);
+    var rows = [['年度', '連番', '日付', '区分', '費目', '目的', '内容', '金額', '人数',
+                 '支払い元', '精算日', '領収書No', '取消', '取消理由']];
+    y.entries.slice().sort(byDateThenId).forEach(function(e, i){
+      rows.push([
+        key, i + 1, e.date || '', kindLabel(e.kind), e.category || '', e.purpose || '', e.note || '',
+        Number.isSafeInteger(e.amount) ? e.amount : '',
+        (Number.isSafeInteger(e.headcount) && e.headcount > 0) ? e.headcount : '',
+        e.kind === 'expense' ? (e.paidFrom === 'advance' ? '立て替え' : '封筒') : '',
+        e.settledAt || '',
+        Number.isSafeInteger(e.receiptNo) ? e.receiptNo : '',
+        e.voided ? '取消' : '',
+        e.voided ? (e.voidReason || '') : ''
+      ]);
+    });
+    // 先頭のBOMが無いと、ExcelがUTF-8と気づかず日本語が化ける（§5.10）
+    var body = '\uFEFF' + rows.map(function(r){ return r.map(csvCell).join(','); }).join('\r\n') + '\r\n';
+    var ok = download('hakari-meisai-' + key + '-' + fileStamp(new Date()) + '.csv', body, 'text/csv;charset=utf-8');
+    if(ok) diag(key + '年度の明細を書き出しました（' + (rows.length - 1) + '件）。');
+    return ok;
+  }
+
+  /* =========================================================
      9. 全削除（§6 確認＋件数明示＋直前のバックアップ）
      ========================================================= */
   function openWipe(){
@@ -2418,6 +3069,9 @@
     setReceipt(true);
     closePurposeNew();
     saveBlocked = false;
+    closeReport();                           // 消した年度の紙が開いたまま残らないように
+    hide($('report-error'));
+    syncSettingsFields();
     hide($('void-panel'));
     hide($('wipe-panel'));
     hide($('notice-corrupted'));
@@ -2456,6 +3110,36 @@
     // §5.6 領収書
     $('rc-yes').addEventListener('click', function(){ setReceipt(true); });
     $('rc-no').addEventListener('click',  function(){ setReceipt(false); });
+
+    // §5.9 報告書に印字する3つ（要判断②）。入力中は state だけ更新し、
+    // 欄を離れたときに前後の空白を落とす（打っている最中に文字が消えると気持ちが悪い）
+    [['f-school', 'schoolName'], ['f-club', 'clubName'], ['f-author', 'authorName']].forEach(function(pair){
+      var input = $(pair[0]);
+      input.addEventListener('input', function(){
+        state.settings[pair[1]] = input.value;
+        save();
+      });
+      input.addEventListener('change', function(){
+        state.settings[pair[1]] = input.value.trim();
+        input.value = state.settings[pair[1]];
+        save();
+        render();
+      });
+    });
+
+    // §5.9 収支報告書
+    $('btn-report').addEventListener('click', openReport);
+    $('btn-csv').addEventListener('click', exportCsv);
+    $('btn-report-print').addEventListener('click', printReport);
+    $('btn-report-csv').addEventListener('click', exportCsv);
+    $('btn-report-close').addEventListener('click', closeReport);
+    $('f-report-year').addEventListener('change', function(){
+      hide($('report-error'));       // 年度を変えたら、前の年度の食い違いは消す
+      renderReportCard();
+    });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape' && !$('report').classList.contains('hidden')) closeReport();
+    });
 
     // §11 Phase 3 さかのぼり入力
     $('btn-back-toggle').addEventListener('click', function(){ setBackdate(true); });
@@ -2616,10 +3300,17 @@
     }
   }
 
+  function syncSettingsFields(){
+    $('f-school').value = state.settings.schoolName || '';
+    $('f-club').value   = state.settings.clubName   || '';
+    $('f-author').value = state.settings.authorName || '';
+  }
+
   loadState();
   applySeed(state);
   computeQuickOrder();
   bind();
+  syncSettingsFields();
   $('f-date').value = localDateISO(new Date());
   setKind('expense');
   render();
@@ -2719,6 +3410,47 @@
     ]};
     diag('領収書番号テスト（§5.6）: ' + (nextReceiptNo(y6) === 3 ? 'OK（取消の2番は欠番のまま）' : 'NG'));
     diag('領収書番号の初回: ' + (nextReceiptNo({ entries:[] }) === 1 ? 'OK' : 'NG'));
+
+    /* --- §5.9 収支報告書 --- */
+
+    // 検算の番人。正しいデータでは黙って通り、壊れたデータでは必ず止まること。
+    // ここが効かないと「合っていない紙」が保護者に渡る
+    var yR = { openingBalance:1000, entries:[
+      { id:1, kind:'income',  amount:24000, category:'部費徴収', date:'2026-04-10', voided:false },
+      { id:2, kind:'expense', amount:3000,  category:'審判費',   date:'2026-05-01', paidFrom:'envelope', voided:false },
+      { id:3, kind:'expense', amount:2000,  category:'審判費',   date:'2026-05-08', paidFrom:'envelope', voided:true, voidReason:'二重に入れた' }
+    ]};
+    diag('報告書の検算テスト（正しいデータ）: ' + (auditReport(yR).length === 0 ? 'OK（そのまま作れる）' : 'NG'));
+
+    var yNoCat = { openingBalance:1000, entries: yR.entries.concat(
+      [{ id:4, kind:'expense', amount:500, category:'', date:'2026-05-09', voided:false }]) };
+    var pNoCat = auditReport(yNoCat);
+    diag('報告書の検算テスト（費目なしを混ぜる）: ' +
+      (pNoCat.length >= 2 && pNoCat.join('／').indexOf('500円') >= 0 ? 'OK（止まってずれ額が出る）' : 'NG'));
+
+    var yBadAmt = { openingBalance:1000, entries: yR.entries.concat(
+      [{ id:5, kind:'expense', amount:'たくさん', category:'雑費', date:'2026-05-10', voided:false }]) };
+    diag('報告書の検算テスト（金額が壊れている）: ' + (auditReport(yBadAmt).length > 0 ? 'OK（止まる）' : 'NG'));
+
+    // 別紙の組み立て（2026-07-26 本人の指定＝収入は日付順・支出は費目別）
+    var an = buildAnnex(yR);
+    diag('別紙の組み立てテスト: ' + ((an.income.length === 1 && an.groups.length === 1 &&
+      an.groups[0].name === '審判費' && an.groups[0].rows.length === 2 && an.groups[0].total === 3000)
+      ? 'OK（取消行は紙に残るが小計に入らない）' : 'NG'));
+
+    var pc1 = fiscalPeriod('2026', '2027-07-01');
+    var pc2 = fiscalPeriod('2026', '2026-07-26');
+    diag('年度の期間テスト: ' + ((pc1.closed && pc1.end === '2027-03-31' &&
+      !pc2.closed && pc2.end === '2026-07-26') ? 'OK' : 'NG'));
+
+    diag('割合の表示テスト: ' + ((pctLabel(5000, 10000) === '50%' && pctLabel(1, 10000) === '1%未満' &&
+      pctLabel(0, 0) === '—') ? 'OK' : 'NG'));
+    diag('マイナス金額の表示テスト: ' + ((yenReport(-24580) === '不足 24,580円' && yenReport(0) === '0円' &&
+      yenReport(1000) === '1,000円') ? 'OK' : 'NG'));
+
+    // CSVは本人がExcelで開く。数はそのまま・式に化ける文字は無害化・引用符は二重化
+    var cc = [csvCell('1000'), csvCell('審判費'), csvCell('=1+1'), csvCell('内容に"引用符"'), csvCell(null)].join('|');
+    diag('CSVの組み立てテスト: ' + (cc === '1000|"審判費"|"\'=1+1"|"内容に""引用符"""|""' ? 'OK' : 'NG（' + cc + '）'));
 
     diag('よく使う項目: 支出' + quickOrder.filter(function(q){ return q.kind === 'expense'; }).length +
          '個／収入' + quickOrder.filter(function(q){ return q.kind === 'income'; }).length + '個');
