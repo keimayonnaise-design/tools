@@ -1,0 +1,1335 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+<title>Diamond⭐︎ — スコアシートを、読める・書けるへ</title>
+<style>
+/* =========================================================
+   Diamond⭐︎ スタイル
+   ・外部フォント/CDNは読み込まない（通信ゼロ・仕様書§7）
+   ・タップ目標は44px以上、入力は16px以上（iOSの自動ズーム防止）
+   ========================================================= */
+:root{
+  --bg:#FAF8F3;         /* 紙の色 */
+  --surface:#FFFFFF;
+  --ink:#1F2421;        /* スコアのインク */
+  --muted:#6B6F6C;
+  --line:#E3DED3;
+  --accent:#15604A;     /* 芝の緑 */
+  --on-accent:#FFFFFF;  /* 緑のボタンに載せる文字。明暗を反転させてAAを保つ */
+  --accent-weak:#E9F0EC;
+  --gold:#9A7B12;       /* ◇が完成したときの光 */
+  --bad:#9B2C2C;
+  --shadow:0 1px 2px rgba(31,36,33,.06), 0 6px 18px rgba(31,36,33,.05);
+  --radius:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#15181A; --surface:#1E2325; --ink:#ECE9E1; --muted:#9BA3A0;
+    --line:#333B3D; --accent:#5FB394; --on-accent:#10201A; --accent-weak:#1C2E28; --gold:#D9B84A;
+    --bad:#E88B8B;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25);
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px; line-height:1.75;
+  padding:0 0 max(28px, env(safe-area-inset-bottom));
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:560px; margin:0 auto; padding:0 16px}
+
+/* ---- ヘッダー ---- */
+header{padding:18px 0 6px}
+.brand{display:flex; align-items:baseline; gap:8px}
+.brand h1{font-size:20px; margin:0; letter-spacing:.02em}
+.brand .sub{font-size:12px; color:var(--muted)}
+.tagline{font-size:13px; color:var(--muted); margin:2px 0 0}
+
+/* ---- カード ---- */
+.card{
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+  padding:18px 16px; margin:14px 0; box-shadow:var(--shadow);
+}
+.card h2{font-size:16px; margin:0 0 10px}
+.card h3{font-size:14px; margin:0 0 6px; color:var(--muted); font-weight:600}
+.card p{margin:0 0 10px}
+.card p:last-child{margin-bottom:0}
+
+/* ---- ボタン ---- */
+button{
+  font:inherit; color:inherit; cursor:pointer;
+  min-height:48px; border-radius:12px; border:1px solid var(--line);
+  background:var(--surface); padding:12px 16px; width:100%;
+  text-align:left; line-height:1.6;
+  transition:background .15s ease, border-color .15s ease, transform .12s ease;
+}
+button:active{transform:scale(.995)}
+button:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+.btn-main{
+  background:var(--accent); color:var(--on-accent); border-color:var(--accent);
+  text-align:center; font-weight:700;
+}
+.btn-sub{text-align:center}
+.btn-quiet{
+  background:transparent; border:none; color:var(--muted);
+  min-height:44px; text-align:center; text-decoration:underline; padding:8px;
+}
+.btn-row{display:flex; gap:10px; margin-top:12px}
+.btn-row > *{flex:1}
+
+/* ---- マス（SVG） ---- */
+.cellbox{display:flex; justify-content:center; margin:4px 0 10px}
+svg.cell{
+  width:min(62vw, 250px); height:auto; color:var(--ink);
+  display:block;
+}
+svg.cell.small{width:min(46vw, 180px)}
+.caption{
+  min-height:3.2em; font-size:13.5px; color:var(--muted);
+  text-align:center; margin:0 auto; max-width:24em;
+  transition:opacity .2s ease;
+}
+.caption.step{color:var(--ink)}
+
+/* ---- 現在地 ---- */
+.level-hero{text-align:center; padding:6px 0 2px}
+.level-hero .lv{
+  font-size:13px; color:var(--accent); font-weight:700; letter-spacing:.08em;
+}
+.level-hero .name{font-size:26px; font-weight:700; margin:2px 0 6px; letter-spacing:.02em}
+.level-hero .can{font-size:14px; color:var(--muted)}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 0}
+.chip{
+  font-size:12.5px; background:var(--accent-weak); color:var(--accent);
+  border-radius:999px; padding:4px 11px; white-space:nowrap;
+}
+.chip.miss{background:transparent; color:var(--muted); border:1px solid var(--line)}
+
+/* ---- 進み具合 ---- */
+.progress{display:flex; align-items:center; gap:10px; margin:6px 0 14px}
+.progress .bar{flex:1; height:6px; background:var(--line); border-radius:99px; overflow:hidden}
+.progress .bar i{display:block; height:100%; background:var(--accent); border-radius:99px; transition:width .25s ease}
+.progress .num{font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap}
+
+/* ---- 設問 ---- */
+.qtext{font-size:18px; font-weight:600; line-height:1.7; margin:0 0 14px}
+.choices{display:flex; flex-direction:column; gap:9px}
+.choices button{display:flex; gap:11px; align-items:flex-start}
+.choices .mark{
+  flex:none; width:26px; height:26px; border-radius:50%; border:1px solid var(--line);
+  display:flex; align-items:center; justify-content:center;
+  font-size:12.5px; color:var(--muted); margin-top:1px;
+}
+.choices button.picked{border-color:var(--accent); background:var(--accent-weak)}
+
+/* ---- 見直し ---- */
+.review-item{border-top:1px solid var(--line); padding:16px 0}
+.review-item:first-of-type{border-top:none; padding-top:4px}
+.review-q{font-weight:600; margin:0 0 8px}
+.answer-line{font-size:14px; margin:0 0 4px}
+.answer-line b{color:var(--accent)}
+.your-line{font-size:14px; color:var(--muted); margin:0 0 8px}
+.why{font-size:14px; background:var(--accent-weak); border-radius:10px; padding:11px 13px; margin:0}
+.ref{font-size:12px; color:var(--muted); margin:6px 0 0}
+
+/* ---- ロードマップ ---- */
+.pillar{display:flex; gap:12px; padding:11px 0; border-top:1px solid var(--line)}
+.pillar:first-of-type{border-top:none}
+.pillar .ico{
+  flex:none; width:34px; height:34px; border-radius:10px; background:var(--accent-weak);
+  display:flex; align-items:center; justify-content:center; font-size:16px;
+}
+.pillar .body{flex:1; min-width:0}
+.pillar .name{font-weight:600; font-size:15px}
+.pillar .desc{font-size:13px; color:var(--muted); line-height:1.6}
+.badge{
+  font-size:11px; border:1px solid var(--line); color:var(--muted);
+  border-radius:99px; padding:1px 8px; margin-left:6px; white-space:nowrap;
+}
+.badge.now{border-color:var(--accent); color:var(--accent)}
+
+/* ---- しるし・注意 ---- */
+.lock{
+  text-align:center; font-size:12.5px; color:var(--muted);
+  margin:20px 0 6px; line-height:1.7;
+}
+.notice{
+  border:1px solid var(--bad); border-radius:12px; padding:13px 15px; margin:14px 0;
+  background:var(--surface);
+}
+.notice h3{color:var(--bad); font-size:14px; margin:0 0 6px}
+.hidden{display:none !important}
+.center{text-align:center}
+.mini{font-size:12.5px; color:var(--muted)}
+hr.soft{border:none; border-top:1px solid var(--line); margin:16px 0}
+details{margin-top:10px}
+summary{cursor:pointer; font-size:13px; color:var(--muted); min-height:32px; padding:4px 0}
+pre.diag{
+  font-size:11.5px; line-height:1.6; white-space:pre-wrap; word-break:break-all;
+  background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px; margin:8px 0 0;
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.01ms !important; transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <h1>Diamond⭐︎</h1>
+      <span class="sub">スコアシートの道場</span>
+    </div>
+    <p class="tagline">スコアシートを、読める・書ける・活かせるへ。</p>
+  </header>
+
+  <!-- データが読めなかったときのお知らせ（黙って初期化しない） -->
+  <div id="notice-corrupted" class="notice hidden">
+    <h3>前回の記録が読み取れませんでした</h3>
+    <p class="mini" id="corrupted-detail"></p>
+    <p class="mini">壊れたデータは<b>消していません</b>。下のボタンで書き出して残せます。</p>
+    <button type="button" id="btn-dump-corrupted" class="btn-sub">壊れたデータを書き出す</button>
+  </div>
+  <div id="notice-nosave" class="notice hidden">
+    <h3>この端末では記録を保存できません</h3>
+    <p class="mini">プライベートモードなどで保存がブロックされています。テストは受けられますが、結果は画面を閉じると消えます。</p>
+  </div>
+
+  <!-- ============ ホーム ============ -->
+  <main id="s-home">
+    <div class="card">
+      <div class="cellbox"><svg class="cell" id="hero-cell" viewBox="0 0 120 120" role="img" aria-label="スコアのマスに1人の走者の記録が描かれていく図"></svg></div>
+      <p class="caption" id="hero-caption"></p>
+      <button type="button" id="btn-replay" class="btn-quiet">もう一度見る</button>
+    </div>
+
+    <!-- 現在地（診断前は招待カード） -->
+    <div class="card" id="home-level"></div>
+
+    <div class="card">
+      <h2>Diamond でできるようになること</h2>
+      <div id="roadmap"></div>
+      <p class="mini" style="margin-top:12px">
+        いまは「確かめる」から開いています。順に開いていく予定です。
+      </p>
+    </div>
+
+    <p class="lock">🔒 記録はこの端末の中だけに保存されます。<br>通信も、ログインも、ありません。</p>
+    <button type="button" id="btn-settings" class="btn-quiet">設定とデータ</button>
+  </main>
+
+  <!-- ============ 診断 ============ -->
+  <main id="s-quiz" class="hidden">
+    <div class="progress">
+      <span class="num" id="q-num"></span>
+      <span class="bar"><i id="q-bar" style="width:0%"></i></span>
+      <span class="num" id="q-lv"></span>
+    </div>
+    <div class="card">
+      <div class="cellbox hidden" id="q-cellbox"><svg class="cell small" id="q-cell" viewBox="0 0 120 120" role="img"></svg></div>
+      <p class="qtext" id="q-text"></p>
+      <div class="choices" id="q-choices"></div>
+      <button type="button" id="btn-unknown" class="btn-quiet" style="margin-top:12px">わからない・とばす</button>
+    </div>
+    <div class="btn-row">
+      <button type="button" id="btn-back" class="btn-quiet">← 1つ戻る</button>
+      <button type="button" id="btn-stop" class="btn-quiet hidden">ここまでで結果を見る</button>
+    </div>
+  </main>
+
+  <!-- ============ 結果 ============ -->
+  <main id="s-result" class="hidden">
+    <div class="card">
+      <div class="level-hero">
+        <div class="lv" id="r-lv"></div>
+        <div class="name" id="r-name"></div>
+        <div class="can" id="r-can"></div>
+      </div>
+      <p class="mini center" id="r-near" style="margin-top:12px"></p>
+    </div>
+
+    <div class="card" id="r-done-card">
+      <h3>できていたこと</h3>
+      <div class="chips" id="r-done"></div>
+      <p class="mini" id="r-honest" style="margin-top:12px"></p>
+    </div>
+
+    <div class="card">
+      <h2 id="r-next-title">次に効くのはここ</h2>
+      <p id="r-next-what" style="font-weight:600"></p>
+      <p class="mini" id="r-next-why"></p>
+      <p class="ref" id="r-next-ref"></p>
+    </div>
+
+    <div class="card" id="r-review-card">
+      <h2 id="r-review-title"></h2>
+      <p class="mini" style="margin-bottom:6px">合っていた問題は省いてあります。ここだけ読めば十分です。</p>
+      <div id="r-review"></div>
+    </div>
+
+    <div class="btn-row">
+      <button type="button" id="btn-result-home" class="btn-main">ホームへ</button>
+    </div>
+    <button type="button" id="btn-retake" class="btn-quiet">もう一度確かめる</button>
+  </main>
+
+  <!-- ============ 設定 ============ -->
+  <main id="s-settings" class="hidden">
+    <div class="card">
+      <h2>このアプリの決め事（凡例）</h2>
+      <p class="mini">記号は流儀が分かれます。Diamond は教材の推奨（早稲田式ベース）に統一しています。<b>チームでは1つに統一するのが唯一の正解</b>です。</p>
+      <div id="legend"></div>
+    </div>
+
+    <div class="card">
+      <h2>データ</h2>
+      <p class="mini">記録はこの端末の中だけにあります。機種変更やブラウザの掃除で消えるので、ときどき書き出しておくと安心です。</p>
+      <div class="btn-row">
+        <button type="button" id="btn-export" class="btn-sub">書き出す</button>
+        <button type="button" id="btn-import" class="btn-sub">読み込む</button>
+      </div>
+      <input type="file" id="file-import" accept="application/json,.json" class="hidden">
+      <button type="button" id="btn-clear" class="btn-quiet" style="margin-top:10px">この端末の記録をすべて消す</button>
+      <details>
+        <summary>動作チェック（開発用）</summary>
+        <pre class="diag" id="selftest"></pre>
+      </details>
+    </div>
+
+    <button type="button" id="btn-settings-home" class="btn-main">ホームへ</button>
+  </main>
+
+</div>
+
+<script src="content/glyphs.js"></script>
+<script src="content/diagnostic.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* =========================================================
+   0. 小道具
+   ========================================================= */
+var SVGNS = 'http://www.w3.org/2000/svg';
+function $(id){ return document.getElementById(id); }
+function el(tag, cls, txt){
+  var e = document.createElement(tag);
+  if(cls) e.className = cls;
+  if(txt !== undefined && txt !== null) e.textContent = txt;
+  return e;
+}
+function svg(tag, attrs){
+  var e = document.createElementNS(SVGNS, tag);
+  for(var k in attrs){ if(Object.prototype.hasOwnProperty.call(attrs,k)) e.setAttribute(k, attrs[k]); }
+  return e;
+}
+function clear(node){ while(node.firstChild) node.removeChild(node.firstChild); }
+function show(node){ node.classList.remove('hidden'); }
+function hide(node){ node.classList.add('hidden'); }
+function reducedMotion(){
+  try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+  catch(e){ return false; }
+}
+
+/* =========================================================
+   1. 描画エンジン — 「描かれるマス」（仕様書 §5 F0）
+   ---------------------------------------------------------
+   早稲田式のマス＝ダイヤモンドの縮図。
+     右下=一塁 右上=二塁 左上=三塁 左下=本塁（反時計回り）
+   斜線は塁の順に引き、4本そろうと◇が閉じる＝得点。
+   描く順番は engine が決める（＝いつでも「正しい書く順番」になる）
+   ========================================================= */
+var Cell = (function(){
+  // ひし形の頂点（マスは 120×120）
+  var T = {x:60, y:13}, R = {x:105, y:56}, B = {x:60, y:99}, L = {x:15, y:56};
+  // 斜線1〜4（1=一塁 2=二塁 3=三塁 4=本塁）
+  var SLASH = [ [B,R], [R,T], [T,L], [L,B] ];
+  // 進塁理由を書く位置（区画の外側の角）
+  var REASON_POS = {
+    2: {x:113, y:27, anchor:'end'},
+    3: {x:7,   y:27, anchor:'start'},
+    4: {x:7,   y:110, anchor:'start'}
+  };
+  // 打撃結果（右下）の右端とベースライン。
+  // 下線（ゴロ）が y=114.5 に来ても、マスの枠（y=118.5）まで4の余白が残る位置。
+  var RES_RIGHT = 105, RES_BASE = 110;
+  var CENTER = {x:60, y:56};
+
+  // 文字幅のおおよそ（getBBoxは非表示時に0を返すので使わない）
+  function approxWidth(text, size){
+    var w = 0;
+    for(var i=0;i<text.length;i++){
+      var c = text.charCodeAt(i);
+      if(c === 45) w += 0.40;                       // -
+      else if(c === 40 || c === 41) w += 0.38;      // ( )
+      else if(c === 49) w += 0.36;                  // 1
+      else if(c < 128) w += 0.60;
+      else w += 1.0;
+    }
+    return w * size;
+  }
+  // 長い記号は縮めて、右下の区画からはみ出さないようにする
+  // 上限42は「6-4-3 を入れても一塁の斜線をまたがない」ぎりぎりの幅
+  function fitSize(text){
+    var size = 19;
+    while(size > 11 && approxWidth(text, size) > 42) size -= 1;
+    return size;
+  }
+  function lineLen(a, b){ return Math.sqrt((a.x-b.x)*(a.x-b.x) + (a.y-b.y)*(a.y-b.y)); }
+
+  function resolve(g){
+    if(typeof g === 'string'){
+      var found = (window.DIAMOND_GLYPHS || {})[g];
+      return found || {};
+    }
+    return g || {};
+  }
+
+  /* 1マスを組み立てる。要素は隠した状態で作り、step ごとに現す */
+  function build(svgEl, glyph){
+    var g = resolve(glyph);
+    clear(svgEl);
+    var steps = [];
+    var caps = g.captions || {};
+
+    // 枠（マスの外周）
+    svgEl.appendChild(svg('rect', {
+      x:1.5, y:1.5, width:117, height:117, rx:5,
+      fill:'none', stroke:'currentColor', 'stroke-opacity':.22, 'stroke-width':1.4
+    }));
+
+    // ひし形の薄い下敷き（区画の地図を見せるときだけ）。
+    // ふつうのマスには出さない——斜線を引いて◇が完成する体験を、
+    // 最初から線があることで薄めないため。
+    if(g.diamond || g.guides){
+      svgEl.appendChild(svg('path', {
+        d:'M ' + B.x + ' ' + B.y + ' L ' + R.x + ' ' + R.y + ' L ' + T.x + ' ' + T.y +
+          ' L ' + L.x + ' ' + L.y + ' Z',
+        fill:'none', stroke:'currentColor', 'stroke-opacity':.2,
+        'stroke-width':1.4, 'stroke-dasharray':'3 3'
+      }));
+    }
+
+    // 塁の名前（学習用の薄い案内）。区画の角に置き、ひし形の線をまたがせない
+    if(g.guides){
+      var guides = [['一塁',95,100],['二塁',95,26],['三塁',25,26],['本塁',25,100]];
+      guides.forEach(function(gd){
+        var t = svg('text', {x:gd[1], y:gd[2], 'text-anchor':'middle', 'font-size':11,
+          fill:'currentColor', 'fill-opacity':.45});
+        t.textContent = gd[0];
+        svgEl.appendChild(t);
+      });
+    }
+
+    function addStep(id, node, kind){
+      node.style.opacity = '0';
+      if(kind === 'line'){
+        var len = node.__len;
+        node.style.strokeDasharray = len;
+        node.style.strokeDashoffset = len;
+      }
+      svgEl.appendChild(node);
+      steps.push({
+        id: id,
+        caption: caps[id] || '',
+        dur: kind === 'line' ? 290 : 210,
+        reveal: function(instant){
+          if(instant){
+            node.style.transition = 'none';
+            node.style.opacity = '1';
+            if(kind === 'line') node.style.strokeDashoffset = '0';
+            return;
+          }
+          node.style.transition = kind === 'line'
+            ? 'stroke-dashoffset 290ms ease-out, opacity 90ms linear'
+            : 'opacity 210ms ease-out';
+          node.style.opacity = '1';
+          if(kind === 'line') node.style.strokeDashoffset = '0';
+        }
+      });
+    }
+
+    function mkLine(a, b, opt){
+      var n = svg('line', {
+        x1:a.x, y1:a.y, x2:b.x, y2:b.y,
+        stroke:'currentColor', 'stroke-width':(opt && opt.w) || 2.4,
+        'stroke-linecap':'round'
+      });
+      n.__len = lineLen(a, b);
+      return n;
+    }
+    function mkText(x, y, size, str, opt){
+      var attrs = {x:x, y:y, 'font-size':size, fill:'currentColor',
+        'text-anchor':(opt && opt.anchor) || 'middle',
+        'font-family':'inherit', 'font-weight':(opt && opt.weight) || 600};
+      var n = svg('text', attrs);
+      n.textContent = str;
+      // 左右反転（逆K）。反転の基点は文字の"中心"にする。
+      // アンカー位置（右端）を基点にすると、反転後に文字幅ぶん右へずれる。
+      if(opt && opt.mirror){
+        var center = (opt.mirrorCenter !== undefined) ? opt.mirrorCenter : x;
+        n.setAttribute('transform', 'translate(' + (2*center) + ',0) scale(-1,1)');
+      }
+      return n;
+    }
+
+    /* --- 1. 打撃結果（右下） --- */
+    var res = g.result;
+    if(res && res.text){
+      var size = fitSize(res.text);
+      var w = approxWidth(res.text, size);
+      var left = RES_RIGHT - w;
+      var grp = svg('g', {});
+      grp.appendChild(mkText(RES_RIGHT, RES_BASE, size, res.text,
+        {anchor:'end', mirror: !!res.mirror, mirrorCenter: left + w/2, weight:700}));
+      addStep('result', grp, 'text');
+
+      // 打球の種類の印（形が軌道そのもの）
+      if(res.trace === 'ground'){
+        addStep('trace', mkLine({x:left, y:RES_BASE+4.5}, {x:RES_RIGHT, y:RES_BASE+4.5}, {w:2}), 'line');
+      } else if(res.trace === 'fly'){
+        var top = RES_BASE - size * 0.95;
+        var arc = svg('path', {
+          d:'M ' + left + ' ' + top + ' Q ' + (left + w/2) + ' ' + (top - size*0.55) + ' ' + RES_RIGHT + ' ' + top,
+          fill:'none', stroke:'currentColor', 'stroke-width':2, 'stroke-linecap':'round'
+        });
+        arc.__len = w * 1.15;
+        addStep('trace', arc, 'line');
+      } else if(res.trace === 'liner'){
+        var ly = RES_BASE - size * 0.32;
+        addStep('trace', mkLine({x:RES_RIGHT+4, y:ly}, {x:RES_RIGHT+12, y:ly}, {w:2}), 'line');
+      }
+      // 内野安打は楕円で囲む（数字とゴロの下線をまとめて囲む）
+      // ry を詰めているのは、マスの枠（y=118.5）まで3以上の余白を残すため
+      if(res.oval){
+        var ovRx = w/2 + 4.5, ovRy = size * 0.60;
+        var ov = svg('ellipse', {
+          cx:(left + RES_RIGHT)/2, cy:RES_BASE - size*0.33,
+          rx:ovRx, ry:ovRy,
+          fill:'none', stroke:'currentColor', 'stroke-width':1.6
+        });
+        ov.__len = 2 * Math.PI * ovRx;
+        addStep('oval', ov, 'line');
+      }
+    }
+
+    /* --- 2. 斜線と、進塁の理由 --- */
+    var n = Math.max(0, Math.min(4, g.slashes || 0));
+    var reasons = g.reasons || {};
+    for(var i = 1; i <= n; i++){
+      var pair = SLASH[i-1];
+      addStep('slash:' + i, mkLine(pair[0], pair[1]), 'line');
+
+      var r = reasons[i];
+      if(r && REASON_POS[i]){
+        var p = REASON_POS[i];
+        if(typeof r === 'object' && r.circle){
+          // 丸で囲んだ打順番号＝打点
+          var gg = svg('g', {});
+          var cx = (i === 4) ? 20 : p.x, cy = (i === 4) ? 100 : p.y;
+          gg.appendChild(svg('circle', {cx:cx, cy:cy, r:12.5, fill:'none',
+            stroke:'currentColor', 'stroke-width':1.8}));
+          var tt = svg('text', {x:cx, y:cy + 5.6, 'font-size':15.5, 'text-anchor':'middle',
+            fill:'currentColor', 'font-weight':700});
+          tt.textContent = String(r.circle);
+          gg.appendChild(tt);
+          addStep('reason:' + i, gg, 'text');
+        } else {
+          addStep('reason:' + i, mkText(p.x, p.y, 15, String(r), {anchor:p.anchor}), 'text');
+        }
+      }
+    }
+
+    /* --- 3. 結末（中央） --- */
+    var c = g.center;
+    if(c){
+      if(c.out){
+        var roman = ['','Ⅰ','Ⅱ','Ⅲ'][c.out] || String(c.out);
+        addStep('center', mkText(CENTER.x, CENTER.y + 9, 26, roman, {weight:700}), 'text');
+      } else if(c.run){
+        addStep('center', svg('circle', {cx:CENTER.x, cy:CENTER.y, r:9, fill:'currentColor'}), 'text');
+      } else if(c.lob){
+        addStep('center', svg('circle', {cx:CENTER.x, cy:CENTER.y, r:8.4, fill:'none',
+          stroke:'currentColor', 'stroke-width':2}), 'text');
+      }
+    }
+
+    /* --- 4. ◇が完成したときの光 --- */
+    var glow = null;
+    if(n >= 4){
+      glow = svg('path', {
+        d:'M ' + B.x + ' ' + B.y + ' L ' + R.x + ' ' + R.y + ' L ' + T.x + ' ' + T.y +
+          ' L ' + L.x + ' ' + L.y + ' Z',
+        fill:'none', stroke:'var(--gold)', 'stroke-width':3.4, 'stroke-linejoin':'round'
+      });
+      glow.style.opacity = '0';
+      svgEl.appendChild(glow);
+    }
+
+    return {steps:steps, glow:glow, glyph:g};
+  }
+
+  /* 組み立て → 順番に描く。戻り値の stop() で中断できる */
+  function play(svgEl, glyph, opt){
+    opt = opt || {};
+    var built = build(svgEl, glyph);
+    var timers = [];
+    var stopped = false;
+    var instant = opt.instant || reducedMotion();
+
+    function say(txt){ if(opt.onCaption) opt.onCaption(txt); }
+
+    if(instant){
+      built.steps.forEach(function(s){ s.reveal(true); });
+      if(built.glow) built.glow.style.opacity = '.85';
+      say(opt.finalCaption || '');
+      if(opt.onEnd) opt.onEnd();
+      return {stop:function(){}};
+    }
+
+    var t = opt.delay || 240;
+    built.steps.forEach(function(s){
+      timers.push(setTimeout(function(){
+        if(stopped) return;
+        s.reveal(false);
+        if(s.caption) say(s.caption);
+      }, t));
+      t += s.dur + 150;
+    });
+
+    if(built.glow){
+      timers.push(setTimeout(function(){
+        if(stopped) return;
+        built.glow.style.transition = 'opacity 420ms ease-out';
+        built.glow.style.opacity = '1';
+        timers.push(setTimeout(function(){
+          if(stopped) return;
+          built.glow.style.transition = 'opacity 900ms ease-in';
+          built.glow.style.opacity = '.32';
+        }, 520));
+      }, t - 120));
+      t += 700;
+    }
+
+    timers.push(setTimeout(function(){
+      if(stopped) return;
+      if(opt.finalCaption) say(opt.finalCaption);
+      if(opt.onEnd) opt.onEnd();
+    }, t));
+
+    return {
+      stop:function(){
+        stopped = true;
+        timers.forEach(clearTimeout);
+      }
+    };
+  }
+
+  // アニメなしで完成形だけ描く
+  function still(svgEl, glyph){ return play(svgEl, glyph, {instant:true}); }
+
+  return {play:play, still:still, build:build};
+})();
+
+/* =========================================================
+   2. 保存（この端末の中だけ・壊れたデータは黙って消さない）
+   ========================================================= */
+var Store = (function(){
+  var KEY = 'diamond:v1';
+  var SCHEMA = 1;
+  var state = null;
+  var canSave = true;
+  var corruptedRaw = null;
+  var notes = [];
+
+  function note(s){ notes.push(s); }
+  function describe(err){
+    if(!err) return '原因不明';
+    return (err.name || 'Error') + ': ' + (err.message || String(err));
+  }
+  function empty(){
+    return {schemaVersion:SCHEMA, settings:{}, latest:null, history:[], weak:{}};
+  }
+  function normalize(raw){
+    var d = empty();
+    if(!raw || typeof raw !== 'object') return d;
+    d.settings = (raw.settings && typeof raw.settings === 'object') ? raw.settings : {};
+    d.latest = (raw.latest && typeof raw.latest === 'object') ? raw.latest : null;
+    d.history = Array.isArray(raw.history) ? raw.history.slice(-50) : [];
+    d.weak = (raw.weak && typeof raw.weak === 'object') ? raw.weak : {};
+    return d;
+  }
+  function quarantine(raw, why){
+    corruptedRaw = raw;
+    var stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    try{
+      localStorage.setItem('diamond.corrupted.' + stamp, raw);
+      note('壊れたデータを diamond.corrupted.' + stamp + ' に退避しました（' + why + '）');
+    } catch(err){
+      note('退避に失敗したため、元のデータはそのまま残しています（' + describe(err) + '）');
+      canSave = false;   // 上書きすると失われるので保存を止める
+    }
+  }
+  function load(){
+    var raw = null;
+    try{ raw = localStorage.getItem(KEY); }
+    catch(err){
+      canSave = false;
+      note('この端末では保存が使えません: ' + describe(err));
+      state = empty();
+      return {ok:false, reason:'nostorage'};
+    }
+    if(raw === null){ state = empty(); return {ok:true, fresh:true}; }
+    var parsed = null;
+    try{ parsed = JSON.parse(raw); }
+    catch(err){
+      quarantine(raw, 'JSONとして読めない');
+      state = empty();
+      return {ok:false, reason:'broken', detail:describe(err)};
+    }
+    if(typeof parsed.schemaVersion === 'number' && parsed.schemaVersion > SCHEMA){
+      corruptedRaw = raw;
+      canSave = false;
+      state = normalize(parsed);
+      return {ok:false, reason:'newer'};
+    }
+    state = normalize(parsed);
+    return {ok:true};
+  }
+  function save(){
+    if(!canSave) return false;
+    try{
+      state.schemaVersion = SCHEMA;
+      localStorage.setItem(KEY, JSON.stringify(state));
+      return true;
+    } catch(err){
+      note('保存に失敗: ' + describe(err));
+      return false;
+    }
+  }
+  return {
+    load:load, save:save,
+    get:function(){ return state; },
+    set:function(s){ state = s; },
+    canSave:function(){ return canSave; },
+    corrupted:function(){ return corruptedRaw; },
+    notes:function(){ return notes; },
+    key:KEY, schema:SCHEMA, empty:empty, normalize:normalize
+  };
+})();
+
+/* =========================================================
+   3. 採点（レベル計）
+   ---------------------------------------------------------
+   落とすための線ではなく、いまどこにいるかを出すための線。
+   途中でやめても、答えた分だけで暫定の現在地を出す。
+   ========================================================= */
+var Score = (function(){
+  var D = window.DIAMOND_DIAGNOSTIC;
+
+  function levelDef(l){
+    for(var i=0;i<D.levels.length;i++){ if(D.levels[i].level === l) return D.levels[i]; }
+    return null;
+  }
+  function totalOf(l){
+    var n = 0;
+    D.questions.forEach(function(q){ if(q.level === l) n++; });
+    return n;
+  }
+  function byId(id){
+    for(var i=0;i<D.questions.length;i++){ if(D.questions[i].id === id) return D.questions[i]; }
+    return null;
+  }
+
+  /* answers = [{id, choice, ok}]（choice = -1 は「わからない」） */
+  function judge(answers){
+    var per = {};
+    [0,1,2,3].forEach(function(l){ per[l] = {c:0, t:0, all:totalOf(l)}; });
+
+    answers.forEach(function(a){
+      var q = byId(a.id);
+      if(!q) return;
+      per[q.level].t++;
+      if(a.ok) per[q.level].c++;
+    });
+
+    // 現在地 = 0から順に見て、通った最後のレベル
+    var current = -1;
+    for(var l = 0; l <= 3; l++){
+      var s = per[l];
+      if(s.t === 0) break;                     // 測っていない
+      var def = levelDef(l);
+      var line = Math.ceil(def.passLine * s.t / s.all);   // 途中終了なら比例で下げる
+      if(s.c >= line) current = l; else break;
+    }
+
+    // 「届きかけている」= 次のレベルが4割以上できている
+    var near = null;
+    var nx = current + 1;
+    if(nx <= 3 && per[nx].t > 0 && (per[nx].c / per[nx].t) >= 0.4) near = nx;
+
+    // 弱点タグ（間違えた数の多い順・レベルが低い方を優先）
+    var miss = {};
+    var hit = {};
+    answers.forEach(function(a){
+      var q = byId(a.id);
+      if(!q) return;
+      if(a.ok) hit[q.tag] = (hit[q.tag] || 0) + 1;
+      else miss[q.tag] = (miss[q.tag] || 0) + 1;
+    });
+
+    return {current:current, near:near, per:per, miss:miss, hit:hit};
+  }
+
+  /* 次に効くこと = いちばん低いレベルで落としたタグ */
+  function nextTag(answers, judged){
+    var best = null;
+    for(var i=0;i<D.questions.length;i++){
+      var q = D.questions[i];
+      var a = null;
+      for(var j=0;j<answers.length;j++){ if(answers[j].id === q.id){ a = answers[j]; break; } }
+      if(a && !a.ok){ best = q.tag; break; }     // 出題順＝易しい順なので最初の取りこぼし
+    }
+    if(!best){
+      // 全問正解 → 次のレベルの入口を勧める
+      var nx = Math.min(3, (judged.current < 0 ? 0 : judged.current) + 1);
+      for(var k=0;k<D.questions.length;k++){
+        if(D.questions[k].level === nx){ best = D.questions[k].tag; break; }
+      }
+    }
+    return best || '守備番号';
+  }
+
+  return {judge:judge, nextTag:nextTag, byId:byId, levelDef:levelDef, totalOf:totalOf};
+})();
+
+/* =========================================================
+   4. 画面
+   ========================================================= */
+var D = window.DIAMOND_DIAGNOSTIC;
+var heroPlayer = null;
+
+function goto(name){
+  ['home','quiz','result','settings'].forEach(function(n){
+    var node = $('s-' + n);
+    if(n === name) show(node); else hide(node);
+  });
+  window.scrollTo(0, 0);
+}
+
+/* ---- ホーム ---- */
+function playHero(){
+  if(heroPlayer) heroPlayer.stop();
+  var cap = $('hero-caption');
+  cap.classList.add('step');
+  heroPlayer = Cell.play($('hero-cell'), 'hero', {
+    onCaption:function(t){ cap.textContent = t; },
+    finalCaption:'1マスは打席の記録ではなく「その人の旅の記録」。4本そろって◇が完成＝1点。',
+    onEnd:function(){ cap.classList.remove('step'); }
+  });
+}
+
+function renderHomeLevel(){
+  var box = $('home-level');
+  clear(box);
+  var st = Store.get();
+  var latest = st && st.latest;
+
+  if(!latest){
+    box.appendChild(el('h2', null, 'まず、いまの自分を確かめる'));
+    box.appendChild(el('p', null,
+      'スコアシートの何がどこまで分かっているか、17問（5分ほど）で測ります。答え合わせは最後にまとめて出るので、ここは「測る」時間です。'));
+    box.appendChild(el('p', 'mini',
+      '通らないと先に進めない関門ではありません。全部の機能は最初から開いています。受けなくても大丈夫です。'));
+    var b = el('button', 'btn-main', '現在地を確かめる（約5分）');
+    b.id = 'btn-start';
+    b.addEventListener('click', startQuiz);
+    box.appendChild(b);
+    return;
+  }
+
+  var def = Score.levelDef(latest.level);
+  box.appendChild(el('h3', null, 'あなたの現在地'));
+  var hero = el('div', 'level-hero');
+  if(latest.level < 0){
+    hero.appendChild(el('div', 'lv', 'START'));
+    hero.appendChild(el('div', 'name', 'ここから始める'));
+    hero.appendChild(el('div', 'can', 'まずは守備番号1〜9から。ここが全部の土台になります'));
+  } else {
+    hero.appendChild(el('div', 'lv', 'Lv' + def.level));
+    hero.appendChild(el('div', 'name', def.name));
+    hero.appendChild(el('div', 'can', def.can));
+  }
+  box.appendChild(hero);
+
+  var d = new Date(latest.at);
+  box.appendChild(el('p', 'mini center',
+    (d.getMonth()+1) + '月' + d.getDate() + '日に確認 ／ 全' + latest.answered + '問中 ' + latest.correct + '問正解'));
+
+  var row = el('div', 'btn-row');
+  var b1 = el('button', 'btn-sub', '結果をもう一度見る');
+  b1.addEventListener('click', function(){ renderResult(latest); goto('result'); });
+  var b2 = el('button', 'btn-sub', 'もう一度確かめる');
+  b2.addEventListener('click', startQuiz);
+  row.appendChild(b1); row.appendChild(b2);
+  box.appendChild(row);
+}
+
+var PILLARS = [
+  {ico:'📐', name:'確かめる', now:true,
+   desc:'いまの自分のレベルを測って、次にどこをやればいいかを出す'},
+  {ico:'🔎', name:'引く', now:false,
+   desc:'「これどう書くんだっけ」を3秒で引ける逆引き辞典。試合の場でも使う'},
+  {ico:'✏️', name:'学ぶ', now:false,
+   desc:'記号と書き方をポチポチ身につけるドリル。間違えた部品は戻ってくる'},
+  {ico:'📋', name:'鍛える', now:false,
+   desc:'アプリが試合を1球ずつ進める。あなたは紙に書く。検算して答え合わせ'},
+  {ico:'👥', name:'みんなで', now:false,
+   desc:'雨の日に、部で一斉に。1台の画面で進行して、全員が紙に書く'}
+];
+function renderRoadmap(){
+  var box = $('roadmap');
+  clear(box);
+  PILLARS.forEach(function(p){
+    var row = el('div', 'pillar');
+    var ico = el('div', 'ico', p.ico);
+    var body = el('div', 'body');
+    var name = el('div', 'name');
+    name.appendChild(document.createTextNode(p.name));
+    name.appendChild(el('span', 'badge' + (p.now ? ' now' : ''), p.now ? 'いま使える' : 'これから'));
+    body.appendChild(name);
+    body.appendChild(el('div', 'desc', p.desc));
+    row.appendChild(ico); row.appendChild(body);
+    box.appendChild(row);
+  });
+}
+
+/* ---- 診断 ---- */
+var quiz = null;
+
+function startQuiz(){
+  quiz = {i:0, answers:[]};
+  goto('quiz');
+  renderQuestion();
+}
+
+function renderQuestion(){
+  var q = D.questions[quiz.i];
+  if(!q){ finishQuiz(); return; }
+
+  $('q-num').textContent = (quiz.i + 1) + ' / ' + D.questions.length;
+  $('q-bar').style.width = Math.round(quiz.i / D.questions.length * 100) + '%';
+  $('q-lv').textContent = 'Lv' + q.level;
+
+  if(q.glyph){
+    show($('q-cellbox'));
+    Cell.still($('q-cell'), q.glyph);
+    var gl = (window.DIAMOND_GLYPHS || {})[q.glyph];
+    $('q-cell').setAttribute('aria-label', (gl && gl.title) || 'スコアのマス');
+  } else {
+    hide($('q-cellbox'));
+  }
+
+  $('q-text').textContent = q.q;
+
+  var box = $('q-choices');
+  clear(box);
+  q.choices.forEach(function(c, idx){
+    var b = el('button', null);
+    b.appendChild(el('span', 'mark', 'ABCD'.charAt(idx)));
+    b.appendChild(el('span', null, c));
+    b.addEventListener('click', function(){ answer(idx); });
+    box.appendChild(b);
+  });
+
+  if(quiz.i === 0) hide($('btn-back')); else show($('btn-back'));
+  if(quiz.answers.length >= 5) show($('btn-stop')); else hide($('btn-stop'));
+}
+
+function answer(choice){
+  var q = D.questions[quiz.i];
+  quiz.answers[quiz.i] = {id:q.id, choice:choice, ok:(choice === q.answer)};
+  quiz.i++;
+  if(quiz.i >= D.questions.length) finishQuiz();
+  else renderQuestion();
+}
+
+function finishQuiz(){
+  var answers = quiz.answers.filter(function(a){ return !!a; });
+  var judged = Score.judge(answers);
+  var correct = 0, unknown = 0;
+  answers.forEach(function(a){
+    if(a.ok) correct++;
+    if(a.choice === -1) unknown++;
+  });
+
+  var latest = {
+    at: new Date().toISOString(),
+    level: judged.current,
+    near: judged.near,
+    answered: answers.length,
+    correct: correct,
+    unknown: unknown,
+    answers: answers,
+    nextTag: Score.nextTag(answers, judged)
+  };
+
+  var st = Store.get();
+  st.latest = latest;
+  st.history.push({at:latest.at, level:latest.level});
+  if(st.history.length > 50) st.history = st.history.slice(-50);
+  answers.forEach(function(a){
+    var q = Score.byId(a.id);
+    if(!q) return;
+    var w = st.weak[q.tag] || {miss:0, hit:0};
+    if(a.ok) w.hit++; else w.miss++;
+    st.weak[q.tag] = w;
+  });
+  Store.save();
+
+  renderResult(latest);
+  goto('result');
+}
+
+function renderResult(latest){
+  var judged = Score.judge(latest.answers);
+
+  // 現在地
+  if(latest.level < 0){
+    $('r-lv').textContent = 'START';
+    $('r-name').textContent = 'ここから始める';
+    $('r-can').textContent = 'まだ空白が多い段階です。ここは誰もが通る場所で、守備番号が入るだけで景色が変わります。';
+  } else {
+    var def = Score.levelDef(latest.level);
+    $('r-lv').textContent = '現在地  Lv' + def.level;
+    $('r-name').textContent = def.name;
+    $('r-can').textContent = def.can;
+  }
+
+  if(latest.near !== null && latest.near !== undefined){
+    var nd = Score.levelDef(latest.near);
+    $('r-near').textContent = 'Lv' + nd.level + '「' + nd.name + '」にも、あと少しで届きそうです。';
+    show($('r-near'));
+  } else {
+    hide($('r-near'));
+  }
+
+  // できていたこと。取りこぼしのある分野は出さない
+  // （同じ分野が「できていた」と「次に効く」に同時に並ぶと、どっちなのか分からなくなる）
+  var done = $('r-done');
+  clear(done);
+  var solid = Object.keys(judged.hit).filter(function(t){ return !judged.miss[t]; });
+  if(solid.length > 0){
+    solid.forEach(function(t){ done.appendChild(el('span', 'chip', t)); });
+  } else if(latest.correct > 0){
+    done.appendChild(el('span', 'chip miss',
+      '手ごたえの固まった分野はまだですが、' + latest.correct + '問は正解しています'));
+  } else {
+    done.appendChild(el('span', 'chip miss', 'ここからスタート'));
+  }
+  var honest = $('r-honest');
+  if(latest.unknown > 0){
+    honest.textContent = '「わからない」を' + latest.unknown +
+      '問、正直に押してくれました。おかげで現在地が正確に出せています（当てずっぽうが混ざると、計器は狂います）。';
+    show(honest);
+  } else {
+    hide(honest);
+  }
+
+  // 次に効くこと（全問正解なら、既にできることを勧めない）
+  var perfect = (latest.correct === latest.answered && latest.answered === D.questions.length);
+  var step = perfect ? D.perfectStep : (D.nextSteps[latest.nextTag] || D.nextSteps['守備番号']);
+  $('r-next-what').textContent = step.what;
+  $('r-next-why').textContent = step.why;
+  $('r-next-ref').textContent = '教材16「スコアシートの書き方」' + step.ref;
+  $('r-next-title').textContent = perfect ? 'ここまで来ています' : '次に効くのはここ';
+
+  // 見直し
+  var missed = latest.answers.filter(function(a){ return !a.ok; });
+  var rbox = $('r-review');
+  clear(rbox);
+  if(missed.length === 0){
+    hide($('r-review-card'));
+  } else {
+    show($('r-review-card'));
+    $('r-review-title').textContent = '見直す（' + missed.length + '問）';
+    missed.forEach(function(a){
+      var q = Score.byId(a.id);
+      if(!q) return;
+      var item = el('div', 'review-item');
+      item.appendChild(el('p', 'review-q', q.q));
+      // 見直しでは「答えが見える形」のマスがあればそちらを出す
+      var showGlyph = q.glyphAnswer || q.glyph;
+      if(showGlyph){
+        var wrap = el('div', 'cellbox');
+        var s = document.createElementNS(SVGNS, 'svg');
+        s.setAttribute('class', 'cell small');
+        s.setAttribute('viewBox', '0 0 120 120');
+        wrap.appendChild(s);
+        item.appendChild(wrap);
+        Cell.still(s, showGlyph);
+      }
+      var ans = el('p', 'answer-line');
+      ans.appendChild(document.createTextNode('答え: '));
+      ans.appendChild(el('b', null, q.choices[q.answer]));
+      item.appendChild(ans);
+      item.appendChild(el('p', 'your-line',
+        a.choice === -1 ? 'あなた: わからない（とばした）' : 'あなた: ' + q.choices[a.choice]));
+      item.appendChild(el('p', 'why', q.why));
+      item.appendChild(el('p', 'ref', '教材16 ' + q.ref));
+      rbox.appendChild(item);
+    });
+  }
+}
+
+/* ---- 設定：凡例 ---- */
+var LEGEND = [
+  ['ground63-out2', 'ゴロでアウト：処理した野手を「-」でつなぐ。数字の下の線＝ゴロ'],
+  ['fly8-out1', 'フライでアウト：数字の上の弧＝打球が上がった'],
+  ['double-7', '二塁打：斜線2本＝2つ進んだ。数字の横の線＝ライナー'],
+  ['infield-hit', '内野安打：数字を楕円で囲む（足で勝ち取った出塁を残す）'],
+  ['error-6', '失策で出塁：E＋野手番号。打数には入るが安打ではない'],
+  ['strikeout-looking', '見逃し三振：逆K（空振りはK）'],
+  ['bb-to2nd-lob', '四球＋進塁の理由：(3)＝3番の打撃で進んだ。中央の○＝残塁'],
+  ['hero', '得点：斜線4本で◇が完成。中央の●＝生還。丸囲みの数字＝打点']
+];
+function renderLegend(){
+  var box = $('legend');
+  clear(box);
+  LEGEND.forEach(function(row){
+    var item = el('div', 'review-item');
+    var wrap = el('div', 'cellbox');
+    var s = document.createElementNS(SVGNS, 'svg');
+    s.setAttribute('class', 'cell small');
+    s.setAttribute('viewBox', '0 0 120 120');
+    wrap.appendChild(s);
+    item.appendChild(wrap);
+    Cell.still(s, row[0]);
+    item.appendChild(el('p', 'mini center', row[1]));
+    box.appendChild(item);
+  });
+}
+
+/* ---- 設定：データ ---- */
+function download(name, text){
+  var blob = new Blob([text], {type:'application/json'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+function stamp(){
+  var d = new Date();
+  function p(n){ return (n < 10 ? '0' : '') + n; }
+  return d.getFullYear() + p(d.getMonth()+1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
+}
+
+/* =========================================================
+   5. 動作チェック（自分で自分を点検する）
+   ========================================================= */
+function selfTest(){
+  var out = [];
+  function ok(name, cond, extra){
+    out.push((cond ? '✓ ' : '✗ ') + name + (extra ? ' … ' + extra : ''));
+    return !!cond;
+  }
+  var pass = true;
+
+  // 1. コンテンツが読めているか
+  pass &= ok('問題データを読み込めた', D && D.questions && D.questions.length > 0,
+    D && D.questions ? D.questions.length + '問' : 'なし');
+  pass &= ok('マスのデータを読み込めた', window.DIAMOND_GLYPHS && Object.keys(window.DIAMOND_GLYPHS).length > 0);
+
+  // 2. 問題データの整合
+  var bad = [];
+  D.questions.forEach(function(q){
+    if(!(q.answer >= 0 && q.answer < q.choices.length)) bad.push(q.id + ':answer');
+    if(D.tags.indexOf(q.tag) < 0) bad.push(q.id + ':tag');
+    if(!q.why || !q.ref) bad.push(q.id + ':why/ref');
+    if(!D.nextSteps[q.tag]) bad.push(q.id + ':nextStep欠落');
+    if(q.glyph && !window.DIAMOND_GLYPHS[q.glyph]) bad.push(q.id + ':glyph不明');
+  });
+  pass &= ok('全問の答え・タグ・根拠がそろっている', bad.length === 0, bad.join(' / '));
+
+  var ids = {};
+  var dup = [];
+  D.questions.forEach(function(q){ if(ids[q.id]) dup.push(q.id); ids[q.id] = 1; });
+  pass &= ok('問題IDが重複していない', dup.length === 0, dup.join(','));
+
+  // 3. マスが全部エラーなく描けるか
+  var drawErr = [];
+  var probe = document.createElementNS(SVGNS, 'svg');
+  probe.setAttribute('viewBox', '0 0 120 120');
+  Object.keys(window.DIAMOND_GLYPHS).forEach(function(k){
+    try{ Cell.build(probe, k); } catch(e){ drawErr.push(k); }
+  });
+  pass &= ok('すべてのマスが描ける', drawErr.length === 0, drawErr.join(','));
+
+  // 3-b. 実際に描いた結果の座標を測る（枠からのはみ出し・打撃結果の位置ずれ）
+  //      反転（逆K）や楕円は目で見ないと気づけない崩れ方をするので、機械で測る
+  var geoOut = [], geoPos = [];
+  var stage = document.createElement('div');
+  stage.style.cssText = 'position:fixed;left:0;top:0;opacity:0.001;pointer-events:none;z-index:-1';
+  document.body.appendChild(stage);
+  try{
+    Object.keys(window.DIAMOND_GLYPHS).forEach(function(k){
+      var s = document.createElementNS(SVGNS, 'svg');
+      s.setAttribute('viewBox', '0 0 120 120');
+      s.style.width = '240px'; s.style.display = 'block';
+      stage.appendChild(s);
+      Cell.still(s, k);
+      var bb = s.getBBox();   // 子の transform も含めた全体の範囲
+      if(bb.width > 0 && (bb.x < 1.4 || bb.y < 1.4 || bb.x + bb.width > 118.6 || bb.y + bb.height > 118.6)){
+        geoOut.push(k + '[' + [bb.x, bb.y, bb.width, bb.height].map(Math.round).join(',') + ']');
+      }
+      // 打撃結果はどのマスでも同じ位置（右端105）に来ているか
+      var g = window.DIAMOND_GLYPHS[k];
+      if(g.result && g.result.text){
+        var t = s.querySelector('g > text');
+        if(t){
+          var tr = t.getBoundingClientRect(), sr = s.getBoundingClientRect();
+          if(sr.width > 0){
+            var right = (tr.right - sr.left) / sr.width * 120;
+            if(Math.abs(right - 105) > 2) geoPos.push(k + '(右端' + right.toFixed(1) + ')');
+          }
+        }
+      }
+      stage.removeChild(s);
+    });
+  } catch(e){ geoOut.push('計測できず: ' + e.message); }
+  document.body.removeChild(stage);
+  pass &= ok('どのマスも枠からはみ出さない', geoOut.length === 0, geoOut.join(' '));
+  pass &= ok('打撃結果がどのマスでも同じ位置', geoPos.length === 0, geoPos.join(' '));
+
+  // 4. 採点が意図どおりか
+  function fake(rule){
+    return D.questions.map(function(q){ return {id:q.id, choice:0, ok:rule(q)}; });
+  }
+  var allRight = Score.judge(fake(function(){ return true; }));
+  pass &= ok('全問正解ならLv3', allRight.current === 3, 'Lv' + allRight.current);
+  var allWrong = Score.judge(fake(function(){ return false; }));
+  pass &= ok('全問不正解ならLv判定なし（START）', allWrong.current === -1, 'Lv' + allWrong.current);
+  var lv0only = Score.judge(fake(function(q){ return q.level === 0; }));
+  pass &= ok('Lv0だけ正解ならLv0', lv0only.current === 0, 'Lv' + lv0only.current);
+  var lv01 = Score.judge(fake(function(q){ return q.level <= 1; }));
+  pass &= ok('Lv0-1正解ならLv1', lv01.current === 1, 'Lv' + lv01.current);
+  // 飛び級しない（Lv0を落としたら上が合っていてもSTART）
+  var skip = Score.judge(fake(function(q){ return q.level > 0; }));
+  pass &= ok('下のレベルを落としたら飛び級しない', skip.current === -1, 'Lv' + skip.current);
+
+  // 5. 検算の問題が算数として正しいか（教材の検算①）
+  var q23 = Score.byId('q2-3');
+  pass &= ok('検算の問題の答えが 6=3+1+2 と一致', q23 && q23.choices[q23.answer] === '2人');
+
+  // 6. 保存の往復
+  var saveOk = true;
+  if(Store.canSave()){
+    try{
+      var before = localStorage.getItem(Store.key);
+      localStorage.setItem('diamond.selftest', JSON.stringify({a:1}));
+      var back = JSON.parse(localStorage.getItem('diamond.selftest'));
+      saveOk = (back && back.a === 1);
+      localStorage.removeItem('diamond.selftest');
+      if(before === null) { /* 何も壊していない */ }
+    } catch(e){ saveOk = false; }
+  }
+  pass &= ok('保存と読み出しができる', saveOk || !Store.canSave(),
+    Store.canSave() ? '' : 'この端末では保存不可');
+
+  out.unshift(pass ? '── すべてOK ──' : '── 要確認 ──');
+  return out.join('\n');
+}
+
+/* =========================================================
+   6. 起動
+   ========================================================= */
+function boot(){
+  var res = Store.load();
+  if(res.reason === 'broken'){
+    show($('notice-corrupted'));
+    $('corrupted-detail').textContent = res.detail || '';
+  } else if(res.reason === 'newer'){
+    show($('notice-corrupted'));
+    $('corrupted-detail').textContent = 'このアプリより新しい版で保存されたデータです。上書きしないよう保存を止めています。';
+  } else if(res.reason === 'nostorage'){
+    show($('notice-nosave'));
+  }
+
+  renderRoadmap();
+  renderHomeLevel();
+  renderLegend();
+  playHero();
+
+  $('btn-replay').addEventListener('click', playHero);
+  $('btn-settings').addEventListener('click', function(){
+    $('selftest').textContent = selfTest();
+    goto('settings');
+  });
+  $('btn-settings-home').addEventListener('click', function(){ goto('home'); });
+  $('btn-result-home').addEventListener('click', function(){ renderHomeLevel(); goto('home'); });
+  $('btn-retake').addEventListener('click', startQuiz);
+
+  $('btn-unknown').addEventListener('click', function(){ answer(-1); });
+  $('btn-back').addEventListener('click', function(){
+    if(quiz && quiz.i > 0){ quiz.i--; renderQuestion(); }
+  });
+  $('btn-stop').addEventListener('click', function(){ finishQuiz(); });
+
+  $('btn-export').addEventListener('click', function(){
+    download('diamond-' + stamp() + '.json', JSON.stringify(Store.get(), null, 2));
+  });
+  $('btn-import').addEventListener('click', function(){ $('file-import').click(); });
+  $('file-import').addEventListener('change', function(ev){
+    var f = ev.target.files && ev.target.files[0];
+    if(!f) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      var parsed = null;
+      try{ parsed = JSON.parse(String(reader.result)); }
+      catch(e){ window.alert('このファイルは読み込めませんでした。Diamond から書き出したJSONを選んでください。'); return; }
+      if(!window.confirm('いまの記録を、読み込んだ内容で置き換えます。よろしいですか？')) return;
+      Store.set(Store.normalize(parsed));
+      Store.save();
+      renderHomeLevel();
+      goto('home');
+    };
+    reader.readAsText(f);
+    ev.target.value = '';
+  });
+  $('btn-clear').addEventListener('click', function(){
+    var st = Store.get();
+    var n = st.history ? st.history.length : 0;
+    if(!window.confirm('この端末の記録（診断' + n + '回分）をすべて消します。\n消す前に「書き出す」で保存しておけます。\n本当に消しますか？')) return;
+    Store.set(Store.empty());
+    Store.save();
+    renderHomeLevel();
+    goto('home');
+  });
+  $('btn-dump-corrupted').addEventListener('click', function(){
+    var raw = Store.corrupted();
+    if(raw) download('diamond-corrupted-' + stamp() + '.txt', raw);
+  });
+}
+
+/* 検品用の入口（tools/e2e とブラウザからの検証で使う）。
+   秘密情報も外部通信も持たないアプリなので、公開版にも残してよい。 */
+window.DiamondTest = {Cell:Cell, Score:Score, Store:Store, selfTest:selfTest, goto:goto};
+
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
+
+})();
+</script>
+</body>
+</html>
