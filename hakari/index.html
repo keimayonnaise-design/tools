@@ -92,6 +92,27 @@
   @media (prefers-reduced-motion: reduce){ li.just-added{animation:none; border-left:3px solid var(--accent); padding-left:8px;} }
   details.fold{margin-top:14px; border-top:1px solid var(--line); padding-top:4px;}
   details.fold summary{font-size:.8rem; color:var(--sub); cursor:pointer; padding:8px 0; min-height:36px;}
+  /* カードごと畳む見出し（記録・設定）。ふだん開く必要がないものを開いたまま置かない。
+     見出し全体を押せるようにする——文字だけが当たり判定だと、指では狙いにくい */
+  details.cardfold > summary{
+    display:flex; align-items:center; gap:8px;
+    margin:-14px -14px 0; padding:14px; min-height:52px;
+    font-size:1rem; font-weight:700; cursor:pointer; list-style:none;
+  }
+  details.cardfold > summary::-webkit-details-marker{display:none;}
+  /* 開閉の向きを三角で示す。閉じている＝右向き、開いている＝下向き */
+  details.cardfold > summary::before{
+    content:''; flex:0 0 auto; width:0; height:0;
+    border-left:6px solid var(--sub); border-top:5px solid transparent; border-bottom:5px solid transparent;
+    transition:transform .15s ease;
+  }
+  details.cardfold[open] > summary::before{transform:rotate(90deg);}
+  @media (prefers-reduced-motion: reduce){ details.cardfold > summary::before{transition:none;} }
+  details.cardfold > summary:focus-visible{outline:2px solid var(--accent); outline-offset:-2px; border-radius:var(--radius);}
+  .cardfold-title{flex:0 0 auto;}
+  /* 畳んだままでも中の状態が分かるようにする（件数・未入力の知らせ） */
+  .cardfold-sub{flex:1 1 auto; text-align:right; font-size:.78rem; font-weight:400; color:var(--sub);}
+  details.cardfold[open] > summary{margin-bottom:10px; border-bottom:1px solid var(--line);}
   ul.list{list-style:none; margin:0; padding:0;}
   ul.list li{padding:10px 0; border-top:1px solid var(--line); font-size:.9rem;}
   ul.list li:first-child{border-top:0;}
@@ -436,7 +457,13 @@
 
   <!-- ===== 最近の記録 ===== -->
   <div class="card" id="recent-card">
-    <h2>最近の記録</h2>
+    <!-- ふだんは畳んでおく。開いていなくても件数だけは見えるようにする（見出しが状態を持つ）。
+         記録した直後だけ自動で開く＝入った行が光るのを見せるため（§5.1・Phase 1 の判断） -->
+    <details class="cardfold" id="recent-fold">
+      <summary>
+        <span class="cardfold-title">記録</span>
+        <span class="cardfold-sub" id="recent-count"></span>
+      </summary>
     <ul class="list" id="recent"></ul>
     <button type="button" id="btn-more" class="list-more hidden"></button>
 
@@ -453,6 +480,7 @@
         <button type="button" id="btn-void-cancel">やめる</button>
       </div>
     </div>
+    </details>
   </div>
 
   <!-- ===== 収支報告書（§5.9 ここが目的地） ===== -->
@@ -478,7 +506,13 @@
 
   <!-- ===== 設定 ===== -->
   <div class="card">
-    <h2>設定</h2>
+    <!-- ふだん触らないものは畳んでおく。報告書に学校名・作成者名が要るので、
+         まだ空のときだけ見出しに小さく知らせる（畳んだせいで気づけない、を作らない） -->
+    <details class="cardfold" id="settings-fold">
+      <summary>
+        <span class="cardfold-title">設定</span>
+        <span class="cardfold-sub" id="settings-sub"></span>
+      </summary>
     <p class="lead">ふだんは触りません。使い方が変わったときだけ。</p>
 
     <!-- 報告書の表題と末尾に出る3つ（§5.9 構成1・9／要判断②）。端末の中だけに保存する -->
@@ -501,6 +535,7 @@
       <button type="button" id="up-on" aria-pressed="false">使う</button>
     </div>
     <p class="meta" id="use-purpose-meta"></p>
+    </details>
   </div>
 
   <!-- ===== データの保全 ===== -->
@@ -1264,6 +1299,7 @@
     renderRecent(key, y);
     renderVoidNotice();
     renderReportCard();
+    renderSettingsSummary();
     renderDataSummary();
   }
 
@@ -1588,6 +1624,13 @@
     });
     var items = showAll ? all : all.slice(0, RECENT_SHOWN);
 
+    // 畳んだままでも「入っているか」が分かるように、件数を見出しへ出す
+    var liveCount = live(all).length;
+    var voided = all.length - liveCount;
+    text($('recent-count'), all.length === 0
+      ? 'まだありません'
+      : (liveCount + '件' + (voided ? '（ほかに取消 ' + voided + '件）' : '')));
+
     var more = $('btn-more');
     if(all.length > RECENT_SHOWN){
       text(more, showAll ? '最近の3件だけ表示する' : 'すべての記録を見る（' + all.length + '件）');
@@ -1681,6 +1724,13 @@
 
   // 「同じセッションで入れた」かつ「5分以内」だけを直後とみなす。
   // リロードをまたぐと、他人の端末で開いた記録まで理由なしで消せてしまう
+  // 記録カードは畳んであるのが既定。中を見せる必要があるときだけ、こちらから開く
+  // （取消パネル・実査の「記録を全部見る」・保存直後の光る行）
+  function openRecent(){
+    var fold = $('recent-fold');
+    if(fold) fold.open = true;
+  }
+
   function isJustEntered(key, e){
     if(sessionAdded.indexOf(key + '#' + e.id) < 0) return false;
     var t = Date.parse(e.createdAt);
@@ -1903,6 +1953,9 @@
         try { amt2.scrollIntoView({ block:'center' }); }
         catch(err){ diag('入力欄への移動に失敗: ' + describe(err)); }
       } else {
+        // 入った行が光るのを見せるために、畳んでいても開く（§5.1「押したのに入っていない」を残さない）。
+        // 次に開き直したときは畳まれた状態に戻る＝ふだんの画面は静かなまま
+        openRecent();
         try { $('recent-card').scrollIntoView({ block:'nearest' }); }
         catch(err){ diag('記録一覧への移動に失敗: ' + describe(err)); }
       }
@@ -2362,6 +2415,7 @@
     $('void-reason').value = '';
     $('btn-void-do').disabled = true;
     show($('void-panel'));
+    openRecent();                              // 取消パネルは記録カードの中にある
     try { $('void-panel').scrollIntoView({ block:'nearest' }); }
     catch(err){ diag('取消パネルへの移動に失敗: ' + describe(err)); }
   }
@@ -2906,12 +2960,23 @@
     });
     sel.value = (keys.indexOf(want) >= 0) ? want : currentYearKey();
 
+    var miss = missingIdentity();
+    text($('report-hint'), miss.length
+      ? ('下の「設定」を開いて' + miss.join('と') + 'を入れると、そのまま配れる形になります（無くても作れます）。')
+      : '印刷すると、本文がA4 1枚・明細が別紙になります。');
+  }
+
+  // 報告書に印字する項目のうち、まだ空のもの。設定を畳んだせいで気づけない、を作らない
+  function missingIdentity(){
     var miss = [];
     if(!isNonEmptyString(state.settings.schoolName)) miss.push('学校名');
     if(!isNonEmptyString(state.settings.authorName)) miss.push('作成者名');
-    text($('report-hint'), miss.length
-      ? ('設定に' + miss.join('と') + 'を入れると、そのまま配れる形になります（無くても作れます）。')
-      : '印刷すると、本文がA4 1枚・明細が別紙になります。');
+    return miss;
+  }
+
+  function renderSettingsSummary(){
+    var miss = missingIdentity();
+    text($('settings-sub'), miss.length ? (miss.join('・') + 'が未入力') : '');
   }
 
   function openReport(){
@@ -3072,6 +3137,8 @@
     closeReport();                           // 消した年度の紙が開いたまま残らないように
     hide($('report-error'));
     syncSettingsFields();
+    $('recent-fold').open = false;           // 畳んだ既定の姿に戻す
+    $('settings-fold').open = false;
     hide($('void-panel'));
     hide($('wipe-panel'));
     hide($('notice-corrupted'));
@@ -3194,6 +3261,7 @@
     $('btn-count-list').addEventListener('click', function(){
       showAll = true;
       render();
+      openRecent();                            // 封筒が合わないときに一覧が畳まれていたら探せない
       try { $('recent-card').scrollIntoView({ block:'start' }); }
       catch(err){ diag('記録一覧への移動に失敗: ' + describe(err)); }
     });
