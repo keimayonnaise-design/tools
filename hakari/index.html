@@ -2661,12 +2661,6 @@
     return problems;
   }
 
-  // 紙の上の金額。マイナスを「−」1文字で出すと読み落とされる（Phase 3.1 と同じ考え方＝符号は言葉で出す）。
-  // 部費がマイナスになるのは立て替えで回している時期に実際に起きる
-  function yenReport(n){
-    return n < 0 ? ('不足 ' + yen(-n)) : yen(n);
-  }
-
   function pctLabel(part, whole){
     if(whole <= 0) return '—';
     var p = part / whole * 100;
@@ -2748,10 +2742,10 @@
     main.appendChild(el('h3', null, '収支のまとめ'));
     var t1 = newTable();
     var b1 = el('tbody');
-    twoColRow(b1, '前年度からの繰越（期首残高）', yenReport(y.openingBalance));
+    twoColRow(b1, '前年度からの繰越（期首残高）', yen(y.openingBalance));
     twoColRow(b1, '収入の合計', yen(income));
     twoColRow(b1, '支出の合計', yen(expense));
-    twoColRow(b1, per.closed ? '年度末の残高' : (ymdJP(per.end) + '現在の残高'), yenReport(acct), 'total');
+    twoColRow(b1, per.closed ? '年度末の残高' : (ymdJP(per.end) + '現在の残高'), yen(acct), 'total');
     t1.appendChild(b1);
     main.appendChild(t1);
 
@@ -2822,11 +2816,11 @@
     var b4 = el('tbody');
     if(adv === 0){
       // 立て替えが無いときに2行に分けると、同じ数字が2回出て読む人が混乱する
-      twoColRow(b4, '部費の封筒にあるはずの額', yenReport(envelopeExpected(y)));
+      twoColRow(b4, '部費の封筒にあるはずの額', yen(envelopeExpected(y)));
     } else {
-      twoColRow(b4, '帳簿の上の残高', yenReport(acct));
-      twoColRow(b4, '顧問が立て替えたまま、まだ戻していない額', yenReport(adv));
-      twoColRow(b4, '部費の封筒にあるはずの額', yenReport(envelopeExpected(y)), 'total');
+      twoColRow(b4, '帳簿の上の残高', yen(acct));
+      twoColRow(b4, '顧問が立て替えたまま、まだ戻していない額', yen(adv));
+      twoColRow(b4, '部費の封筒にあるはずの額', yen(envelopeExpected(y)), 'total');
     }
     t4.appendChild(b4);
     main.appendChild(t4);
@@ -3513,8 +3507,10 @@
 
     diag('割合の表示テスト: ' + ((pctLabel(5000, 10000) === '50%' && pctLabel(1, 10000) === '1%未満' &&
       pctLabel(0, 0) === '—') ? 'OK' : 'NG'));
-    diag('マイナス金額の表示テスト: ' + ((yenReport(-24580) === '不足 24,580円' && yenReport(0) === '0円' &&
-      yenReport(1000) === '1,000円') ? 'OK' : 'NG'));
+    // マイナスは「不足 ◯円」と言葉にせず、そのままマイナスで出す（2026-07-27 本人判断）。
+    // 画面と紙で同じ書き方にするため、`yen()` ひとつに統一してある
+    diag('マイナス金額の表示テスト: ' + ((yen(-24580) === '-24,580円' && yen(-600) === '-600円' &&
+      yen(0) === '0円' && yen(1000) === '1,000円') ? 'OK' : 'NG（' + yen(-24580) + '）'));
 
     // CSVは本人がExcelで開く。数はそのまま・式に化ける文字は無害化・引用符は二重化
     var cc = [csvCell('1000'), csvCell('審判費'), csvCell('=1+1'), csvCell('内容に"引用符"'), csvCell(null)].join('|');
