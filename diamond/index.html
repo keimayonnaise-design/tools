@@ -194,6 +194,59 @@ svg.cell.small{width:min(46vw, 180px)}
   min-height:40px; text-align:center; padding:6px; width:100%; font-size:14px;
 }
 
+/* ---- 学ぶ（ドリル） ---- */
+.unit{
+  display:flex; gap:12px; align-items:center; width:100%; text-align:left;
+  border:none; border-top:1px solid var(--line); border-radius:0;
+  background:none; padding:13px 2px; min-height:60px;
+}
+.unit:first-of-type{border-top:none}
+.unit .no{
+  flex:none; width:34px; height:34px; border-radius:10px;
+  background:var(--accent-weak); color:var(--accent);
+  display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;
+}
+.unit .ut{flex:1; min-width:0}
+.unit .ut .t{font-weight:600}
+.unit .ut .s{font-size:12.5px; color:var(--muted)}
+.unit .prog{
+  flex:none; font-size:12px; color:var(--muted); text-align:right;
+  font-variant-numeric:tabular-nums; min-width:44px;
+}
+.unit .prog.done{color:var(--accent); font-weight:700}
+
+/* 答え合わせ（ドリルはその場で返す） */
+.choices button.right{
+  border-color:var(--accent); background:var(--accent-weak);
+}
+.choices button.right .mark{
+  background:var(--accent); color:var(--on-accent); border-color:var(--accent);
+}
+.choices button.chosen-wrong{border-color:var(--muted)}
+.choices button.chosen-wrong .mark{border-color:var(--muted)}
+.choices button:disabled{opacity:1; cursor:default}
+.verdict{font-weight:700; margin:14px 0 8px; font-size:15px}
+.verdict.ok{color:var(--accent)}
+.verdict.ng{color:var(--ink)}
+
+/* 盤面（複数マス） */
+.board{
+  display:grid; grid-template-columns:repeat(3, 1fr); gap:10px 8px; margin:6px 0 10px;
+}
+.board .bcell{text-align:center}
+.board .bcell svg{width:100%; height:auto; color:var(--ink)}
+.board .bcell .bno{font-size:11.5px; color:var(--muted); margin-top:2px}
+.board .bcell.now .bno{color:var(--accent); font-weight:700}
+.board.focus{grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); max-width:380px; margin-inline:auto}
+.numrow{display:flex; gap:8px; align-items:center; margin:0 0 10px}
+.numrow label{flex:1; font-size:14px}
+.numrow input{
+  width:88px; font:inherit; font-size:16px; text-align:center;
+  padding:9px 8px; border:1px solid var(--line); border-radius:10px;
+  background:var(--surface); color:inherit;
+}
+.numrow input:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+
 /* ---- しるし・注意 ---- */
 .lock{
   text-align:center; font-size:12.5px; color:var(--muted);
@@ -248,6 +301,20 @@ pre.diag{
       <div class="cellbox"><svg class="cell" id="hero-cell" viewBox="0 0 120 120" role="img" aria-label="スコアのマスに1人の走者の記録が描かれていく図"></svg></div>
       <p class="caption" id="hero-caption"></p>
       <button type="button" id="btn-replay" class="btn-quiet">もう一度見る</button>
+    </div>
+
+    <!-- 今日の3問（軽い入口。やらない日があってよい設計＝連続記録は数えない） -->
+    <div class="card hidden" id="today-card">
+      <h2>今日の3問</h2>
+      <p class="mini" id="today-why"></p>
+      <button type="button" id="btn-today" class="btn-main">▶ 3問だけ解く</button>
+    </div>
+
+    <!-- 学ぶ（ドリル）への入口 -->
+    <div class="card">
+      <h2>学ぶ — 部品を身につける</h2>
+      <p class="mini">マスの地図・守備番号・打球の種類…。7つの単元を、解きながら覚えます。順番は自由です。</p>
+      <button type="button" id="btn-drill" class="btn-main">✏️ ドリルをひらく</button>
     </div>
 
     <!-- 引く（逆引き辞典）への入口。試合の場で3秒で引けるよう、ホームの上段に置く -->
@@ -327,6 +394,107 @@ pre.diag{
     <button type="button" id="btn-retake" class="btn-quiet">もう一度確かめる</button>
   </main>
 
+  <!-- ============ 学ぶ（単元一覧） ============ -->
+  <main id="s-drill" class="hidden">
+    <div class="card">
+      <h2>学ぶ — 7つの単元</h2>
+      <p class="mini">どこからでも始められます。間違えた部品は「今日の3問」で戻ってきます。</p>
+      <div id="unit-list"></div>
+    </div>
+    <div class="card">
+      <h2>1イニング再現</h2>
+      <p class="mini">部品がひととおり入ったら、ここへ。相手の攻撃を1イニング、頭から書いて検算まで通します。ここまでできれば土台は完成です。</p>
+      <p class="mini" id="inning-record" style="margin-top:6px"></p>
+      <button type="button" id="btn-inning" class="btn-main">▶ 1イニング書いてみる</button>
+    </div>
+    <button type="button" id="btn-drill-home" class="btn-quiet">← ホームへ</button>
+  </main>
+
+  <!-- ============ ドリル（設問） ============ -->
+  <main id="s-drill-q" class="hidden">
+    <div class="progress">
+      <span class="num" id="dq-num"></span>
+      <span class="bar"><i id="dq-bar" style="width:0%"></i></span>
+      <span class="num" id="dq-unit"></span>
+    </div>
+    <div class="card">
+      <div class="cellbox hidden" id="dq-cellbox"><svg class="cell small" id="dq-cell" viewBox="0 0 120 120" role="img"></svg></div>
+      <p class="caption hidden" id="dq-caption"></p>
+      <button type="button" id="dq-replay" class="btn-replay-mini hidden">▶ 描き方を見る</button>
+      <p class="qtext" id="dq-text"></p>
+      <div class="choices" id="dq-choices"></div>
+
+      <div class="hidden" id="dq-feedback">
+        <p class="verdict" id="dq-verdict"></p>
+        <p class="why" id="dq-why"></p>
+        <p class="ref" id="dq-ref"></p>
+        <button type="button" id="dq-jiten" class="btn-quiet hidden">辞典でくわしく見る →</button>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button type="button" id="dq-next" class="btn-main hidden">次へ</button>
+    </div>
+    <button type="button" id="dq-quit" class="btn-quiet">← 単元一覧へ</button>
+
+    <!-- 単元をひととおり終えたとき（アプリの中で返す。alertは使わない） -->
+    <div class="card hidden" id="dq-done">
+      <h2 id="dq-done-title"></h2>
+      <p id="dq-done-msg"></p>
+      <div class="chips" id="dq-done-chips"></div>
+      <div class="btn-row">
+        <button type="button" id="dq-done-again" class="btn-sub">もう一度この単元</button>
+        <button type="button" id="dq-done-back" class="btn-main">単元一覧へ</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============ 1イニング再現 ============ -->
+  <main id="s-inning" class="hidden">
+    <div class="progress">
+      <span class="num" id="in-num"></span>
+      <span class="bar"><i id="in-bar" style="width:0%"></i></span>
+      <span class="num">1イニング</span>
+    </div>
+    <div class="card">
+      <p class="mini" id="in-lead"></p>
+      <div class="board focus" id="in-board"></div>
+      <details id="in-all-wrap" class="hidden">
+        <summary>イニング全体を見る</summary>
+        <div class="board" id="in-board-all"></div>
+      </details>
+      <p class="qtext" id="in-narration" style="font-weight:400; font-size:16px"></p>
+      <p class="qtext" id="in-q"></p>
+      <div class="choices" id="in-choices"></div>
+      <div class="hidden" id="in-feedback">
+        <p class="verdict" id="in-verdict"></p>
+        <p class="why" id="in-why"></p>
+        <button type="button" id="in-replay" class="btn-replay-mini">▶ このマスの描き方を見る</button>
+        <p class="caption" id="in-caption"></p>
+      </div>
+    </div>
+
+    <!-- 検算（イニングの締め） -->
+    <div class="card hidden" id="in-check">
+      <h2>イニングを締める — 検算</h2>
+      <p class="mini">打者は必ず「アウト・生還・残塁」の3つのどれかで終わります。だから、この式は必ず合います。</p>
+      <p class="mini" style="margin:8px 0 12px"><b>打者数 ＝ アウト ＋ 得点 ＋ 残塁</b></p>
+      <div class="numrow"><label for="in-batters">この回の打者数</label><input type="number" id="in-batters" inputmode="numeric" min="0" max="20"></div>
+      <div class="numrow"><label for="in-outs">アウト</label><input type="number" id="in-outs" inputmode="numeric" min="0" max="3"></div>
+      <div class="numrow"><label for="in-runs">得点</label><input type="number" id="in-runs" inputmode="numeric" min="0" max="20"></div>
+      <div class="numrow"><label for="in-lob">残塁</label><input type="number" id="in-lob" inputmode="numeric" min="0" max="20"></div>
+      <button type="button" id="in-check-btn" class="btn-main">検算する</button>
+      <div class="hidden" id="in-check-result">
+        <p class="verdict" id="in-check-verdict"></p>
+        <p class="why" id="in-check-why"></p>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button type="button" id="in-next" class="btn-main hidden">次の打者へ</button>
+    </div>
+    <button type="button" id="in-quit" class="btn-quiet">← 学ぶへ戻る</button>
+  </main>
+
   <!-- ============ 辞典（一覧） ============ -->
   <main id="s-jiten" class="hidden">
     <input type="search" id="jiten-q" class="search" placeholder="ことばで探す（例: ふりにげ・盗塁・6-4-3）" autocomplete="off">
@@ -400,6 +568,7 @@ pre.diag{
 <script src="content/glyphs.js"></script>
 <script src="content/diagnostic.js"></script>
 <script src="content/jiten.js"></script>
+<script src="content/drills.js"></script>
 <script>
 (function(){
 'use strict';
@@ -938,7 +1107,7 @@ var D = window.DIAMOND_DIAGNOSTIC;
 var heroPlayer = null;
 
 function goto(name){
-  ['home','quiz','result','settings','jiten','jiten-detail'].forEach(function(n){
+  ['home','quiz','result','settings','jiten','jiten-detail','drill','drill-q','inning'].forEach(function(n){
     var node = $('s-' + n);
     if(n === name) show(node); else hide(node);
   });
@@ -1009,7 +1178,7 @@ var PILLARS = [
    desc:'いまの自分のレベルを測って、次にどこをやればいいかを出す'},
   {ico:'🔎', name:'引く', now:true,
    desc:'「これどう書くんだっけ」を3秒で引ける逆引き辞典。試合の場でも使う'},
-  {ico:'✏️', name:'学ぶ', now:false,
+  {ico:'✏️', name:'学ぶ', now:true,
    desc:'記号と書き方をポチポチ身につけるドリル。間違えた部品は戻ってくる'},
   {ico:'📋', name:'鍛える', now:false,
    desc:'アプリが試合を1球ずつ進める。あなたは紙に書く。検算して答え合わせ'},
@@ -1234,6 +1403,487 @@ function renderResult(latest){
       item.appendChild(el('p', 'ref', '教材16 ' + q.ref));
       rbox.appendChild(item);
     });
+  }
+}
+
+/* =========================================================
+   学ぶ（ドリル・F3）
+   ---------------------------------------------------------
+   診断と違い、1問ごとにその場で答えを返す（ここは測る場でなく学ぶ場）。
+   レベルで単元を閉じない＝関門にしない（本人の設計・§2.1）。
+   ========================================================= */
+var DR = window.DIAMOND_DRILLS;
+var drill = null;      // 進行中の単元 {unitId, list, i, correct}
+var dqPlayer = null;
+
+function drillState(){
+  var st = Store.get();
+  if(!st.drill) st.drill = {units:{}, seen:{}, today:null, inning:null};
+  if(!st.drill.units) st.drill.units = {};
+  if(!st.drill.seen) st.drill.seen = {};
+  return st.drill;
+}
+function drillQuestionsOf(unitId){
+  return DR.questions.filter(function(q){ return q.unit === unitId; });
+}
+function drillById(id){
+  for(var i=0;i<DR.questions.length;i++){ if(DR.questions[i].id === id) return DR.questions[i]; }
+  return null;
+}
+
+function renderUnitList(){
+  var box = $('unit-list');
+  clear(box);
+  var d = drillState();
+  DR.units.forEach(function(u, idx){
+    var qs = drillQuestionsOf(u.id);
+    var rec = d.units[u.id];
+    var b = el('button', 'unit');
+    b.appendChild(el('span', 'no', String(idx + 1)));
+    var ut = el('span', 'ut');
+    ut.appendChild(el('div', 't', u.name));
+    ut.appendChild(el('div', 's', u.sub));
+    b.appendChild(ut);
+    var prog = el('span', 'prog');
+    if(rec && rec.total){
+      prog.textContent = rec.correct + '/' + rec.total;
+      if(rec.correct === rec.total) prog.classList.add('done');
+    } else {
+      prog.textContent = qs.length + '問';
+    }
+    b.appendChild(prog);
+    b.addEventListener('click', function(){ startDrill(u.id); });
+    box.appendChild(b);
+  });
+
+  var inn = d.inning;
+  $('inning-record').textContent = inn && inn.at
+    ? '前回: ' + new Date(inn.at).getMonth() + 1 + '月' + new Date(inn.at).getDate() + '日 ／ 検算 ' +
+      (inn.checkOk ? '一致' : '不一致')
+    : '';
+  if(inn && inn.at){
+    var dd = new Date(inn.at);
+    $('inning-record').textContent = '前回: ' + (dd.getMonth()+1) + '月' + dd.getDate() + '日 ／ 検算は' +
+      (inn.checkOk ? '合いました' : 'まだ合っていません');
+  }
+}
+
+/* 単元をはじめる。today=true なら「今日の3問」モード */
+function startDrill(unitId, list){
+  var qs = list || drillQuestionsOf(unitId);
+  drill = {unitId:unitId, list:qs, i:0, correct:0, isToday: !!list};
+  goto('drill-q');
+  renderDrillQ();
+}
+
+function renderDrillQ(){
+  var q = drill.list[drill.i];
+  if(!q){ finishDrill(); return; }
+
+  hide($('dq-done'));
+  show($('dq-quit'));
+  $('dq-num').textContent = (drill.i + 1) + ' / ' + drill.list.length;
+  $('dq-bar').style.width = Math.round(drill.i / drill.list.length * 100) + '%';
+  var u = null;
+  for(var i=0;i<DR.units.length;i++){ if(DR.units[i].id === q.unit) u = DR.units[i]; }
+  $('dq-unit').textContent = drill.isToday ? '今日の3問' : (u ? u.name : '');
+
+  if(dqPlayer){ dqPlayer.stop(); dqPlayer = null; }
+  var cap = $('dq-caption');
+  cap.textContent = '';
+  cap.classList.remove('step');
+  hide(cap);
+  hide($('dq-replay'));
+
+  if(q.glyph){
+    show($('dq-cellbox'));
+    Cell.still($('dq-cell'), q.glyph);
+  } else {
+    hide($('dq-cellbox'));
+  }
+
+  $('dq-text').textContent = q.q;
+  hide($('dq-feedback'));
+  hide($('dq-next'));
+
+  var box = $('dq-choices');
+  clear(box);
+  q.choices.forEach(function(c, idx){
+    var b = el('button', null);
+    b.appendChild(el('span', 'mark', 'ABCD'.charAt(idx)));
+    b.appendChild(el('span', null, c));
+    b.addEventListener('click', function(){ answerDrill(idx); });
+    box.appendChild(b);
+  });
+}
+
+function answerDrill(choice){
+  var q = drill.list[drill.i];
+  var ok = (choice === q.answer);
+  if(ok) drill.correct++;
+
+  // 記録（弱点タグと、問題ごとの成績。今日の3問の材料になる）
+  var d = drillState();
+  var seen = d.seen[q.id] || {hit:0, miss:0, at:null};
+  if(ok) seen.hit++; else seen.miss++;
+  seen.at = new Date().toISOString();
+  d.seen[q.id] = seen;
+  var st = Store.get();
+  var w = st.weak[q.tag] || {miss:0, hit:0};
+  if(ok) w.hit++; else w.miss++;
+  st.weak[q.tag] = w;
+  Store.save();
+
+  // 選択肢を固定して、正解の位置を示す（責める言い方はしない）
+  var btns = $('dq-choices').querySelectorAll('button');
+  Array.prototype.forEach.call(btns, function(b, idx){
+    b.disabled = true;
+    if(idx === q.answer) b.classList.add('right');
+    else if(idx === choice) b.classList.add('chosen-wrong');
+  });
+
+  var v = $('dq-verdict');
+  v.textContent = ok ? 'そのとおり' : 'ここは、こうなります';
+  v.className = 'verdict ' + (ok ? 'ok' : 'ng');
+  $('dq-why').textContent = q.why;
+  $('dq-ref').textContent = '教材16「スコアシートの書き方」' + q.ref;
+
+  // 答えのマスを見せる（＋描き方アニメ）
+  var showGlyph = q.glyphAnswer || q.glyph;
+  var cap = $('dq-caption');
+  if(showGlyph){
+    show($('dq-cellbox'));
+    Cell.still($('dq-cell'), showGlyph);
+    var gdata = (window.DIAMOND_GLYPHS || {})[showGlyph] || {};
+    var rb = $('dq-replay');
+    rb.textContent = '▶ 描き方を見る';
+    rb.disabled = false;
+    show(rb);
+    rb.onclick = function(){
+      if(dqPlayer) dqPlayer.stop();
+      cap.classList.add('step');
+      show(cap);
+      rb.disabled = true;
+      dqPlayer = Cell.play($('dq-cell'), showGlyph, {
+        pace:'read',
+        onCaption:function(t){ cap.textContent = t; },
+        onEnd:function(){ cap.classList.remove('step'); rb.disabled = false; rb.textContent = '▶ もう一度'; }
+      });
+    };
+    if(gdata.captions) show(cap); else hide(cap);
+  }
+
+  var jb = $('dq-jiten');
+  if(q.jiten && jitenById(q.jiten)){
+    show(jb);
+    jb.onclick = function(){ openJitenDetail(q.jiten); };
+  } else {
+    hide(jb);
+  }
+
+  show($('dq-feedback'));
+  var nx = $('dq-next');
+  nx.textContent = (drill.i + 1 >= drill.list.length) ? '結果を見る' : '次へ';
+  show(nx);
+}
+
+function finishDrill(){
+  var d = drillState();
+  if(!drill.isToday){
+    d.units[drill.unitId] = {
+      correct: drill.correct, total: drill.list.length, at: new Date().toISOString()
+    };
+  } else {
+    d.today = {at: new Date().toISOString(), ids: drill.list.map(function(q){ return q.id; })};
+  }
+  Store.save();
+
+  // 設問を隠して、同じ画面に結果を出す（画面を飛ばさないので、
+  // 「何を間違えたか」を見返してから次へ行ける）
+  hide($('dq-cellbox'));
+  hide($('dq-caption'));
+  hide($('dq-replay'));
+  hide($('dq-feedback'));
+  hide($('dq-next'));
+  hide($('dq-quit'));
+  clear($('dq-choices'));
+  $('dq-text').textContent = '';
+  $('dq-bar').style.width = '100%';
+  $('dq-num').textContent = drill.list.length + ' / ' + drill.list.length;
+
+  var n = drill.list.length, c = drill.correct;
+  var unit = null;
+  for(var i=0;i<DR.units.length;i++){ if(DR.units[i].id === drill.unitId) unit = DR.units[i]; }
+
+  $('dq-done-title').textContent = drill.isToday ? '今日の3問、おしまい'
+    : (unit ? unit.name + '、ひととおり終わりました' : 'おしまい');
+
+  // できたことを先に。責める言い方はしない（憲法§4）
+  var msg;
+  if(c === n){
+    msg = n + '問すべて、そのとおりでした。';
+  } else if(c >= Math.ceil(n * 0.7)) {
+    msg = n + '問中 ' + c + '問。ここはもう手が動いています。残りは「今日の3問」で戻ってきます。';
+  } else {
+    msg = n + '問中 ' + c + '問。ここは分かれ目が多いところです。間違えた部品は「今日の3問」で戻ってくるので、覚え直さなくて大丈夫。';
+  }
+  $('dq-done-msg').textContent = msg;
+
+  // 取りこぼした分野をチップで（次に効く手がかり）
+  var chips = $('dq-done-chips');
+  clear(chips);
+  var missTags = {};
+  drill.list.forEach(function(q){
+    var s = d.seen[q.id];
+    if(s && s.miss > 0 && s.at) missTags[q.tag] = true;
+  });
+  Object.keys(missTags).forEach(function(t){
+    chips.appendChild(el('span', 'chip miss', t));
+  });
+
+  $('dq-done-again').textContent = drill.isToday ? 'もう3問' : 'もう一度この単元';
+  show($('dq-done'));
+  window.scrollTo(0, 0);
+}
+
+/* ---- 今日の3問 ----
+   現在地±1レベルから、①間違えたことのある問題 ②まだ解いていない問題
+   の順で3問。連続記録は数えない・通知しない（ダークパターン禁止）。 */
+function pickToday(){
+  var st = Store.get();
+  var d = drillState();
+  var lv = (st.latest && typeof st.latest.level === 'number') ? st.latest.level : 0;
+  var lo = Math.max(0, lv - 1), hi = Math.min(3, lv + 1);
+  var pool = DR.questions.filter(function(q){ return q.level >= lo && q.level <= hi; });
+  if(pool.length < 3) pool = DR.questions.slice();
+
+  var now = Date.now();
+  var scored = pool.map(function(q){
+    var s = d.seen[q.id];
+    var w = st.weak[q.tag] || {miss:0, hit:0};
+    var score = 0;
+    if(s && s.miss > 0) score += 100 + s.miss * 10;      // 間違えたことがある問題
+    if(!s) score += 50;                                   // まだ解いていない
+    // 弱点の"分野"を優先する。同じ問題は14日待つ設計なので、
+    // 苦手はまず「同じ分野の別の問題」で戻ってくるのが自然
+    score += Math.min(60, w.miss * 20);
+    if(s && s.at){
+      var days = (now - new Date(s.at).getTime()) / 86400000;
+      if(days < 14) score -= (14 - days) * 8;             // 直近に出したものは下げる
+    }
+    return {q:q, score:score};
+  });
+  scored.sort(function(a, b){ return b.score - a.score; });
+  return scored.slice(0, 3).map(function(x){ return x.q; });
+}
+function renderToday(){
+  var st = Store.get();
+  var d = drillState();
+  var card = $('today-card');
+  // 診断もドリルも一度も触っていない人には出さない（空の入口を増やさない）
+  var touched = !!st.latest || Object.keys(d.seen).length > 0 || Object.keys(d.units).length > 0;
+  if(!touched){ hide(card); return; }
+  show(card);
+
+  var list = pickToday();
+  // 「弱点の分野」が混ざっているかで案内文を変える（同じ問題の再出題は14日後）
+  var weakTag = null;
+  for(var i=0;i<list.length;i++){
+    var w = st.weak[list[i].tag];
+    if(w && w.miss > 0){ weakTag = list[i].tag; break; }
+  }
+  var lvTxt = (st.latest && typeof st.latest.level === 'number' && st.latest.level >= 0)
+    ? 'Lv' + st.latest.level + 'の前後から' : 'やさしいところから';
+  $('today-why').textContent = weakTag
+    ? lvTxt + '、前に取りこぼした「' + weakTag + '」を別の問題で聞き直す3問です。'
+    : lvTxt + '、まだ解いていない3問です。';
+
+  $('btn-today').onclick = function(){ startDrill(null, pickToday()); };
+}
+
+/* =========================================================
+   1イニング再現（教材ドリル14）
+   ========================================================= */
+var INN = DR.inning;
+var inning = null;
+var inPlayer = null;
+
+function renderBoard(host, cells, focusBatter, small){
+  clear(host);
+  var keys = Object.keys(cells).map(Number).sort(function(a,b){ return a-b; });
+  keys.forEach(function(no){
+    var wrap = el('div', 'bcell' + (no === focusBatter ? ' now' : ''));
+    var s = document.createElementNS(SVGNS, 'svg');
+    s.setAttribute('viewBox', '0 0 120 120');
+    s.setAttribute('role', 'img');
+    var g = (window.DIAMOND_GLYPHS || {})[cells[no]];
+    s.setAttribute('aria-label', (g && g.title) || (no + '番のマス'));
+    wrap.appendChild(s);
+    wrap.appendChild(el('div', 'bno', no + '番'));
+    host.appendChild(wrap);
+    Cell.still(s, cells[no]);
+  });
+  return host;
+}
+
+function startInning(){
+  inning = {i:0, cells:{}, correct:0};
+  goto('inning');
+  $('in-lead').textContent = INN.lead;
+  hide($('in-check'));
+  hide($('in-check-result'));
+  ['in-batters','in-outs','in-runs','in-lob'].forEach(function(id){ $(id).value = ''; });
+  renderInningStep();
+}
+
+function renderInningStep(){
+  var step = INN.steps[inning.i];
+  if(!step){ showInningCheck(); return; }
+
+  $('in-num').textContent = (inning.i + 1) + ' / ' + INN.steps.length;
+  $('in-bar').style.width = Math.round(inning.i / INN.steps.length * 100) + '%';
+  $('in-narration').textContent = step.narration;
+  $('in-q').textContent = step.q;
+  hide($('in-feedback'));
+  hide($('in-next'));
+  $('in-caption').textContent = '';
+
+  // 回答前は「いまの盤面」を全体で出す（どこまで書けているかの確認）
+  $('in-board').classList.remove('focus');
+  hide($('in-all-wrap'));
+  if(Object.keys(inning.cells).length){
+    renderBoard($('in-board'), inning.cells, null);
+  } else {
+    clear($('in-board'));
+  }
+
+  var box = $('in-choices');
+  clear(box);
+  step.choices.forEach(function(c, idx){
+    var b = el('button', null);
+    b.appendChild(el('span', 'mark', 'ABCD'.charAt(idx)));
+    b.appendChild(el('span', null, c));
+    b.addEventListener('click', function(){ answerInning(idx); });
+    box.appendChild(b);
+  });
+}
+
+function answerInning(choice){
+  var step = INN.steps[inning.i];
+  var ok = (choice === step.answer);
+  if(ok) inning.correct++;
+
+  var btns = $('in-choices').querySelectorAll('button');
+  Array.prototype.forEach.call(btns, function(b, idx){
+    b.disabled = true;
+    if(idx === step.answer) b.classList.add('right');
+    else if(idx === choice) b.classList.add('chosen-wrong');
+  });
+
+  var v = $('in-verdict');
+  v.textContent = ok ? 'そのとおり' : 'ここは、こうなります';
+  v.className = 'verdict ' + (ok ? 'ok' : 'ng');
+  $('in-why').textContent = step.why;
+
+  // 盤面を進める。回答後は「この打席で変わったマスだけ」を大きく見せる
+  // （教材ドリル14が「2番のマス／3番のマス／4番のマス」と分けて教えるのと同じ形）
+  var before = inning.cells;
+  var changed = {};
+  Object.keys(step.cells).forEach(function(k){
+    if(before[k] !== step.cells[k]) changed[k] = step.cells[k];
+  });
+  inning.cells = step.cells;
+  $('in-board').classList.add('focus');
+  renderBoard($('in-board'), changed, step.batter);
+  show($('in-all-wrap'));
+  renderBoard($('in-board-all'), inning.cells, step.batter);
+
+  // このマスの描き方アニメ
+  var key = step.cells[step.batter];
+  var rb = $('in-replay');
+  rb.textContent = '▶ このマスの描き方を見る';
+  rb.disabled = false;
+  rb.onclick = function(){
+    if(inPlayer) inPlayer.stop();
+    var target = $('in-board').querySelector('.bcell.now svg');
+    if(!target) return;
+    rb.disabled = true;
+    $('in-caption').classList.add('step');
+    inPlayer = Cell.play(target, key, {
+      pace:'read',
+      onCaption:function(t){ $('in-caption').textContent = t; },
+      onEnd:function(){
+        $('in-caption').classList.remove('step');
+        rb.disabled = false;
+        rb.textContent = '▶ もう一度';
+      }
+    });
+  };
+
+  show($('in-feedback'));
+  var nx = $('in-next');
+  nx.textContent = (inning.i + 1 >= INN.steps.length) ? '検算へ' : '次の打者へ';
+  show(nx);
+}
+
+function showInningCheck(){
+  $('in-num').textContent = '検算';
+  $('in-bar').style.width = '100%';
+  $('in-narration').textContent = 'スリーアウト。イニングが終わりました。';
+  $('in-q').textContent = '最後に、書いたものが合っているかを自分で確かめます。';
+  clear($('in-choices'));
+  hide($('in-feedback'));
+  hide($('in-next'));
+  $('in-board').classList.remove('focus');
+  renderBoard($('in-board'), inning.cells, null);
+  hide($('in-all-wrap'));
+  show($('in-check'));
+  $('in-check').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function runInningCheck(){
+  var c = INN.check;
+  var got = {
+    batters: parseInt($('in-batters').value, 10),
+    outs: parseInt($('in-outs').value, 10),
+    runs: parseInt($('in-runs').value, 10),
+    lob: parseInt($('in-lob').value, 10)
+  };
+  var filled = ['batters','outs','runs','lob'].every(function(k){ return !isNaN(got[k]); });
+  var v = $('in-check-verdict'), w = $('in-check-why');
+  show($('in-check-result'));
+
+  if(!filled){
+    v.textContent = '4つとも入れてみてください';
+    v.className = 'verdict ng';
+    w.textContent = '空欄があると、式が合うかどうかを確かめられません。';
+    return;
+  }
+
+  var selfConsistent = (got.batters === got.outs + got.runs + got.lob);
+  var matchesTruth = ['batters','outs','runs','lob'].every(function(k){ return got[k] === c[k]; });
+
+  var d = drillState();
+  d.inning = {at:new Date().toISOString(), checkOk:(selfConsistent && matchesTruth), correct:inning.correct};
+  Store.save();
+
+  if(selfConsistent && matchesTruth){
+    v.textContent = '合いました';
+    v.className = 'verdict ok';
+    w.textContent = '打者 ' + c.batters + ' ＝ アウト ' + c.outs + ' ＋ 得点 ' + c.runs + ' ＋ 残塁 ' + c.lob +
+      '。式が通ったということは、6つのマスの中央が全部埋まっていて、進塁の理由も落ちていない、ということです。' +
+      'これができれば、あとは試合の速さに慣れるだけ。';
+  } else if(selfConsistent && !matchesTruth){
+    v.textContent = '式は通っていますが、数が実際と違います';
+    v.className = 'verdict ng';
+    w.textContent = '正しくは 打者 ' + c.batters + '・アウト ' + c.outs + '・得点 ' + c.runs + '・残塁 ' + c.lob +
+      '。3アウトで終わった回なのでアウトは3、還ったのは2番だけなので得点は1、塁に残ったのは3番と4番で残塁は2です。';
+  } else {
+    v.textContent = 'まだ式が合っていません';
+    v.className = 'verdict ng';
+    w.textContent = 'あなたの数だと ' + got.batters + ' ＝ ' + got.outs + ' ＋ ' + got.runs + ' ＋ ' + got.lob +
+      '（右辺は ' + (got.outs + got.runs + got.lob) + '）。合わないのは悪いことではなく、自分でミスを見つけられたということです。' +
+      'もう一度、6つのマスの中央だけを見直してみてください。';
   }
 }
 
@@ -1560,7 +2210,59 @@ function selfTest(){
   var h3 = searchJiten('6-4-3', 'すべて');
   pass &= ok('記号（6-4-3）でも引ける', h3.some(function(e){ return e.id === 'j-dp'; }));
 
-  // 7. 保存の往復
+  // 7. 学ぶ（ドリル・1イニング再現）
+  pass &= ok('ドリルを読み込めた', DR && DR.questions && DR.questions.length >= 30,
+    DR && DR.questions ? DR.questions.length + '問 / ' + DR.units.length + '単元' : 'なし');
+  var dbad = [];
+  ((DR && DR.questions) || []).forEach(function(q){
+    if(!(q.answer >= 0 && q.answer < q.choices.length)) dbad.push(q.id + ':answer');
+    if(D.tags.indexOf(q.tag) < 0) dbad.push(q.id + ':tag');
+    if(!q.why || !q.ref) dbad.push(q.id + ':why/ref');
+    if(!DR.units.some(function(u){ return u.id === q.unit; })) dbad.push(q.id + ':unit');
+    if(q.glyph && !window.DIAMOND_GLYPHS[q.glyph]) dbad.push(q.id + ':glyph');
+    if(q.glyphAnswer && !window.DIAMOND_GLYPHS[q.glyphAnswer]) dbad.push(q.id + ':glyphAnswer');
+    if(q.jiten && !jitenById(q.jiten)) dbad.push(q.id + ':jiten');
+  });
+  pass &= ok('全ドリルの答え・タグ・単元・図・辞典リンクが正しい', dbad.length === 0, dbad.join(','));
+  var emptyUnits = DR.units.filter(function(u){ return drillQuestionsOf(u.id).length === 0; });
+  pass &= ok('問題が0問の単元がない', emptyUnits.length === 0,
+    emptyUnits.map(function(u){ return u.name; }).join(','));
+
+  // 1イニング再現：検算①が数学的に成立するか（教材の合格基準そのもの）
+  var ic = DR.inning.check;
+  pass &= ok('1イニングの検算が成立（打者＝アウト＋得点＋残塁）',
+    ic.batters === ic.outs + ic.runs + ic.lob,
+    ic.batters + '＝' + ic.outs + '+' + ic.runs + '+' + ic.lob);
+  pass &= ok('1イニングの打者数と手順数が一致', DR.inning.steps.length === ic.batters,
+    DR.inning.steps.length + '手順 / 打者' + ic.batters);
+  var ibad = [];
+  DR.inning.steps.forEach(function(s, i){
+    if(!(s.answer >= 0 && s.answer < s.choices.length)) ibad.push('手順' + (i+1) + ':answer');
+    if(!s.cells || !s.cells[s.batter]) ibad.push('手順' + (i+1) + ':自分のマスが無い');
+    Object.keys(s.cells || {}).forEach(function(k){
+      if(!window.DIAMOND_GLYPHS[s.cells[k]]) ibad.push('手順' + (i+1) + ':' + k + '番のマスが無い');
+    });
+  });
+  pass &= ok('1イニングの各手順に盤面がそろっている', ibad.length === 0, ibad.join(','));
+  // 最終盤面のアウト・得点・残塁が、検算の答えと一致するか（盤面が真実の源）
+  var last = DR.inning.steps[DR.inning.steps.length - 1].cells;
+  var cnt = {out:0, run:0, lob:0};
+  Object.keys(last).forEach(function(k){
+    var c = (window.DIAMOND_GLYPHS[last[k]] || {}).center || {};
+    if(c.out) cnt.out++;
+    if(c.run) cnt.run++;
+    if(c.lob) cnt.lob++;
+  });
+  pass &= ok('最終盤面と検算の答えが一致',
+    cnt.out === ic.outs && cnt.run === ic.runs && cnt.lob === ic.lob,
+    'アウト' + cnt.out + '/得点' + cnt.run + '/残塁' + cnt.lob);
+
+  // 今日の3問が選べるか
+  var today = pickToday();
+  pass &= ok('今日の3問を選べる', today.length === 3,
+    today.map(function(q){ return q.id; }).join(','));
+
+  // 8. 保存の往復
   var saveOk = true;
   if(Store.canSave()){
     try{
@@ -1596,6 +2298,7 @@ function boot(){
 
   renderRoadmap();
   renderHomeLevel();
+  renderToday();
   renderLegend();
   playHero();
 
@@ -1613,8 +2316,47 @@ function boot(){
     goto('settings');
   });
   $('btn-settings-home').addEventListener('click', function(){ goto('home'); });
-  $('btn-result-home').addEventListener('click', function(){ renderHomeLevel(); goto('home'); });
+  $('btn-result-home').addEventListener('click', function(){ renderHomeLevel(); renderToday(); goto('home'); });
   $('btn-retake').addEventListener('click', startQuiz);
+
+  $('btn-drill').addEventListener('click', function(){
+    renderUnitList();
+    goto('drill');
+  });
+  $('btn-drill-home').addEventListener('click', function(){ renderToday(); goto('home'); });
+  $('dq-quit').addEventListener('click', function(){
+    if(dqPlayer){ dqPlayer.stop(); dqPlayer = null; }
+    renderUnitList();
+    goto('drill');
+  });
+  $('dq-next').addEventListener('click', function(){
+    if(dqPlayer){ dqPlayer.stop(); dqPlayer = null; }
+    drill.i++;
+    renderDrillQ();
+  });
+  $('dq-done-back').addEventListener('click', function(){
+    if(dqPlayer){ dqPlayer.stop(); dqPlayer = null; }
+    renderUnitList();
+    renderToday();
+    goto('drill');
+  });
+  $('dq-done-again').addEventListener('click', function(){
+    if(dqPlayer){ dqPlayer.stop(); dqPlayer = null; }
+    if(drill.isToday) startDrill(null, pickToday());
+    else startDrill(drill.unitId);
+  });
+  $('btn-inning').addEventListener('click', startInning);
+  $('in-next').addEventListener('click', function(){
+    if(inPlayer){ inPlayer.stop(); inPlayer = null; }
+    inning.i++;
+    renderInningStep();
+  });
+  $('in-quit').addEventListener('click', function(){
+    if(inPlayer){ inPlayer.stop(); inPlayer = null; }
+    renderUnitList();
+    goto('drill');
+  });
+  $('in-check-btn').addEventListener('click', runInningCheck);
 
   $('btn-jiten').addEventListener('click', function(){
     renderJitenCats();
@@ -1679,7 +2421,8 @@ function boot(){
 /* 検品用の入口（tools/e2e とブラウザからの検証で使う）。
    秘密情報も外部通信も持たないアプリなので、公開版にも残してよい。 */
 window.DiamondTest = {Cell:Cell, Score:Score, Store:Store, selfTest:selfTest, goto:goto,
-  Jiten:{search:function(q){ return searchJiten(q, 'すべて'); }, open:openJitenDetail}};
+  Jiten:{search:function(q){ return searchJiten(q, 'すべて'); }, open:openJitenDetail},
+  pickToday:pickToday, drillState:drillState};
 
 if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();
