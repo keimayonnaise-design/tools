@@ -97,6 +97,8 @@ svg.cell.small{width:min(46vw, 180px)}
   transition:opacity .2s ease;
 }
 .caption.step{color:var(--ink)}
+/* .card p の margin 指定に負けて中央寄せが外れるのを防ぐ（本人FB: 文が左に寄る） */
+.card .caption{margin-left:auto; margin-right:auto}
 
 /* ---- 現在地 ---- */
 .level-hero{text-align:center; padding:6px 0 2px}
@@ -155,6 +157,43 @@ svg.cell.small{width:min(46vw, 180px)}
 }
 .badge.now{border-color:var(--accent); color:var(--accent)}
 
+/* ---- 辞典（引く） ---- */
+.search{
+  width:100%; font:inherit; font-size:16px;   /* 16px未満だとiOSが画面を拡大してしまう */
+  padding:12px 14px; border:1px solid var(--line); border-radius:12px;
+  background:var(--surface); color:inherit;
+}
+.search:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+.catchips{display:flex; gap:8px; overflow-x:auto; padding:10px 0 4px; -webkit-overflow-scrolling:touch}
+.catchips button{
+  width:auto; flex:none; min-height:40px; padding:7px 14px;
+  border-radius:999px; white-space:nowrap; font-size:13.5px;
+}
+.catchips button.on{background:var(--accent); color:var(--on-accent); border-color:var(--accent)}
+.jrow{
+  display:flex; gap:12px; align-items:center; width:100%;
+  border:none; border-top:1px solid var(--line); border-radius:0;
+  background:none; padding:11px 2px; min-height:56px; text-align:left;
+}
+.jrow:first-of-type{border-top:none}
+.jrow .sym{
+  flex:none; min-width:56px; max-width:96px; text-align:center;
+  font-weight:700; font-size:14px; color:var(--accent);
+  background:var(--accent-weak); border-radius:8px; padding:7px 8px;
+}
+.jrow .jt{flex:1; min-width:0}
+.jrow .jt .t{font-weight:600}
+.jrow .jt .c{font-size:12px; color:var(--muted)}
+.kbox{font-size:14px; background:var(--accent-weak); border-radius:10px; padding:11px 13px; margin:0 0 10px}
+.kbox b{display:block; font-size:12px; color:var(--accent); margin-bottom:3px}
+.kbox.plain{background:transparent; border:1px solid var(--line)}
+.howto{margin:0 0 12px; padding-left:1.4em}
+.howto li{margin:0 0 8px}
+.btn-replay-mini{
+  background:transparent; border:none; color:var(--accent);
+  min-height:40px; text-align:center; padding:6px; width:100%; font-size:14px;
+}
+
 /* ---- しるし・注意 ---- */
 .lock{
   text-align:center; font-size:12.5px; color:var(--muted);
@@ -209,6 +248,13 @@ pre.diag{
       <div class="cellbox"><svg class="cell" id="hero-cell" viewBox="0 0 120 120" role="img" aria-label="スコアのマスに1人の走者の記録が描かれていく図"></svg></div>
       <p class="caption" id="hero-caption"></p>
       <button type="button" id="btn-replay" class="btn-quiet">もう一度見る</button>
+    </div>
+
+    <!-- 引く（逆引き辞典）への入口。試合の場で3秒で引けるよう、ホームの上段に置く -->
+    <div class="card">
+      <h2>引く — これ、どう書くんだっけ？</h2>
+      <p class="mini">振り逃げ・盗塁・打点・追いつけないとき…。場面から3秒で引ける逆引き辞典。</p>
+      <button type="button" id="btn-jiten" class="btn-main">🔎 辞典をひらく</button>
     </div>
 
     <!-- 現在地（診断前は招待カード） -->
@@ -281,6 +327,47 @@ pre.diag{
     <button type="button" id="btn-retake" class="btn-quiet">もう一度確かめる</button>
   </main>
 
+  <!-- ============ 辞典（一覧） ============ -->
+  <main id="s-jiten" class="hidden">
+    <input type="search" id="jiten-q" class="search" placeholder="ことばで探す（例: ふりにげ・盗塁・6-4-3）" autocomplete="off">
+    <div class="catchips" id="jiten-cats"></div>
+    <div class="card" style="padding:6px 16px">
+      <div id="jiten-list"></div>
+      <p class="mini hidden" id="jiten-empty" style="padding:14px 0">
+        見つかりませんでした。ひらがなでも、記号（SB・6-3 など）でも探せます。
+      </p>
+    </div>
+    <button type="button" id="btn-jiten-home" class="btn-quiet">← ホームへ</button>
+  </main>
+
+  <!-- ============ 辞典（1項目） ============ -->
+  <main id="s-jiten-detail" class="hidden">
+    <div class="card">
+      <p class="mini" id="jd-cat" style="margin-bottom:2px"></p>
+      <h2 id="jd-title" style="font-size:19px"></h2>
+      <div class="cellbox hidden" id="jd-cellbox">
+        <svg class="cell" id="jd-cell" viewBox="0 0 120 120" role="img"></svg>
+      </div>
+      <p class="caption hidden" id="jd-caption"></p>
+      <button type="button" id="jd-replay" class="btn-replay-mini hidden">▶ 描き方を見る</button>
+      <h3>書き方</h3>
+      <ol class="howto" id="jd-howto"></ol>
+      <div class="kbox plain"><b>他でよく見る書き方</b><span id="jd-others"></span></div>
+      <div class="kbox hidden" id="jd-caution-box"><b>注意</b><span id="jd-caution"></span></div>
+      <div class="kbox plain hidden" id="jd-umpire">
+        <b>記録の判断について</b>
+        記録の分類は公認野球規則9章が根拠。アウト・セーフの判定は審判のもので、記録が覆すことはできません。公式戦では所属連盟の記録要領・大会本部の裁定が最優先です。
+      </div>
+      <p class="ref" id="jd-ref"></p>
+      <div class="chips" id="jd-related"></div>
+      <button type="button" id="jd-flag" class="btn-quiet" style="margin-top:8px">🚩 この説明、気になる（あとで見直す印）</button>
+    </div>
+    <div class="btn-row">
+      <button type="button" id="jd-back" class="btn-sub">← 辞典にもどる</button>
+      <button type="button" id="jd-home" class="btn-sub">ホームへ</button>
+    </div>
+  </main>
+
   <!-- ============ 設定 ============ -->
   <main id="s-settings" class="hidden">
     <div class="card">
@@ -292,6 +379,7 @@ pre.diag{
     <div class="card">
       <h2>データ</h2>
       <p class="mini">記録はこの端末の中だけにあります。機種変更やブラウザの掃除で消えるので、ときどき書き出しておくと安心です。</p>
+      <p class="mini hidden" id="flags-line"></p>
       <div class="btn-row">
         <button type="button" id="btn-export" class="btn-sub">書き出す</button>
         <button type="button" id="btn-import" class="btn-sub">読み込む</button>
@@ -311,6 +399,7 @@ pre.diag{
 
 <script src="content/glyphs.js"></script>
 <script src="content/diagnostic.js"></script>
+<script src="content/jiten.js"></script>
 <script>
 (function(){
 'use strict';
@@ -406,16 +495,34 @@ var Cell = (function(){
       fill:'none', stroke:'currentColor', 'stroke-opacity':.22, 'stroke-width':1.4
     }));
 
-    // ひし形の薄い下敷き（区画の地図を見せるときだけ）。
-    // ふつうのマスには出さない——斜線を引いて◇が完成する体験を、
-    // 最初から線があることで薄めないため。
-    if(g.diamond || g.guides){
-      svgEl.appendChild(svg('path', {
-        d:'M ' + B.x + ' ' + B.y + ' L ' + R.x + ' ' + R.y + ' L ' + T.x + ' ' + T.y +
-          ' L ' + L.x + ' ' + L.y + ' Z',
-        fill:'none', stroke:'currentColor', 'stroke-opacity':.2,
-        'stroke-width':1.4, 'stroke-dasharray':'3 3'
+    // ひし形の薄い下敷き（点線）。すべてのマスに標準で描く。
+    // 市販の早稲田式スコアブックにも薄く印刷されているのと同じで、
+    // 「どの区画がどの塁か」が最初から見える（2026-07-27 本人FBで標準化。
+    // 斜線はこの点線を太くなぞる形になり、紙に書くときの手の動きとも一致する）
+    svgEl.appendChild(svg('path', {
+      d:'M ' + B.x + ' ' + B.y + ' L ' + R.x + ' ' + R.y + ' L ' + T.x + ' ' + T.y +
+        ' L ' + L.x + ' ' + L.y + ' Z',
+      fill:'none', stroke:'currentColor', 'stroke-opacity':.18,
+      'stroke-width':1.3, 'stroke-dasharray':'3 3'
+    }));
+
+    // 区画の指し示し（出題用）。色掛け＋「ここ」の文字で、色だけに頼らない
+    if(g.highlight >= 1 && g.highlight <= 4){
+      var QUADS = {
+        1: [[B.x,B.y],[R.x,R.y],[118.5,56],[118.5,118.5],[60,118.5]],
+        2: [[R.x,R.y],[T.x,T.y],[60,1.5],[118.5,1.5],[118.5,56]],
+        3: [[T.x,T.y],[L.x,L.y],[1.5,56],[1.5,1.5],[60,1.5]],
+        4: [[L.x,L.y],[B.x,B.y],[60,118.5],[1.5,118.5],[1.5,56]]
+      };
+      var LABELS = {1:[97,113], 2:[97,16], 3:[23,16], 4:[23,113]};
+      svgEl.appendChild(svg('polygon', {
+        points: QUADS[g.highlight].map(function(p){ return p.join(','); }).join(' '),
+        fill:'var(--accent)', 'fill-opacity':.13
       }));
+      var lb = svg('text', {x:LABELS[g.highlight][0], y:LABELS[g.highlight][1],
+        'text-anchor':'middle', 'font-size':11, 'font-weight':700, fill:'var(--accent)'});
+      lb.textContent = 'ここ';
+      svgEl.appendChild(lb);
     }
 
     // 塁の名前（学習用の薄い案内）。区画の角に置き、ひし形の線をまたがせない
@@ -595,14 +702,23 @@ var Cell = (function(){
       return {stop:function(){}};
     }
 
-    var t = opt.delay || 240;
+    // pace:'read' = 説明を読みながら見るモード（ホームのデモ・答えの再生）。
+    // 一言の長さに応じて 2.2〜4.3秒 止まる（速すぎて読めない、への対策）
+    var read = (opt.pace === 'read');
+    var t = opt.delay || (read ? 500 : 240);
     built.steps.forEach(function(s){
       timers.push(setTimeout(function(){
         if(stopped) return;
         s.reveal(false);
         if(s.caption) say(s.caption);
       }, t));
-      t += s.dur + 150;
+      var hold = 150;
+      if(read){
+        hold = s.caption
+          ? Math.min(4300, Math.max(2200, 1100 + s.caption.length * 62))
+          : 650;
+      }
+      t += s.dur + hold;
     });
 
     if(built.glow){
@@ -656,7 +772,8 @@ var Store = (function(){
     return (err.name || 'Error') + ': ' + (err.message || String(err));
   }
   function empty(){
-    return {schemaVersion:SCHEMA, settings:{}, latest:null, history:[], weak:{}};
+    return {schemaVersion:SCHEMA, settings:{}, latest:null, history:[], weak:{},
+      jiten:{opens:{}}, flags:[]};
   }
   function normalize(raw){
     var d = empty();
@@ -665,6 +782,9 @@ var Store = (function(){
     d.latest = (raw.latest && typeof raw.latest === 'object') ? raw.latest : null;
     d.history = Array.isArray(raw.history) ? raw.history.slice(-50) : [];
     d.weak = (raw.weak && typeof raw.weak === 'object') ? raw.weak : {};
+    d.jiten = (raw.jiten && typeof raw.jiten === 'object' && raw.jiten.opens)
+      ? {opens: raw.jiten.opens} : {opens:{}};
+    d.flags = Array.isArray(raw.flags) ? raw.flags.slice(-100) : [];
     return d;
   }
   function quarantine(raw, why){
@@ -818,7 +938,7 @@ var D = window.DIAMOND_DIAGNOSTIC;
 var heroPlayer = null;
 
 function goto(name){
-  ['home','quiz','result','settings'].forEach(function(n){
+  ['home','quiz','result','settings','jiten','jiten-detail'].forEach(function(n){
     var node = $('s-' + n);
     if(n === name) show(node); else hide(node);
   });
@@ -831,6 +951,7 @@ function playHero(){
   var cap = $('hero-caption');
   cap.classList.add('step');
   heroPlayer = Cell.play($('hero-cell'), 'hero', {
+    pace:'read',
     onCaption:function(t){ cap.textContent = t; },
     finalCaption:'1マスは打席の記録ではなく「その人の旅の記録」。4本そろって◇が完成＝1点。',
     onEnd:function(){ cap.classList.remove('step'); }
@@ -886,7 +1007,7 @@ function renderHomeLevel(){
 var PILLARS = [
   {ico:'📐', name:'確かめる', now:true,
    desc:'いまの自分のレベルを測って、次にどこをやればいいかを出す'},
-  {ico:'🔎', name:'引く', now:false,
+  {ico:'🔎', name:'引く', now:true,
    desc:'「これどう書くんだっけ」を3秒で引ける逆引き辞典。試合の場でも使う'},
   {ico:'✏️', name:'学ぶ', now:false,
    desc:'記号と書き方をポチポチ身につけるドリル。間違えた部品は戻ってくる'},
@@ -1066,7 +1187,8 @@ function renderResult(latest){
       if(!q) return;
       var item = el('div', 'review-item');
       item.appendChild(el('p', 'review-q', q.q));
-      // 見直しでは「答えが見える形」のマスがあればそちらを出す
+      // 見直しでは「答えが見える形」のマスを一番上に出す（本人FB:
+      // スコアシートでどう書くかを先に見せる）。▶で描く順番のアニメも再生できる
       var showGlyph = q.glyphAnswer || q.glyph;
       if(showGlyph){
         var wrap = el('div', 'cellbox');
@@ -1076,6 +1198,31 @@ function renderResult(latest){
         wrap.appendChild(s);
         item.appendChild(wrap);
         Cell.still(s, showGlyph);
+        var gdata = (window.DIAMOND_GLYPHS || {})[showGlyph] || {};
+        var capEl = null;
+        if(gdata.captions){
+          capEl = el('p', 'caption');
+          item.appendChild(capEl);
+        }
+        var rb = el('button', 'btn-replay-mini', '▶ 描き方を見る');
+        (function(svgNode, key, capNode, btn){
+          var player = null;
+          btn.addEventListener('click', function(){
+            if(player) player.stop();
+            if(capNode) capNode.classList.add('step');
+            btn.disabled = true;
+            player = Cell.play(svgNode, key, {
+              pace:'read',
+              onCaption:function(t){ if(capNode) capNode.textContent = t; },
+              onEnd:function(){
+                if(capNode) capNode.classList.remove('step');
+                btn.disabled = false;
+                btn.textContent = '▶ もう一度';
+              }
+            });
+          });
+        })(s, showGlyph, capEl, rb);
+        item.appendChild(rb);
       }
       var ans = el('p', 'answer-line');
       ans.appendChild(document.createTextNode('答え: '));
@@ -1088,6 +1235,168 @@ function renderResult(latest){
       rbox.appendChild(item);
     });
   }
+}
+
+/* ---- 引く（逆引き辞典・F2） ---- */
+var JITEN = window.DIAMOND_JITEN;
+var jitenCat = 'すべて';
+var jdPlayer = null;
+
+// ひらがな・カタカナ・大文字小文字・空白の差をならす（検索用）
+function normQ(s){
+  return String(s || '').toLowerCase().replace(/[ァ-ヶ]/g, function(ch){
+    return String.fromCharCode(ch.charCodeAt(0) - 0x60);
+  }).replace(/\s+/g, '');
+}
+function entryCorpus(e){
+  return normQ([e.title, e.symbol, (e.yomi || []).join(''), e.category].join(''));
+}
+function searchJiten(q, cat){
+  var useCat = cat || jitenCat;
+  var nq = normQ(q);
+  var list = JITEN.entries.filter(function(e){
+    if(useCat !== 'すべて' && e.category !== useCat) return false;
+    if(!nq) return true;
+    return entryCorpus(e).indexOf(nq) >= 0;
+  });
+  // よく引く項目を上へ（この端末で開いた回数だけで並べる。通信はしない）
+  var opens = (Store.get() && Store.get().jiten && Store.get().jiten.opens) || {};
+  return list.slice().sort(function(a, b){ return (opens[b.id] || 0) - (opens[a.id] || 0); });
+}
+function jitenById(id){
+  for(var i = 0; i < JITEN.entries.length; i++){
+    if(JITEN.entries[i].id === id) return JITEN.entries[i];
+  }
+  return null;
+}
+function renderJitenCats(){
+  var box = $('jiten-cats');
+  clear(box);
+  ['すべて'].concat(JITEN.categories).forEach(function(c){
+    var b = el('button', jitenCat === c ? 'on' : null, c);
+    b.addEventListener('click', function(){
+      jitenCat = c;
+      renderJitenCats();
+      renderJitenList();
+    });
+    box.appendChild(b);
+  });
+}
+function renderJitenList(){
+  var box = $('jiten-list');
+  clear(box);
+  var hits = searchJiten($('jiten-q').value);
+  hits.forEach(function(e){
+    var b = el('button', 'jrow');
+    b.appendChild(el('span', 'sym', e.symbol));
+    var jt = el('span', 'jt');
+    jt.appendChild(el('div', 't', e.title));
+    jt.appendChild(el('div', 'c', e.category + (e.umpire ? '・記録の判断あり' : '')));
+    b.appendChild(jt);
+    b.addEventListener('click', function(){ openJitenDetail(e.id); });
+    box.appendChild(b);
+  });
+  if(hits.length) hide($('jiten-empty')); else show($('jiten-empty'));
+}
+function openJitenDetail(id){
+  var e = jitenById(id);
+  if(!e) return;
+
+  // 開いた回数を覚える（よく引く項目が上に来るように）
+  var st = Store.get();
+  st.jiten.opens[id] = (st.jiten.opens[id] || 0) + 1;
+  Store.save();
+
+  $('jd-cat').textContent = e.category + ' ／ Diamondの書き方: ' + e.symbol;
+  $('jd-title').textContent = e.title;
+
+  if(jdPlayer){ jdPlayer.stop(); jdPlayer = null; }
+  var capEl = $('jd-caption');
+  capEl.textContent = '';
+  capEl.classList.remove('step');
+  if(e.glyph){
+    show($('jd-cellbox'));
+    Cell.still($('jd-cell'), e.glyph);
+    $('jd-cell').setAttribute('aria-label', e.title + 'のマスの書き方');
+    var gdata = (window.DIAMOND_GLYPHS || {})[e.glyph] || {};
+    var rb = $('jd-replay');
+    rb.textContent = '▶ 描き方を見る';
+    rb.disabled = false;
+    show(rb);
+    if(gdata.captions) show(capEl); else hide(capEl);
+  } else {
+    hide($('jd-cellbox'));
+    hide($('jd-replay'));
+    hide(capEl);
+  }
+
+  var ho = $('jd-howto');
+  clear(ho);
+  e.howto.forEach(function(step){ ho.appendChild(el('li', null, step)); });
+
+  $('jd-others').textContent = e.others;
+  if(e.caution){
+    $('jd-caution').textContent = e.caution;
+    show($('jd-caution-box'));
+  } else {
+    hide($('jd-caution-box'));
+  }
+  if(e.umpire) show($('jd-umpire')); else hide($('jd-umpire'));
+  $('jd-ref').textContent = '教材16「スコアシートの書き方」' + e.kyozaiRef;
+
+  var rel = $('jd-related');
+  clear(rel);
+  (e.related || []).forEach(function(rid){
+    var r = jitenById(rid);
+    if(!r) return;
+    var chip = el('button', 'chip', '→ ' + r.title);
+    chip.style.border = 'none';
+    chip.style.minHeight = '32px';
+    chip.style.width = 'auto';
+    chip.addEventListener('click', function(){ openJitenDetail(rid); });
+    rel.appendChild(chip);
+  });
+
+  var flagged = (st.flags || []).some(function(f){ return f.id === id; });
+  var fb = $('jd-flag');
+  fb.setAttribute('data-id', id);
+  fb.textContent = flagged
+    ? '🚩 印をつけてあります（次の見直しで確認します）'
+    : '🚩 この説明、気になる（あとで見直す印）';
+
+  goto('jiten-detail');
+}
+function replayJdGlyph(){
+  var id = null;
+  // いま開いている項目は jd-title から引かず、直前に開いた entry を使う
+  // （タイトル重複の余地を残さないため、data属性で持つ）
+  id = $('jd-flag').getAttribute('data-id');
+  var e = id ? jitenById(id) : null;
+  if(!e || !e.glyph) return;
+  if(jdPlayer) jdPlayer.stop();
+  var capEl = $('jd-caption');
+  capEl.classList.add('step');
+  var rb = $('jd-replay');
+  rb.disabled = true;
+  jdPlayer = Cell.play($('jd-cell'), e.glyph, {
+    pace:'read',
+    onCaption:function(t){ capEl.textContent = t; },
+    onEnd:function(){
+      capEl.classList.remove('step');
+      rb.disabled = false;
+      rb.textContent = '▶ もう一度';
+    }
+  });
+}
+function flagJd(){
+  var id = $('jd-flag').getAttribute('data-id');
+  if(!id) return;
+  var st = Store.get();
+  if(!(st.flags || []).some(function(f){ return f.id === id; })){
+    st.flags.push({id:id, at:new Date().toISOString()});
+    Store.save();
+  }
+  $('jd-flag').textContent = '🚩 印をつけました（次の見直しで確認します）';
 }
 
 /* ---- 設定：凡例 ---- */
@@ -1232,7 +1541,26 @@ function selfTest(){
   var q23 = Score.byId('q2-3');
   pass &= ok('検算の問題の答えが 6=3+1+2 と一致', q23 && q23.choices[q23.answer] === '2人');
 
-  // 6. 保存の往復
+  // 6. 辞典（引く）
+  var JT = window.DIAMOND_JITEN;
+  pass &= ok('辞典データを読み込めた', JT && JT.entries && JT.entries.length >= 30,
+    JT && JT.entries ? JT.entries.length + '件' : 'なし');
+  var jbad = [];
+  ((JT && JT.entries) || []).forEach(function(e){
+    if(!e.howto || !e.howto.length || !e.kyozaiRef || !e.others) jbad.push(e.id);
+    if(e.glyph && !window.DIAMOND_GLYPHS[e.glyph]) jbad.push(e.id + ':glyph');
+    if(JT.categories.indexOf(e.category) < 0) jbad.push(e.id + ':cat');
+  });
+  pass &= ok('辞典の全項目に手順・他表記・教材参照がある', jbad.length === 0, jbad.join(','));
+  var h1 = searchJiten('ふりにげ', 'すべて');
+  pass &= ok('ひらがな検索で「振り逃げ」が見つかる',
+    h1.some(function(e){ return e.id === 'j-furinige'; }));
+  var h2 = searchJiten('フリニゲ', 'すべて');
+  pass &= ok('カタカナで検索しても同じ結果', h2.length === h1.length && h2.length > 0);
+  var h3 = searchJiten('6-4-3', 'すべて');
+  pass &= ok('記号（6-4-3）でも引ける', h3.some(function(e){ return e.id === 'j-dp'; }));
+
+  // 7. 保存の往復
   var saveOk = true;
   if(Store.canSave()){
     try{
@@ -1274,11 +1602,37 @@ function boot(){
   $('btn-replay').addEventListener('click', playHero);
   $('btn-settings').addEventListener('click', function(){
     $('selftest').textContent = selfTest();
+    var flags = (Store.get().flags || []);
+    if(flags.length){
+      $('flags-line').textContent = '🚩 辞典で「気になる」印: ' + flags.length +
+        '件（書き出しに含まれ、次の改訂で確認します）';
+      show($('flags-line'));
+    } else {
+      hide($('flags-line'));
+    }
     goto('settings');
   });
   $('btn-settings-home').addEventListener('click', function(){ goto('home'); });
   $('btn-result-home').addEventListener('click', function(){ renderHomeLevel(); goto('home'); });
   $('btn-retake').addEventListener('click', startQuiz);
+
+  $('btn-jiten').addEventListener('click', function(){
+    renderJitenCats();
+    renderJitenList();
+    goto('jiten');
+  });
+  $('btn-jiten-home').addEventListener('click', function(){ goto('home'); });
+  $('jiten-q').addEventListener('input', renderJitenList);
+  $('jd-back').addEventListener('click', function(){
+    if(jdPlayer){ jdPlayer.stop(); jdPlayer = null; }
+    goto('jiten');
+  });
+  $('jd-home').addEventListener('click', function(){
+    if(jdPlayer){ jdPlayer.stop(); jdPlayer = null; }
+    goto('home');
+  });
+  $('jd-replay').addEventListener('click', replayJdGlyph);
+  $('jd-flag').addEventListener('click', flagJd);
 
   $('btn-unknown').addEventListener('click', function(){ answer(-1); });
   $('btn-back').addEventListener('click', function(){
@@ -1324,7 +1678,8 @@ function boot(){
 
 /* 検品用の入口（tools/e2e とブラウザからの検証で使う）。
    秘密情報も外部通信も持たないアプリなので、公開版にも残してよい。 */
-window.DiamondTest = {Cell:Cell, Score:Score, Store:Store, selfTest:selfTest, goto:goto};
+window.DiamondTest = {Cell:Cell, Score:Score, Store:Store, selfTest:selfTest, goto:goto,
+  Jiten:{search:function(q){ return searchJiten(q, 'すべて'); }, open:openJitenDetail}};
 
 if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();
