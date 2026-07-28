@@ -37,6 +37,7 @@
 
   /* ---- 空のマス・地図 ---- */
   G['empty'] = { title: '空のマス' };
+  G['empty-nodiamond'] = { title: '空のマス（下敷きなし）', noDiamond: true };
   G['empty-map'] = { title: '4つに割れたマス' };
   G['empty-guides'] = { title: 'マスの地図（塁の名前つき）', guides: true };
   G['empty-quad1'] = { title: '右下の区画（ここ）', highlight: 1 };

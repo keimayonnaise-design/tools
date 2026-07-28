@@ -230,8 +230,11 @@ svg.cell.small{width:min(46vw, 180px)}
 .verdict.ng{color:var(--ink)}
 
 /* 盤面（複数マス） */
+/* 正解シートは「紙と見比べる」ための画面なので、記号が読める大きさを優先する。
+   狭い画面では3列でなく2列に落ちる（320pxで記号20px相当） */
 .board{
-  display:grid; grid-template-columns:repeat(3, 1fr); gap:10px 8px; margin:6px 0 10px;
+  display:grid; grid-template-columns:repeat(auto-fit, minmax(100px, 1fr));
+  gap:10px 8px; margin:6px 0 10px;
 }
 .board .bcell{text-align:center}
 .board .bcell svg{width:100%; height:auto; color:var(--ink)}
@@ -246,6 +249,113 @@ svg.cell.small{width:min(46vw, 180px)}
   background:var(--surface); color:inherit;
 }
 .numrow input:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+
+/* ---- 鍛える（実践編） ---- */
+table.lineup{width:100%; border-collapse:collapse; font-size:14px; margin-top:8px}
+table.lineup th, table.lineup td{
+  border-bottom:1px solid var(--line); padding:7px 6px; text-align:left;
+}
+table.lineup th{font-size:12px; color:var(--muted); font-weight:600}
+table.lineup td.n{width:2.4em; color:var(--muted); font-variant-numeric:tabular-nums}
+table.lineup td.p{width:2.4em; font-weight:700; color:var(--accent); text-align:center}
+.segs{display:flex; gap:8px; margin-top:8px}
+.segs button{
+  width:auto; flex:1; min-height:44px; padding:9px 6px; text-align:center; font-size:13.5px;
+}
+.segs button.on{background:var(--accent); color:var(--on-accent); border-color:var(--accent)}
+.minibd{
+  display:flex; gap:14px; align-items:center; justify-content:center;
+  padding:10px 0 14px; border-bottom:1px solid var(--line); margin-bottom:14px;
+}
+.minibd .grp{display:flex; gap:5px; align-items:center; font-size:12px; color:var(--muted)}
+.minibd .dot{
+  width:13px; height:13px; border-radius:50%; border:1.5px solid var(--muted);
+}
+.minibd .dot.on{background:var(--ink); border-color:var(--ink)}
+.minibd .bs{position:relative; width:44px; height:44px}
+.minibd .bs i{
+  position:absolute; width:13px; height:13px; border:1.5px solid var(--muted);
+  transform:rotate(45deg);
+}
+.minibd .bs i.on{background:var(--accent); border-color:var(--accent)}
+.minibd .bs i.b1{right:0; top:15px}
+.minibd .bs i.b2{left:15px; top:0}
+.minibd .bs i.b3{left:0; top:15px}
+.say{font-size:17px; line-height:1.85; margin:0 0 14px; min-height:5em}
+/* 読み上げ文の長さでボタンが上下すると、連打しているとき押し間違える。
+   実践編は「次へ」を何十回も押す画面なので、指の位置を固定する */
+.btn-row.stick{
+  position:sticky; bottom:max(8px, env(safe-area-inset-bottom));
+  background:var(--surface); padding:8px 0 4px; z-index:2;
+  box-shadow:0 -10px 12px -8px var(--surface);
+}
+/* 見比べは1項目が長い（マス1つ分の説明が丸ごと入る）ので、
+   ボタンは横に置かず下に回して、文章に幅を全部使わせる */
+.ckitem{
+  display:flex; flex-direction:column; gap:8px;
+  border-top:1px solid var(--line); padding:11px 0;
+}
+.ckitem:first-child{border-top:none}
+.ckitem .txt{font-size:14px; line-height:1.7}
+.ckitem .btns{display:flex; gap:8px; justify-content:flex-end}
+.ckitem .btns button{
+  width:auto; min-height:38px; padding:6px 11px; font-size:13px; border-radius:9px;
+}
+.ckitem .btns button.on-ok{background:var(--accent); color:var(--on-accent); border-color:var(--accent)}
+.ckitem .btns button.on-ng{background:var(--accent-weak); border-color:var(--accent)}
+.scen{
+  display:flex; gap:12px; align-items:center; width:100%; text-align:left;
+  border:none; border-top:1px solid var(--line); border-radius:0;
+  background:none; padding:13px 2px; min-height:64px;
+}
+.scen:first-of-type{border-top:none}
+.scen .lv{
+  flex:none; width:38px; height:38px; border-radius:10px;
+  background:var(--accent-weak); color:var(--accent);
+  display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px;
+}
+.scen .st{flex:1; min-width:0}
+.scen .st .t{font-weight:600}
+.scen .st .d{font-size:12.5px; color:var(--muted); line-height:1.6}
+.scen .st .m{font-size:11.5px; color:var(--muted); margin-top:2px}
+
+/* 一斉モード（みんなで）— 監督の1台を大画面につないで進める。
+   離れた席からも読めるよう、読み上げ文と盤面だけを大きくする */
+body.group-mode #s-run .wrap, body.group-mode #s-run{max-width:none}
+body.group-mode .say{font-size:clamp(20px, 3.4vw, 34px); line-height:1.7; min-height:4.5em}
+body.group-mode .minibd{transform:scale(1.35); transform-origin:center; margin-bottom:26px}
+body.group-mode #run-board{grid-template-columns:repeat(auto-fit, minmax(140px, 1fr))}
+body.group-mode .ckitem .txt{font-size:clamp(15px, 1.9vw, 22px)}
+body.group-mode #run-answer-title, body.group-mode #run-check-title{font-size:clamp(18px, 2.4vw, 26px)}
+.pairnote{
+  border:1px solid var(--accent); border-radius:12px; padding:13px 15px; margin:0 0 14px;
+  font-size:15px; line-height:1.8;
+}
+.pairnote b{color:var(--accent)}
+
+/* ---- 印刷（スコアシート） ---- */
+#print-area{display:none}
+@media print{
+  body{background:#fff; color:#000; padding:0}
+  .wrap{display:none !important}
+  #print-area{display:block !important; padding:0; color:#000}
+  @page{size:A4 portrait; margin:9mm}
+  .psheet{page-break-after:always}
+  .psheet:last-child{page-break-after:auto}
+  .phead{display:flex; flex-wrap:wrap; gap:4px 14px; font-size:9pt; margin-bottom:5mm}
+  .phead span{border-bottom:1px solid #999; min-width:26mm; padding:0 2px 1px}
+  .pgrid{display:grid; gap:0; border:1px solid #333}
+  .pgrid .hd{
+    font-size:7.5pt; text-align:center; padding:1mm 0; border-right:1px solid #333;
+    border-bottom:1px solid #333; background:#f0f0f0;
+  }
+  .pgrid .nm{border-right:1px solid #333; border-bottom:1px solid #333; padding:1mm}
+  .pgrid .cl{border-right:1px solid #333; border-bottom:1px solid #333; padding:0.6mm}
+  .pgrid .cl svg{width:100%; height:auto; display:block; color:#000}
+  .plegend{margin-top:4mm; font-size:8pt; line-height:1.6; border-top:1px solid #999; padding-top:2mm}
+  .plegend b{display:inline-block; min-width:15mm}
+  .ptitle{font-size:11pt; font-weight:700; margin:0 0 3mm}
+}
 
 /* ---- しるし・注意 ---- */
 .lock{
@@ -308,6 +418,13 @@ pre.diag{
       <h2>今日の3問</h2>
       <p class="mini" id="today-why"></p>
       <button type="button" id="btn-today" class="btn-main">▶ 3問だけ解く</button>
+    </div>
+
+    <!-- 鍛える（実践編）への入口。ここがこのツールの目的地なので、学ぶより先に置く -->
+    <div class="card">
+      <h2>鍛える — 紙に書く</h2>
+      <p class="mini">アプリが試合を1プレーずつ読み上げます。あなたは紙のスコアシートに書いて、検算して、正解と見比べる。ここがDiamondの目的地です。</p>
+      <button type="button" id="btn-practice" class="btn-main">📋 実践編をひらく</button>
     </div>
 
     <!-- 学ぶ（ドリル）への入口 -->
@@ -495,6 +612,106 @@ pre.diag{
     <button type="button" id="in-quit" class="btn-quiet">← 学ぶへ戻る</button>
   </main>
 
+  <!-- ============ 鍛える（実践編・シナリオ選択） ============ -->
+  <main id="s-practice" class="hidden">
+    <div class="card">
+      <h2>鍛える — 紙に書く</h2>
+      <p class="mini">アプリが試合を1プレーずつ読み上げます。あなたは<b>紙のスコアシートに書く</b>。イニングの終わりに検算して、正解と見比べます。</p>
+      <p class="mini" style="margin-top:8px">紙が手元にないときは、まず印刷から。</p>
+      <button type="button" id="btn-print" class="btn-sub" style="margin-top:8px">🖨 スコアシートを印刷する</button>
+    </div>
+    <div class="card">
+      <h2>どの試合を書く？</h2>
+      <div id="scenario-list"></div>
+    </div>
+    <button type="button" id="btn-practice-home" class="btn-quiet">← ホームへ</button>
+  </main>
+
+  <!-- ============ 実践編（進行） ============ -->
+  <main id="s-run" class="hidden">
+    <div class="progress">
+      <span class="num" id="run-inning"></span>
+      <span class="bar"><i id="run-bar" style="width:0%"></i></span>
+      <span class="num" id="run-count"></span>
+    </div>
+
+    <!-- 準備（試合前ルーティン） -->
+    <div class="card" id="run-prep">
+      <h2 id="run-prep-title"></h2>
+      <p class="mini" id="run-prep-desc"></p>
+      <h3 style="margin-top:14px">相手の打順表</h3>
+      <p class="mini">試合が始まる前に、ここを紙に書き写しておきます。試合中はほぼ止まりません（教材ドリル10）。</p>
+      <table class="lineup" id="run-lineup"></table>
+      <div class="kbox plain" style="margin-top:12px">
+        <b>書くときの合言葉</b>遅れてもいい、止まるな。分からない場面は空白にせず、余白に日本語でメモして後で確定させます。
+      </div>
+      <h3 style="margin-top:14px">進み方</h3>
+      <div class="segs" id="run-pace"></div>
+      <details style="margin-top:10px">
+        <summary>ひとりで／みんなで、を切り替える</summary>
+        <div class="segs" id="run-mode" style="margin-top:8px"></div>
+        <p class="mini" id="run-mode-note" style="margin-top:8px"></p>
+        <div class="segs" id="run-board-seg" style="margin-top:10px"></div>
+        <p class="mini" id="run-board-note" style="margin-top:8px"></p>
+      </details>
+      <button type="button" id="run-start" class="btn-main" style="margin-top:14px">▶ 試合を始める</button>
+    </div>
+
+    <!-- 進行中 -->
+    <div class="card hidden" id="run-play">
+      <div class="minibd" id="run-mini"></div>
+      <p class="say" id="run-say"></p>
+      <div class="btn-row stick">
+        <button type="button" id="run-next" class="btn-main">次のプレーへ</button>
+      </div>
+      <button type="button" id="run-pause" class="btn-quiet hidden">⏸ 止める</button>
+      <details style="margin-top:6px">
+        <summary>いま何が起きたか、もう一度読む</summary>
+        <div id="run-log" class="mini"></div>
+      </details>
+    </div>
+
+    <!-- イニング終わり: 検算 -->
+    <div class="card hidden" id="run-check">
+      <h2 id="run-check-title"></h2>
+      <p class="mini">正解を見る前に、まず自分の紙だけを見て数えます。ここが「自分でミスを見つける」練習です。</p>
+      <p class="mini" style="margin:8px 0 12px"><b>打者数 ＝ アウト ＋ 得点 ＋ 残塁</b></p>
+      <div class="numrow"><label for="run-b">打者数</label><input type="number" id="run-b" inputmode="numeric" min="0" max="20"></div>
+      <div class="numrow"><label for="run-o">アウト</label><input type="number" id="run-o" inputmode="numeric" min="0" max="3"></div>
+      <div class="numrow"><label for="run-r">得点</label><input type="number" id="run-r" inputmode="numeric" min="0" max="20"></div>
+      <div class="numrow"><label for="run-l">残塁</label><input type="number" id="run-l" inputmode="numeric" min="0" max="3"></div>
+      <button type="button" id="run-check-btn" class="btn-main">検算する</button>
+      <div class="hidden" id="run-check-out">
+        <p class="verdict" id="run-check-verdict"></p>
+        <p class="why" id="run-check-why"></p>
+        <button type="button" id="run-see-answer" class="btn-main" style="margin-top:12px">正解シートを見る</button>
+      </div>
+    </div>
+
+    <!-- 正解シート＋見比べ -->
+    <div class="card hidden" id="run-answer">
+      <h2 id="run-answer-title"></h2>
+      <div class="pairnote hidden" id="run-pair"></div>
+      <p class="mini">自分の紙と見比べて、1つずつ確かめます。合っていなくても大丈夫——どこがズレたかが分かれば、それが次の一歩になります。</p>
+      <div class="board" id="run-board"></div>
+      <div id="run-checklist"></div>
+      <button type="button" id="run-answer-next" class="btn-main" style="margin-top:14px"></button>
+    </div>
+
+    <!-- 総評 -->
+    <div class="card hidden" id="run-done">
+      <h2>おつかれさま</h2>
+      <p id="run-done-msg"></p>
+      <div id="run-done-detail"></div>
+      <div class="btn-row">
+        <button type="button" id="run-done-again" class="btn-sub">もう一度</button>
+        <button type="button" id="run-done-back" class="btn-main">実践編へ</button>
+      </div>
+    </div>
+
+    <button type="button" id="run-quit" class="btn-quiet">← やめる（記録は残ります）</button>
+  </main>
+
   <!-- ============ 辞典（一覧） ============ -->
   <main id="s-jiten" class="hidden">
     <input type="search" id="jiten-q" class="search" placeholder="ことばで探す（例: ふりにげ・盗塁・6-4-3）" autocomplete="off">
@@ -545,6 +762,14 @@ pre.diag{
     </div>
 
     <div class="card">
+      <h2>印刷するスコアシート</h2>
+      <p class="mini">マスの中のひし形を、薄い点線で刷っておくかどうか。市販のスコアブックには両方あります。</p>
+      <div class="segs" id="print-diamond-seg" style="margin-top:10px"></div>
+      <p class="mini" id="print-diamond-note" style="margin-top:8px"></p>
+      <button type="button" id="btn-print2" class="btn-sub" style="margin-top:10px">🖨 印刷する</button>
+    </div>
+
+    <div class="card">
       <h2>データ</h2>
       <p class="mini">記録はこの端末の中だけにあります。機種変更やブラウザの掃除で消えるので、ときどき書き出しておくと安心です。</p>
       <p class="mini hidden" id="flags-line"></p>
@@ -565,10 +790,16 @@ pre.diag{
 
 </div>
 
+<!-- 印刷用のスコアシート（画面には出ない。印刷のときだけ現れる） -->
+<div id="print-area"></div>
+
 <script src="content/glyphs.js"></script>
 <script src="content/diagnostic.js"></script>
 <script src="content/jiten.js"></script>
 <script src="content/drills.js"></script>
+<script src="content/names.js"></script>
+<script src="content/scenarios.js"></script>
+<script src="lib/sim.js"></script>
 <script>
 (function(){
 'use strict';
@@ -668,12 +899,14 @@ var Cell = (function(){
     // 市販の早稲田式スコアブックにも薄く印刷されているのと同じで、
     // 「どの区画がどの塁か」が最初から見える（2026-07-27 本人FBで標準化。
     // 斜線はこの点線を太くなぞる形になり、紙に書くときの手の動きとも一致する）
-    svgEl.appendChild(svg('path', {
-      d:'M ' + B.x + ' ' + B.y + ' L ' + R.x + ' ' + R.y + ' L ' + T.x + ' ' + T.y +
-        ' L ' + L.x + ' ' + L.y + ' Z',
-      fill:'none', stroke:'currentColor', 'stroke-opacity':.18,
-      'stroke-width':1.3, 'stroke-dasharray':'3 3'
-    }));
+    if(!g.noDiamond){
+      svgEl.appendChild(svg('path', {
+        d:'M ' + B.x + ' ' + B.y + ' L ' + R.x + ' ' + R.y + ' L ' + T.x + ' ' + T.y +
+          ' L ' + L.x + ' ' + L.y + ' Z',
+        fill:'none', stroke:'currentColor', 'stroke-opacity':.18,
+        'stroke-width':1.3, 'stroke-dasharray':'3 3'
+      }));
+    }
 
     // 区画の指し示し（出題用）。色掛け＋「ここ」の文字で、色だけに頼らない
     if(g.highlight >= 1 && g.highlight <= 4){
@@ -822,6 +1055,13 @@ var Cell = (function(){
           addStep('reason:' + i, mkText(p.x, p.y, 15, String(r), {anchor:p.anchor}), 'text');
         }
       }
+    }
+
+    /* --- 2-b. 走者がアウトになった経路 ---
+       斜線が届いていない塁に書く（進めなかったので線は引かない） */
+    if(g.outAt && REASON_POS[g.outAt.base]){
+      var op = REASON_POS[g.outAt.base];
+      addStep('outAt', mkText(op.x, op.y, 14, String(g.outAt.text), {anchor:op.anchor}), 'text');
     }
 
     /* --- 3. 結末（中央） --- */
@@ -1107,7 +1347,8 @@ var D = window.DIAMOND_DIAGNOSTIC;
 var heroPlayer = null;
 
 function goto(name){
-  ['home','quiz','result','settings','jiten','jiten-detail','drill','drill-q','inning'].forEach(function(n){
+  ['home','quiz','result','settings','jiten','jiten-detail','drill','drill-q','inning',
+   'practice','run'].forEach(function(n){
     var node = $('s-' + n);
     if(n === name) show(node); else hide(node);
   });
@@ -1180,9 +1421,9 @@ var PILLARS = [
    desc:'「これどう書くんだっけ」を3秒で引ける逆引き辞典。試合の場でも使う'},
   {ico:'✏️', name:'学ぶ', now:true,
    desc:'記号と書き方をポチポチ身につけるドリル。間違えた部品は戻ってくる'},
-  {ico:'📋', name:'鍛える', now:false,
+  {ico:'📋', name:'鍛える', now:true,
    desc:'アプリが試合を1球ずつ進める。あなたは紙に書く。検算して答え合わせ'},
-  {ico:'👥', name:'みんなで', now:false,
+  {ico:'👥', name:'みんなで', now:true,
    desc:'雨の日に、部で一斉に。1台の画面で進行して、全員が紙に書く'}
 ];
 function renderRoadmap(){
@@ -1708,7 +1949,9 @@ var INN = DR.inning;
 var inning = null;
 var inPlayer = null;
 
-function renderBoard(host, cells, focusBatter, small){
+/* 盤面（複数マス）を描く。cells の値は glyph のキーでも、
+   シミュレータが作った glyph オブジェクトでもよい */
+function renderBoard(host, cells, focusBatter){
   clear(host);
   var keys = Object.keys(cells).map(Number).sort(function(a,b){ return a-b; });
   keys.forEach(function(no){
@@ -1716,12 +1959,13 @@ function renderBoard(host, cells, focusBatter, small){
     var s = document.createElementNS(SVGNS, 'svg');
     s.setAttribute('viewBox', '0 0 120 120');
     s.setAttribute('role', 'img');
-    var g = (window.DIAMOND_GLYPHS || {})[cells[no]];
+    var v = cells[no];
+    var g = (typeof v === 'string') ? (window.DIAMOND_GLYPHS || {})[v] : v;
     s.setAttribute('aria-label', (g && g.title) || (no + '番のマス'));
     wrap.appendChild(s);
     wrap.appendChild(el('div', 'bno', no + '番'));
     host.appendChild(wrap);
-    Cell.still(s, cells[no]);
+    Cell.still(s, v);
   });
   return host;
 }
@@ -1885,6 +2129,472 @@ function runInningCheck(){
       '（右辺は ' + (got.outs + got.runs + got.lob) + '）。合わないのは悪いことではなく、自分でミスを見つけられたということです。' +
       'もう一度、6つのマスの中央だけを見直してみてください。';
   }
+}
+
+/* =========================================================
+   鍛える（実践編・F4）— このツールの肝
+   ---------------------------------------------------------
+   アプリは試合を読み上げるだけ。書くのは紙。
+   正解・検算の答え・見比べの項目は、すべて lib/sim.js が
+   シナリオを再生して作る（人が正解を書く場所を作らない・§6-1）。
+   ========================================================= */
+var SCN = window.DIAMOND_SCENARIOS || [];
+var SIM = window.DIAMOND_SIM;
+var run = null;
+var runTimer = null;
+
+var PACES = [
+  {id:'manual', label:'手動で送る', ms:0},
+  {id:'slow',   label:'8秒ごと',   ms:8000},
+  {id:'fast',   label:'5秒ごと',   ms:5000}
+];
+
+function practiceState(){
+  var st = Store.get();
+  if(!st.practice) st.practice = {runs:{}};
+  if(!st.practice.runs) st.practice.runs = {};
+  return st.practice;
+}
+
+function renderScenarioList(){
+  var box = $('scenario-list');
+  clear(box);
+  var ps = practiceState();
+  SCN.forEach(function(sc){
+    var b = el('button', 'scen');
+    b.appendChild(el('span', 'lv', 'Lv' + sc.level));
+    var st = el('span', 'st');
+    st.appendChild(el('div', 't', sc.title));
+    st.appendChild(el('div', 'd', sc.desc));
+    var rec = ps.runs[sc.id];
+    var meta = sc.innings + 'イニング ／ ' + sc.minutes;
+    if(rec && rec.at){
+      var d = new Date(rec.at);
+      meta += ' ／ 前回 ' + (d.getMonth()+1) + '/' + d.getDate() +
+        '（検算 ' + rec.okInnings + '/' + rec.totalInnings + '）';
+    }
+    st.appendChild(el('div', 'm', meta));
+    b.appendChild(st);
+    b.addEventListener('click', function(){ startPractice(sc.id); });
+    box.appendChild(b);
+  });
+}
+
+function startPractice(scId){
+  var sc = null;
+  for(var i=0;i<SCN.length;i++){ if(SCN[i].id === scId) sc = SCN[i]; }
+  if(!sc) return;
+  var sim = SIM.simulate(sc);
+  var st0 = Store.get();
+  if(!st0.settings) st0.settings = {};
+  run = {sc:sc, sim:sim, i:-1, inningIdx:0, paceId:'manual',
+    showBoard: st0.settings.runBoard !== false,
+    group: st0.settings.runGroup === true,
+    results:[], checked:{}};
+
+  $('run-prep-title').textContent = sc.title;
+  $('run-prep-desc').textContent = sc.desc;
+
+  // 打順表（試合前に紙へ書き写す）
+  var t = $('run-lineup');
+  clear(t);
+  var head = document.createElement('tr');
+  ['打順','守備','名前'].forEach(function(h){
+    var th = document.createElement('th');
+    th.textContent = h;
+    head.appendChild(th);
+  });
+  t.appendChild(head);
+  sc.lineup.forEach(function(p){
+    var tr = document.createElement('tr');
+    var a = document.createElement('td'); a.className = 'n'; a.textContent = p.no;
+    var b2 = document.createElement('td'); b2.className = 'p'; b2.textContent = p.pos;
+    var c = document.createElement('td'); c.textContent = p.name;
+    tr.appendChild(a); tr.appendChild(b2); tr.appendChild(c);
+    t.appendChild(tr);
+  });
+
+  // 進み方
+  var pb = $('run-pace');
+  clear(pb);
+  PACES.forEach(function(p){
+    var b = el('button', run.paceId === p.id ? 'on' : null, p.label);
+    b.addEventListener('click', function(){
+      run.paceId = p.id;
+      Array.prototype.forEach.call(pb.children, function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+    });
+    pb.appendChild(b);
+  });
+
+  renderRunOptions();
+
+  show($('run-prep'));
+  hide($('run-play')); hide($('run-check')); hide($('run-answer')); hide($('run-done'));
+  show($('run-quit'));
+  $('run-inning').textContent = '準備';
+  $('run-count').textContent = sc.innings + 'イニング';
+  $('run-bar').style.width = '0%';
+  goto('run');
+}
+
+/* ひとりで／みんなで（一斉モード・F5）と、盤面の表示。
+   一斉モードは通信をしない——監督の1台を大画面につないで進行し、
+   部員は全員が紙に書く（本人の実態: 部活中はスマホを出さない） */
+function renderRunOptions(){
+  var st = Store.get();
+  var mode = $('run-mode');
+  clear(mode);
+  [[false, 'ひとりで'], [true, 'みんなで（大画面）']].forEach(function(o){
+    var b = el('button', run.group === o[0] ? 'on' : null, o[1]);
+    b.addEventListener('click', function(){
+      run.group = o[0];
+      st.settings.runGroup = o[0];
+      Store.save();
+      renderRunOptions();
+    });
+    mode.appendChild(b);
+  });
+  $('run-mode-note').textContent = run.group
+    ? '文字を大きくして、1プレーずつ手で送ります。画面をテレビにつなぐか、読み上げてください。イニングの終わりに「隣と突き合わせ」の合図が出ます。'
+    : '自分のペースで進めます。';
+
+  var bs = $('run-board-seg');
+  clear(bs);
+  [[true, 'アウトと走者を出す'], [false, '出さない（本番と同じ）']].forEach(function(o){
+    var b = el('button', run.showBoard === o[0] ? 'on' : null, o[1]);
+    b.addEventListener('click', function(){
+      run.showBoard = o[0];
+      st.settings.runBoard = o[0];
+      Store.save();
+      renderRunOptions();
+    });
+    bs.appendChild(b);
+  });
+  $('run-board-note').textContent = run.showBoard
+    ? '迷ったときの支えになります。まずはこちらで。'
+    : '実際の試合には表示がありません。自分の紙だけで状況を追う練習になります。';
+}
+
+function runStart(){
+  hide($('run-prep'));
+  show($('run-play'));
+  document.body.classList.toggle('group-mode', !!run.group);
+  if(run.group) run.paceId = 'manual';   // 一斉のときは監督が手で送る
+  clear($('run-log'));
+  run.i = -1;
+  runNext();
+}
+
+function currentInningNo(){
+  var e = run.sim.timeline[run.i];
+  return e ? e.inning : 1;
+}
+
+function renderMini(e){
+  var box = $('run-mini');
+  clear(box);
+  if(!run.showBoard){
+    box.appendChild(el('span', 'grp', '（アウトと走者は表示しません。自分の紙で数えます）'));
+    return;
+  }
+  var g1 = el('div', 'grp');
+  g1.appendChild(el('span', null, 'アウト'));
+  for(var i=1;i<=3;i++){
+    g1.appendChild(el('span', 'dot' + (e.outs >= i ? ' on' : '')));
+  }
+  box.appendChild(g1);
+  var g2 = el('div', 'grp');
+  var bs = el('div', 'bs');
+  [1,2,3].forEach(function(b){
+    var on = e.bases && e.bases[b] !== null && e.bases[b] !== undefined;
+    bs.appendChild(el('i', 'b' + b + (on ? ' on' : '')));
+  });
+  g2.appendChild(bs);
+  box.appendChild(g2);
+}
+
+function runNext(){
+  if(runTimer){ clearTimeout(runTimer); runTimer = null; }
+  run.i++;
+  var tl = run.sim.timeline;
+  if(run.i >= tl.length){ showRunCheck(); return; }
+
+  var e = tl[run.i];
+  renderMini(e);
+  $('run-say').textContent = e.say;
+  $('run-inning').textContent = e.inning + '回';
+  $('run-count').textContent = (run.i + 1) + ' / ' + tl.length;
+  $('run-bar').style.width = Math.round((run.i + 1) / tl.length * 100) + '%';
+
+  var line = el('div', null, '・' + e.say);
+  $('run-log').appendChild(line);
+
+  var last = (run.i + 1 >= tl.length) || (tl[run.i + 1].inning !== e.inning);
+  $('run-next').textContent = last ? 'このイニングを締める' : '次のプレーへ';
+
+  var pace = null;
+  for(var i=0;i<PACES.length;i++){ if(PACES[i].id === run.paceId) pace = PACES[i]; }
+  if(pace && pace.ms > 0 && !last){
+    show($('run-pause'));
+    runTimer = setTimeout(runNext, pace.ms);
+  } else {
+    hide($('run-pause'));
+  }
+}
+
+function showRunCheck(){
+  if(runTimer){ clearTimeout(runTimer); runTimer = null; }
+  hide($('run-play'));
+  var inn = run.sim.innings[run.inningIdx];
+  $('run-check-title').textContent = inn.no + '回の終わり — 検算';
+  ['run-b','run-o','run-r','run-l'].forEach(function(id){ $(id).value = ''; });
+  hide($('run-check-out'));
+  show($('run-check'));
+  window.scrollTo(0, 0);
+}
+
+function runCheck(){
+  var inn = run.sim.innings[run.inningIdx];
+  var got = {
+    b: parseInt($('run-b').value, 10),
+    o: parseInt($('run-o').value, 10),
+    r: parseInt($('run-r').value, 10),
+    l: parseInt($('run-l').value, 10)
+  };
+  var filled = ['b','o','r','l'].every(function(k){ return !isNaN(got[k]); });
+  var v = $('run-check-verdict'), w = $('run-check-why');
+  show($('run-check-out'));
+
+  if(!filled){
+    v.textContent = '4つとも入れてみてください';
+    v.className = 'verdict ng';
+    w.textContent = '空欄があると、式が合うかどうかを確かめられません。';
+    hide($('run-see-answer'));
+    return;
+  }
+  show($('run-see-answer'));
+
+  var selfOk = (got.b === got.o + got.r + got.l);
+  var trueOk = (got.b === inn.batters && got.o === inn.outs && got.r === inn.runs && got.l === inn.lob);
+  run.results[run.inningIdx] = {inning:inn.no, selfOk:selfOk, trueOk:trueOk, got:got};
+
+  if(selfOk && trueOk){
+    v.textContent = '合いました';
+    v.className = 'verdict ok';
+    w.textContent = '打者 ' + inn.batters + ' ＝ アウト ' + inn.outs + ' ＋ 得点 ' + inn.runs +
+      ' ＋ 残塁 ' + inn.lob + '。式が通ったということは、マスの中央が全部埋まっていて、進塁の理由も落ちていない、ということです。';
+  } else if(selfOk){
+    v.textContent = '式は通っていますが、数が実際と違います';
+    v.className = 'verdict ng';
+    w.textContent = '実際は 打者 ' + inn.batters + '・アウト ' + inn.outs + '・得点 ' + inn.runs +
+      '・残塁 ' + inn.lob + '。どこかの打者を1人多く（少なく）数えているか、進塁の追い方がズレています。正解シートで確かめてみてください。';
+  } else {
+    v.textContent = 'まだ式が合っていません';
+    v.className = 'verdict ng';
+    w.textContent = 'あなたの数だと ' + got.b + ' ＝ ' + got.o + ' ＋ ' + got.r + ' ＋ ' + got.l +
+      '（右辺は ' + (got.o + got.r + got.l) + '）。合わないのは悪いことではなく、自分でミスを見つけられたということです。' +
+      'たいていは、マスの中央のどれかが空白になっています。';
+  }
+}
+
+function showRunAnswer(){
+  hide($('run-check'));
+  var inn = run.sim.innings[run.inningIdx];
+  $('run-answer-title').textContent = inn.no + '回の正解シート';
+  renderBoard($('run-board'), inn.cells, null);
+
+  var box = $('run-checklist');
+  clear(box);
+  run.checked[run.inningIdx] = run.checked[run.inningIdx] || {};
+  inn.checks.forEach(function(c, idx){
+    var row = el('div', 'ckitem');
+    row.appendChild(el('span', 'txt', c.text));
+    var btns = el('span', 'btns');
+    var ok = el('button', null, '合ってた');
+    var ng = el('button', null, '違った');
+    ok.addEventListener('click', function(){
+      run.checked[run.inningIdx][idx] = 'ok';
+      ok.classList.add('on-ok'); ng.classList.remove('on-ng');
+    });
+    ng.addEventListener('click', function(){
+      run.checked[run.inningIdx][idx] = 'ng';
+      ng.classList.add('on-ng'); ok.classList.remove('on-ok');
+    });
+    btns.appendChild(ok); btns.appendChild(ng);
+    row.appendChild(btns);
+    box.appendChild(row);
+  });
+
+  // 一斉モードでは、ここで「隣と突き合わせ」に入る（ペア記録＝教材の上達最短路）
+  var pair = $('run-pair');
+  if(run.group){
+    clear(pair);
+    var p1 = el('p', null, '');
+    p1.appendChild(el('b', null, '隣の人と、紙を交換してください。'));
+    pair.appendChild(p1);
+    pair.appendChild(el('p', null,
+      '2人で同じ試合を書くと、食い違った場所がそのまま自分の弱点になります。' +
+      '下の項目を1つずつ読み上げて、2人の紙が同じかどうかを確かめてください。'));
+    pair.appendChild(el('p', null,
+      '食い違ったところは、どちらが正しいかを言い合う前に、正解シートを見ます。'));
+    show(pair);
+  } else {
+    hide(pair);
+  }
+
+  var isLast = (run.inningIdx + 1 >= run.sim.innings.length);
+  $('run-answer-next').textContent = isLast ? '総評を見る' : '次のイニングへ';
+  show($('run-answer'));
+  window.scrollTo(0, 0);
+}
+
+function runAnswerNext(){
+  hide($('run-answer'));
+  run.inningIdx++;
+  if(run.inningIdx < run.sim.innings.length){
+    show($('run-play'));
+    runNext();
+  } else {
+    showRunDone();
+  }
+}
+
+function showRunDone(){
+  var ok = run.results.filter(function(r){ return r && r.trueOk; }).length;
+  var total = run.sim.innings.length;
+
+  // 記録（実践編は最も重い練習なので、途中でやめても残す）
+  var ps = practiceState();
+  ps.runs[run.sc.id] = {at:new Date().toISOString(), okInnings:ok, totalInnings:total};
+  // 見比べで「違った」と付けた項目は、弱点の手がかりとして残す
+  var st = Store.get();
+  var ngCount = 0;
+  Object.keys(run.checked).forEach(function(k){
+    Object.keys(run.checked[k]).forEach(function(i){
+      if(run.checked[k][i] === 'ng') ngCount++;
+    });
+  });
+  Store.save();
+
+  var msg;
+  if(ok === total){
+    msg = total + 'イニングとも検算が合いました。' +
+      '書いたものだけで試合を復元できている、ということです。';
+  } else if(ok > 0){
+    msg = total + 'イニング中 ' + ok + 'イニングで検算が合いました。合わなかった回は、マスの中央を1つずつ見直すのが近道です。';
+  } else {
+    msg = '検算はまだ合いませんでしたが、1イニング書き切ったことが第一歩です。次は「中央を必ず埋める」だけを意識してみてください。';
+  }
+  $('run-done-msg').textContent = msg;
+
+  var detail = $('run-done-detail');
+  clear(detail);
+  run.results.forEach(function(r){
+    if(!r) return;
+    var line = el('p', 'mini', r.inning + '回: ' + (r.trueOk ? '検算 一致' :
+      (r.selfOk ? '式は通ったが数が実際と違う' : '式が合わなかった')));
+    detail.appendChild(line);
+  });
+  if(ngCount > 0){
+    detail.appendChild(el('p', 'mini', '見比べで「違った」を付けたのは ' + ngCount + ' か所。' +
+      'そこが次に効くところです。'));
+  }
+
+  hide($('run-quit'));
+  show($('run-done'));
+  document.body.classList.remove('group-mode');
+  window.scrollTo(0, 0);
+}
+
+/* 途中でやめたときも、そこまでの検算の結果だけは保存する
+   （実践編はいちばん重い練習なので、やり直しを強いない） */
+function showRunDoneSilently(){
+  var ok = run.results.filter(function(r){ return r && r.trueOk; }).length;
+  var ps = practiceState();
+  var prev = ps.runs[run.sc.id];
+  // すでに良い記録があるなら上書きしない
+  if(!prev || (prev.okInnings || 0) <= ok){
+    ps.runs[run.sc.id] = {at:new Date().toISOString(), okInnings:ok,
+      totalInnings:run.sim.innings.length};
+    Store.save();
+  }
+}
+
+/* ---- 印刷用スコアシート（F6） ---- */
+function buildPrintSheets(withDiamond){
+  var area = $('print-area');
+  clear(area);
+  var key = withDiamond ? 'empty' : 'empty-nodiamond';
+
+  // 「日付：____」のように、記入欄を下線で作る
+  function headLine(fields){
+    var h = el('div', 'phead');
+    fields.forEach(function(f){
+      var lab = document.createElement('span');
+      lab.style.borderBottom = 'none';
+      lab.style.minWidth = '0';
+      lab.textContent = f + '：';
+      h.appendChild(lab);
+      h.appendChild(el('span', null, ''));   // ここが記入欄（下線）
+    });
+    return h;
+  }
+
+  function sheet(title, innings, rows, note){
+    var s = el('div', 'psheet');
+    s.appendChild(el('div', 'ptitle', title));
+    s.appendChild(headLine(['日付', '対戦', '球場', '天候', '記録者']));
+    var g = el('div', 'pgrid');
+    g.style.gridTemplateColumns = '7mm 26mm repeat(' + innings + ', 1fr)';
+    // 見出し行
+    g.appendChild(el('div', 'hd', '打順'));
+    g.appendChild(el('div', 'hd', '守備 ／ 名前'));
+    for(var i=1;i<=innings;i++) g.appendChild(el('div', 'hd', i + '回'));
+    // 本体
+    for(var r=1;r<=rows;r++){
+      g.appendChild(el('div', 'hd', String(r)));
+      g.appendChild(el('div', 'nm', ''));
+      for(var c=0;c<innings;c++){
+        var cellBox = el('div', 'cl');
+        var sv = document.createElementNS(SVGNS, 'svg');
+        sv.setAttribute('viewBox', '0 0 120 120');
+        cellBox.appendChild(sv);
+        g.appendChild(cellBox);
+        Cell.still(sv, key);
+      }
+    }
+    s.appendChild(g);
+    var lg = el('div', 'plegend');
+    [
+      ['マスの地図', '右下＝一塁／右上＝二塁／左上＝三塁／左下＝本塁（反時計回り）。斜線1本＝1つ進塁、4本で◇＝得点'],
+      ['打撃結果', '右下に、処理した野手の番号。ゴロ＝下線／フライ＝上の弧／ライナー＝横線／ファウルフライ＝f＋番号／内野安打＝楕円で囲む'],
+      ['打たずに出る', '四球 BB ／ 死球 DB ／ 失策 E＋番号 ／ 野手選択 FC ／ 三振 K（見逃しは逆K）'],
+      ['進塁の理由', '打撃で進んだら (打順番号)。盗塁 SB ／ 暴投 WP ／ 捕逸 PB ／ ボーク BK'],
+      ['結末（中央）', 'アウト＝Ⅰ Ⅱ Ⅲ（その回の何アウト目か）／得点＝●／残塁＝○。打点＝還した打順を丸で囲み、還った走者の本塁区画へ'],
+      ['検算', '打者数 ＝ アウト ＋ 得点 ＋ 残塁（必ず合う）']
+    ].forEach(function(row){
+      var p = el('div');
+      p.appendChild(el('b', null, row[0]));
+      p.appendChild(document.createTextNode(row[1]));
+      lg.appendChild(p);
+    });
+    if(note) lg.appendChild(el('div', null, note));
+    s.appendChild(lg);
+    return s;
+  }
+
+  area.appendChild(sheet('スコアシート（練習用・3イニング）', 3, 9,
+    '練習用。1イニングだけ書くときは1列目だけ使います。'));
+  area.appendChild(sheet('スコアシート（試合用・9イニング）', 9, 9, null));
+}
+
+function openPrint(){
+  var withDiamond = true;
+  var st = Store.get();
+  if(st.settings && st.settings.printDiamond === false) withDiamond = false;
+  buildPrintSheets(withDiamond);
+  window.print();
 }
 
 /* ---- 引く（逆引き辞典・F2） ---- */
@@ -2060,6 +2770,28 @@ var LEGEND = [
   ['bb-to2nd-lob', '四球＋進塁の理由：(3)＝3番の打撃で進んだ。中央の○＝残塁'],
   ['hero', '得点：斜線4本で◇が完成。中央の●＝生還。丸囲みの数字＝打点']
 ];
+/* 印刷シートのひし形（薄い点線）を刷るかどうか。
+   アプリの画面は「刷る」に揃えてあるが、紙は消せないので選べるようにした */
+function renderPrintPref(){
+  var st = Store.get();
+  if(!st.settings) st.settings = {};
+  var on = (st.settings.printDiamond !== false);
+  var box = $('print-diamond-seg');
+  clear(box);
+  [[true, 'ひし形を薄く刷る'], [false, '刷らない（白いマス）']].forEach(function(o){
+    var b = el('button', on === o[0] ? 'on' : null, o[1]);
+    b.addEventListener('click', function(){
+      st.settings.printDiamond = o[0];
+      Store.save();
+      renderPrintPref();
+    });
+    box.appendChild(b);
+  });
+  $('print-diamond-note').textContent = on
+    ? '区画が最初から見えるので、書く場所に迷いません。アプリの画面と同じ見た目です。'
+    : '自分で4本引いて◇を完成させる手ごたえが強く残ります。慣れてきたらこちら。';
+}
+
 function renderLegend(){
   var box = $('legend');
   clear(box);
@@ -2262,7 +2994,68 @@ function selfTest(){
   pass &= ok('今日の3問を選べる', today.length === 3,
     today.map(function(q){ return q.id; }).join(','));
 
-  // 8. 保存の往復
+  // 8. 鍛える（実践編）— シミュレータが正解を作れているか
+  pass &= ok('シナリオを読み込めた', SCN && SCN.length > 0, SCN ? SCN.length + '本' : 'なし');
+  pass &= ok('シミュレータを読み込めた', SIM && typeof SIM.simulate === 'function');
+  var sbad = [];
+  (SCN || []).forEach(function(sc){
+    var r;
+    try{ r = SIM.simulate(sc); } catch(e){ sbad.push(sc.id + ':再生失敗'); return; }
+    if(r.innings.length !== sc.innings) sbad.push(sc.id + ':イニング数');
+    r.innings.forEach(function(inn){
+      if(inn.outs !== 3) sbad.push(sc.id + ' ' + inn.no + '回:3アウトでない');
+      if(inn.batters !== inn.outs + inn.runs + inn.lob){
+        sbad.push(sc.id + ' ' + inn.no + '回:検算①不成立');
+      }
+      if(!inn.checks || !inn.checks.length) sbad.push(sc.id + ' ' + inn.no + '回:見比べ項目なし');
+      Object.keys(inn.cells).forEach(function(no){
+        var c = inn.cells[no];
+        if(c.center && c.center.run && c.slashes !== 4){
+          sbad.push(sc.id + ' ' + no + '番:得点なのに斜線' + c.slashes);
+        }
+      });
+    });
+  });
+  pass &= ok('全シナリオが再生でき、検算①が成立する', sbad.length === 0, sbad.join(' / '));
+
+  var allowedN = {};
+  ((window.DIAMOND_NAMES || {}).players || []).forEach(function(n){ allowedN[n] = 1; });
+  var nbad = [];
+  (SCN || []).forEach(function(sc){
+    (sc.lineup || []).forEach(function(p){ if(!allowedN[p.name]) nbad.push(sc.id + ':' + p.name); });
+  });
+  pass &= ok('選手名が許可リストのものだけ', nbad.length === 0, nbad.join(','));
+
+  // シミュレータが作ったマスが、描画エンジンで枠内に描けるか
+  var cbad = [];
+  var stage2 = document.createElement('div');
+  stage2.style.cssText = 'position:fixed;left:0;top:0;opacity:0.001;pointer-events:none;z-index:-1';
+  document.body.appendChild(stage2);
+  try{
+    (SCN || []).forEach(function(sc){
+      var r = SIM.simulate(sc);
+      r.innings.forEach(function(inn){
+        Object.keys(inn.cells).forEach(function(no){
+          var s = document.createElementNS(SVGNS, 'svg');
+          s.setAttribute('viewBox', '0 0 120 120');
+          s.style.width = '200px'; s.style.display = 'block';
+          stage2.appendChild(s);
+          try{
+            Cell.still(s, inn.cells[no]);
+            var bb = s.getBBox();
+            if(bb.width > 0 && (bb.x < 1.4 || bb.y < 1.4 || bb.x + bb.width > 118.6 || bb.y + bb.height > 118.6)){
+              cbad.push(sc.id + ' ' + inn.no + '回' + no + '番:枠外');
+            }
+          } catch(e){ cbad.push(sc.id + ' ' + no + '番:描画失敗'); }
+          stage2.removeChild(s);
+        });
+      });
+    });
+  } catch(e){ cbad.push('計測できず: ' + e.message); }
+  document.body.removeChild(stage2);
+  pass &= ok('正解シートのマスが枠内に描ける', cbad.length === 0, cbad.join(' / '));
+
+  // 9. 保存の往復
   var saveOk = true;
   if(Store.canSave()){
     try{
@@ -2300,6 +3093,7 @@ function boot(){
   renderHomeLevel();
   renderToday();
   renderLegend();
+  renderPrintPref();
   playHero();
 
   $('btn-replay').addEventListener('click', playHero);
@@ -2318,6 +3112,39 @@ function boot(){
   $('btn-settings-home').addEventListener('click', function(){ goto('home'); });
   $('btn-result-home').addEventListener('click', function(){ renderHomeLevel(); renderToday(); goto('home'); });
   $('btn-retake').addEventListener('click', startQuiz);
+
+  // 鍛える（実践編）
+  $('btn-practice').addEventListener('click', function(){
+    renderScenarioList();
+    goto('practice');
+  });
+  $('btn-practice-home').addEventListener('click', function(){ goto('home'); });
+  $('btn-print').addEventListener('click', openPrint);
+  $('btn-print2').addEventListener('click', openPrint);
+  $('run-start').addEventListener('click', runStart);
+  $('run-next').addEventListener('click', runNext);
+  $('run-pause').addEventListener('click', function(){
+    if(runTimer){ clearTimeout(runTimer); runTimer = null; }
+    run.paceId = 'manual';
+    hide($('run-pause'));
+    $('run-next').textContent = '次のプレーへ';
+  });
+  $('run-check-btn').addEventListener('click', runCheck);
+  $('run-see-answer').addEventListener('click', showRunAnswer);
+  $('run-answer-next').addEventListener('click', runAnswerNext);
+  $('run-done-back').addEventListener('click', function(){
+    renderScenarioList();
+    goto('practice');
+  });
+  $('run-done-again').addEventListener('click', function(){ startPractice(run.sc.id); });
+  $('run-quit').addEventListener('click', function(){
+    if(runTimer){ clearTimeout(runTimer); runTimer = null; }
+    document.body.classList.remove('group-mode');
+    // 途中でやめても、そこまでの検算の結果は残す
+    if(run && run.results.some(Boolean)) showRunDoneSilently();
+    renderScenarioList();
+    goto('practice');
+  });
 
   $('btn-drill').addEventListener('click', function(){
     renderUnitList();
