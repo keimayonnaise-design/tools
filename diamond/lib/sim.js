@@ -44,22 +44,25 @@
   };
 
   function newCell(){
-    return {result:null, slashes:0, reasons:{}, center:null, outAt:null,
-      pitches:[], kind:null, own:0};
+    return {result:null, hit:0, marks:{}, center:null, outAt:null,
+      pitches:[], kind:null};
   }
+
+  // 安打の点（・）の位置で何塁打かを表す（下=単打／上=二塁打／横=三塁打）
+  var HIT_DOT = {1:'under', 2:'over', 3:'side', 4:null};
 
   function resultOf(p){
     switch(p.r){
       case 'out':  return {text:p.at, trace:p.trace || null};
-      case 'hit':  return {text:p.at, trace:p.trace || null, oval:!!p.oval};
-      case 'bb':   return {text:'BB'};
+      case 'hit':  return {text:p.at, dot:HIT_DOT[p.bases || 1], oval:!!p.oval};
+      case 'bb':   return {text:'B'};
       case 'db':   return {text:'DB'};
       case 'k':    return {text:'K'};
-      case 'kl':   return {text:'K', mirror:true};
-      case 'e':    return {text:'E' + p.at};
-      case 'fc':   return {text:'FC'};
-      case 'sh':   return {text:'SH'};
-      case 'sf':   return {text:'SF'};
+      case 'kl':   return {text:'SO'};
+      case 'e':    return {text:p.at};          // 経路の中に E を入れて渡す（例 6E-3）
+      case 'fc':   return {text:p.at + 'FC'};
+      case 'sh':   return {text:p.at, box:'square'};
+      case 'sf':   return {text:p.at, box:'triangle'};
       default:     return {text:p.at || '?'};
     }
   }
@@ -87,7 +90,9 @@
       return inning.cells[no];
     }
 
-    // 走者を動かす。奥（本塁に近い方）から処理する＝教材ドリル11と同じ順
+    /* 走者を動かす。奥（本塁に近い方）から処理する＝教材ドリル11と同じ順。
+       早稲田式では、走者としての進塁で斜線は増やさない。
+       到達した塁の区画に (打順番号)、通過しただけの塁には ↰ を書く。 */
     function moveRunners(adv, reason, rbiBy){
       if(!adv) return;
       Object.keys(adv).map(Number).sort(function(a,b){ return b-a; }).forEach(function(from){
@@ -96,15 +101,18 @@
         if(who === null || who === undefined) return;
         inning.bases[from] = null;
         var c = cell(who);
-        c.slashes = Math.max(c.slashes, to);
+        // 通過しただけの塁に矢印（打者が得た塁より先で、到達点より手前）
+        for(var mid = Math.max(from + 1, (c.hit || 0) + 1); mid < to; mid++){
+          if(mid >= 2 && !c.marks[mid]) c.marks[mid] = '↰';
+        }
         if(to >= 4){
           inning.runs++;
           c.center = {run:true};
-          c.reasons[4] = (rbiBy !== null && rbiBy !== undefined)
+          c.marks[4] = (rbiBy !== null && rbiBy !== undefined)
             ? {circle:String(rbiBy)} : reason;
         } else {
           inning.bases[to] = who;
-          if(to >= 2) c.reasons[to] = reason;
+          if(to >= 2) c.marks[to] = reason;
         }
       });
     }
@@ -133,7 +141,7 @@
         if(p.run === 'cs'){
           runnerOut(p.from, p.at);
         } else {
-          var sym = {sb:'SB', wp:'WP', pb:'PB', bk:'BK'}[p.run] || p.run.toUpperCase();
+          var sym = {sb:'S', wp:'WP', pb:'PB', bk:'BK'}[p.run] || p.run.toUpperCase();
           moveRunners(p.adv, sym, null);
         }
         timeline.push({say:p.say, outs:inning.outs, bases:snapshot(), inning:inning.no, kind:'run'});
@@ -163,14 +171,14 @@
       // 走者の進塁
       moveRunners(p.adv, reason, rbiBy);
 
-      // 打者自身
+      // 打者自身。赤い斜線を引くのは「安打で得た塁」の分だけ
       if(reachesBase(p.r)){
         var b = (p.r === 'hit') ? (p.bases || 1) : 1;
-        c.own = b;                                 // 自分で得た塁＝打席結果の色で書く
-        c.slashes = Math.max(c.slashes, b);
+        if(p.r === 'hit') c.hit = b;
         if(b >= 4){
           inning.runs++;
           c.center = {run:true};
+          c.marks[4] = {circle:String(no)};        // 本塁打は自分の打点
         } else {
           inning.bases[b] = no;
         }
@@ -219,9 +227,10 @@
 
   /* 見比べチェックリストを、計算されたマスから自動生成する。
      手で書くと盤面とズレるので、必ずここから作る。 */
-  var TRACE_JP = {ground:'下に∪＝ゴロ', fly:'上に∩＝フライ', liner:'上に直線＝ライナー'};
+  var TRACE_JP = {fly:'上に弧＝フライ', liner:'上に直線＝ライナー'};
+  var DOT_JP = {under:'下に点＝単打', over:'上に点＝二塁打', side:'横に点＝三塁打'};
   var PEN_JP = {hit:'赤', walk:'青', sac:'青'};
-  var PITCH_JP = {B:'●', S:'／', W:'×', F:'△', X:'□'};
+  var PITCH_JP = {B:'●', S:'×', W:'⊗', F:'△', X:'□'};
 
   function buildChecks(inn){
     var out = [];
@@ -235,23 +244,20 @@
           '（' + c.pitches.length + '球）');
       }
       if(c.result){
-        var t = c.result.mirror ? '逆' + c.result.text : c.result.text;
-        var s = '右下に ' + t + '（' + penJP + '）';
+        var s = '右下に ' + c.result.text + '（' + penJP + '）';
         if(c.result.trace) s += '＋' + TRACE_JP[c.result.trace];
+        if(c.result.dot) s += '＋' + DOT_JP[c.result.dot];
         if(c.result.oval) s += '＋楕円で囲む';
+        if(c.result.box === 'square') s += '＋青い四角で囲む';
+        if(c.result.box === 'triangle') s += '＋青い三角で囲む';
         parts.push(s);
       }
-      if(c.slashes > 0){
-        var sl = '斜線 ' + c.slashes + '本';
-        if(c.own > 0 && penJP !== '黒'){
-          sl += '（打者が自分で得た' + c.own + '本は' + penJP + '）';
-        }
-        parts.push(sl);
-      }
-      Object.keys(c.reasons).map(Number).sort().forEach(function(b){
-        var r = c.reasons[b];
+      if(c.hit > 0) parts.push('赤い斜線 ' + c.hit + '本（安打で得た塁の分だけ）');
+      Object.keys(c.marks).map(Number).sort().forEach(function(b){
+        var r = c.marks[b];
         var where = {2:'二塁', 3:'三塁', 4:'本塁'}[b] || (b + '塁');
         if(r && r.circle) parts.push(where + 'の区画に 丸囲みの' + r.circle + '（打点）');
+        else if(r === '↰') parts.push(where + 'の区画に ↰（通過しただけ）');
         else if(r) parts.push(where + 'の区画に ' + r);
       });
       if(c.outAt) parts.push({2:'二塁',3:'三塁',4:'本塁'}[c.outAt.base] + 'の区画に ' + c.outAt.text + '（アウトの経路）');

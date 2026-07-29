@@ -37,10 +37,10 @@
     {
       id: 'j-goro-out', title: 'ゴロでアウト', symbol: '6-3',
       category: '打撃の結果', yomi: ['ごろ', 'ごろあうと', 'しょうきゅう', 'ないやごろ'],
-      glyph: 'ground63-out2',
+      glyph: 'ground63-out1',
       howto: [
         '捕った野手と、アウトにした野手の番号を「-」でつなぐ（例: 6-3）',
-        '数字の下に∪（下向きの弧）＝ゴロの印',
+        'ゴロに印は付けない。番号をつなぐこと自体がゴロの証',
         'アウトの瞬間に、中央へ何アウト目か（Ⅰ・Ⅱ・Ⅲ）'
       ],
       others: '大きな流儀差なし（ゴロ印の形はブックの凡例に従う）',
@@ -51,10 +51,10 @@
     {
       id: 'j-fly-out', title: 'フライでアウト', symbol: '8+弧',
       category: '打撃の結果', yomi: ['ふらい', 'ひきゅう', 'がいやふらい'],
-      glyph: 'fly8-out1',
+      glyph: 'fly8-out2',
       howto: [
         '処理した野手の番号を書く',
-        '数字の上に∩（上向きの弧）＝フライの印',
+        '数字の上に弧＝フライの印',
         '中央に何アウト目か'
       ],
       others: 'F8',
@@ -65,7 +65,7 @@
     {
       id: 'j-liner', title: 'ライナーでアウト', symbol: '4+横線',
       category: '打撃の結果', yomi: ['らいなー', 'ちょくせん'],
-      glyph: 'liner-4',
+      glyph: 'liner-out',
       howto: [
         '処理した野手の番号を書く',
         '数字の上に直線（−）＝ライナーの印',
@@ -77,7 +77,7 @@
     {
       id: 'j-foulfly', title: 'ファウルフライ', symbol: 'f2',
       category: '打撃の結果', yomi: ['ふぁうるふらい', 'ふぁーる'],
-      glyph: 'foulfly-f2',
+      glyph: 'foulfly',
       howto: [
         '数字の前に小さく f（例: f2＝捕手のファウルフライ）',
         'フライの弧と、中央のアウトカウントは通常どおり'
@@ -88,7 +88,7 @@
     {
       id: 'j-dp', title: '併殺（ダブルプレー）', symbol: '6-4-3',
       category: '打撃の結果', yomi: ['へいさつ', 'だぶるぷれー', 'げっつー'],
-      glyph: 'dp-643',
+      glyph: 'dp-batter',
       howto: [
         '触った順に番号を全部つなぐ（例: 6-4-3）',
         '先にアウトになった走者のマスにも、アウトの経路と何アウト目かを書く',
@@ -103,7 +103,7 @@
     {
       id: 'j-single', title: '単打（シングルヒット）', symbol: '斜線1本',
       category: '打撃の結果', yomi: ['たんだ', 'ひっと', 'あんだ', 'しんぐる'],
-      glyph: 'single-9',
+      glyph: 'single',
       howto: [
         '右下に打球方向＋種類（例: 9にゴロ印＝右前安打）',
         '一塁への斜線を1本'
@@ -116,7 +116,7 @@
     {
       id: 'j-double', title: '二塁打', symbol: '斜線2本',
       category: '打撃の結果', yomi: ['にるいだ', 'つーべーす'],
-      glyph: 'double-7',
+      glyph: 'double',
       howto: [
         '右下に打球方向＋種類',
         '斜線を2本（一塁→二塁）'
@@ -128,7 +128,7 @@
     {
       id: 'j-triple', title: '三塁打', symbol: '斜線3本',
       category: '打撃の結果', yomi: ['さんるいだ', 'すりーべーす'],
-      glyph: 'triple-8',
+      glyph: 'triple',
       howto: ['右下に打球方向＋種類', '斜線を3本'],
       others: '3B',
       kyozaiRef: 'ドリル6'
@@ -136,7 +136,7 @@
     {
       id: 'j-hr', title: '本塁打', symbol: '◇完成',
       category: '打撃の結果', yomi: ['ほんるいだ', 'ほーむらん'],
-      glyph: 'hr-7',
+      glyph: 'homerun',
       howto: [
         '右下に打球方向',
         '斜線4本で◇が完成',
@@ -172,48 +172,48 @@
       related: ['j-k-look', 'j-furinige']
     },
     {
-      id: 'j-k-look', title: '見逃し三振', symbol: '逆K',
+      id: 'j-k-look', title: '見逃し三振', symbol: 'SO',
       category: '打撃の結果', yomi: ['みのがしさんしん', 'みのがし'],
-      glyph: 'strikeout-looking',
-      howto: ['右下に、左右を反転したK（逆K）', '中央に何アウト目か'],
-      others: 'K見・Kc',
+      glyph: 'k-look',
+      howto: ['右下に SO', '中央に何アウト目か'],
+      others: '逆K・K見（左右反転したKを使う流儀もある）',
       kyozaiRef: 'ドリル7・記号早見表',
       related: ['j-k-swing']
     },
 
     /* ================= 出塁いろいろ ================= */
     {
-      id: 'j-bb', title: '四球', symbol: 'BB',
+      id: 'j-bb', title: '四球', symbol: 'B',
       category: '出塁いろいろ', yomi: ['しきゅう', 'ふぉあぼーる'],
-      glyph: 'bb-1',
-      howto: ['右下に BB', '一塁への斜線を1本'],
-      others: 'B・四',
+      glyph: 'bb',
+      howto: ['右下に B（青）', '赤い斜線は引かない——打撃で得た塁ではないから'],
+      others: 'BB・四',
       caution: '打数に入らない（打率は変わらない。打席数には入る）',
       kyozaiRef: 'ドリル7',
       related: ['j-db', 'j-ibb']
     },
     {
-      id: 'j-ibb', title: '故意四球（申告敬遠）', symbol: 'IBB',
+      id: 'j-ibb', title: '故意四球（申告敬遠）', symbol: 'DIB',
       category: '出塁いろいろ', yomi: ['こいしきゅう', 'けいえん', 'しんこくけいえん'],
-      howto: ['右下に IBB', '一塁への斜線を1本'],
-      others: '敬',
+      howto: ['右下に DIB（青）'],
+      others: 'IBB・IB・敬',
       caution: '申告敬遠の分は投球数に加算されない',
       kyozaiRef: '記号早見表'
     },
     {
       id: 'j-db', title: '死球（デッドボール）', symbol: 'DB',
       category: '出塁いろいろ', yomi: ['しきゅう', 'でっどぼーる', 'よんしきゅう'],
-      glyph: 'db-1',
-      howto: ['右下に DB', '一塁への斜線を1本'],
-      others: 'HBP・死',
+      glyph: 'db',
+      howto: ['右下に DB（青）'],
+      others: 'HP・HBP・死',
       caution: '打数に入らない',
       kyozaiRef: 'ドリル7'
     },
     {
-      id: 'j-error', title: '失策（エラー）で出塁', symbol: 'E6',
+      id: 'j-error', title: '失策（エラー）で出塁', symbol: '6E-3',
       category: '出塁いろいろ', yomi: ['しっさく', 'えらー'],
-      glyph: 'error-6',
-      howto: ['右下に E＋その野手の番号（例: E6）', '一塁への斜線を1本'],
+      glyph: 'error',
+      howto: ['経路の中に E を入れる（悪送球 6E-3／捕球ミス 4-3E／落球 7E）', '赤い斜線は引かない——安打ではないから'],
       others: 'エラーの種類（捕球/送球）を添える流儀もある',
       caution: '打数に入るが安打ではない＝打率は下がる',
       umpire: true,
@@ -223,7 +223,7 @@
     {
       id: 'j-fc', title: '野手選択（フィルダースチョイス）', symbol: 'FC',
       category: '出塁いろいろ', yomi: ['やしゅせんたく', 'ふぃるだーすちょいす', 'やせん'],
-      glyph: 'fc-1',
+      glyph: 'fc',
       howto: [
         '右下に FC',
         '一塁への斜線を1本',
@@ -237,9 +237,9 @@
     {
       id: 'j-furinige', title: '振り逃げ', symbol: 'K+理由',
       category: '出塁いろいろ', yomi: ['ふりにげ'],
-      glyph: 'furinige-k',
+      glyph: 'k-look',
       howto: [
-        'まず三振を書く（K／逆K）。打者に三振・投手に奪三振は記録される',
+        'まず三振を書く（K／SO）。打者に三振・投手に奪三振は記録される',
         '出塁の理由を添える（PB捕逸／WP暴投／E2捕手の失策）',
         '一塁でアウトになったら K＋送球の経路（例: 2-3）'
       ],
@@ -266,11 +266,11 @@
     {
       id: 'j-reason', title: '進塁の理由（打撃で進んだ）', symbol: '(3)',
       category: '走者と進塁', yomi: ['しんるい', 'りゆう', 'すすんだ'],
-      glyph: 'bb-to2nd-lob',
+      glyph: 'walk-to2nd-lob',
       howto: [
-        '走者が進んだ区画に斜線を1本',
+        '走者が進んだ塁の区画に記号を書く（斜線は増やさない）',
         '理由が打者の打撃なら、その打者の打順番号を括弧で（例: (3)＝3番の打撃）',
-        '打撃以外なら記号で（SB・WP・PB・BK・E＋番号・FC）'
+        '打撃以外なら記号で（S＝盗塁・WP・PB・BK・FC）'
       ],
       others: '大きな流儀差なし',
       caution: '理由のない進塁は、書いてないのと同じ（復元できない）',
@@ -278,11 +278,11 @@
       related: ['j-sb', 'j-wp-pb']
     },
     {
-      id: 'j-sb', title: '盗塁', symbol: 'SB',
+      id: 'j-sb', title: '盗塁', symbol: 'S',
       category: '走者と進塁', yomi: ['とうるい', 'すちーる'],
-      glyph: 'sb-2',
-      howto: ['進んだ塁の区画に斜線', '同じ区画のそばに SB'],
-      others: 'S・盗・O',
+      glyph: 'steal',
+      howto: ['進んだ塁の区画に S（青）', '何番打者の打席中かを (2) のように添える', '赤い斜線は増やさない'],
+      others: 'SB・盗・O',
       caution: '暴投・捕逸・野選・失策・守備の無関心で進んだときは盗塁ではない',
       umpire: true,
       kyozaiRef: 'ドリル8・詳説A-8',
@@ -378,7 +378,7 @@
     {
       id: 'j-sh', title: '犠打（送りバント）', symbol: 'SH',
       category: '走者と進塁', yomi: ['ぎだ', 'おくりばんと', 'ばんと'],
-      glyph: 'sh-bunt',
+      glyph: 'sh',
       howto: [
         '処理の経路を書き（例: 1-3）、SH と添える',
         '進んだ走者の区画には、斜線＋理由（打者の打順番号）'
@@ -407,7 +407,7 @@
     {
       id: 'j-count', title: 'アウトカウント', symbol: 'Ⅰ Ⅱ Ⅲ',
       category: '結末と検算', yomi: ['あうと', 'あうとかうんと'],
-      glyph: 'fly8-out1',
+      glyph: 'fly8-out2',
       howto: [
         'アウトの瞬間に、そのマスの中央へ',
         'この回の何アウト目かを書く（Ⅰ・Ⅱ・Ⅲ）'
@@ -446,7 +446,7 @@
     {
       id: 'j-lob', title: '残塁', symbol: '○',
       category: '結末と検算', yomi: ['ざんるい', 'のこった'],
-      glyph: 'bb-to2nd-lob',
+      glyph: 'walk-to2nd-lob',
       howto: [
         '3アウトの時点で塁上にいた走者の中央に ℓ（斜体の小文字L）',
         'イニングの下に、その回の残塁数を書く'
@@ -507,7 +507,7 @@
       category: '困ったとき', yomi: ['あんだかしっさくか', 'えらーかひっとか', 'まよう'],
       howto: [
         '軸:「普通の守備をしていればアウトにできたか」',
-        'できた＝失策（E＋番号）。届かない打球＝安打',
+        'できた＝失策（経路の中に E を入れる。例 6E-3）。届かない打球＝安打',
         '判断が割れる微妙な打球は、打者に有利に解釈するのが一般的'
       ],
       others: '（名手なら捕れた、は理由にならない。基準は「普通の守備」）',
