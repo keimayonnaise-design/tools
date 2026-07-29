@@ -910,7 +910,23 @@ var Cell = (function(){
   var VB = '0 0 142 120';
   var OX = 22;                      // 打撃欄の左端
   var FRAME = {x0:1.5, y0:1.5, x1:140.5, y1:118.5};
-  var T = {x:82, y:13}, R = {x:127, y:56}, B = {x:82, y:99}, L = {x:37, y:56};
+  var CENTER = {x:81.25, y:60};     // 打撃欄の中心
+
+  /* ひし形は2つある（2026-07-29 本人FB＋一次情報の図で確定）。
+     ・走路のひし形（大）＝打撃欄の4辺の中点を結ぶ。安打の斜線と進塁の線はここ。
+     ・案内のひし形（小）＝マスに最初から薄く刷ってある小さな点線のひし形。
+       その4頂点から辺の中点へ点線が伸びて、マスを4つの区画に割る。
+     安打の斜線は、この小さいひし形を「なぞる」のではない——外側を大きく回る。
+     （パ・リーグ.com／BASEBALL ONE の記号早見表の図が両方ともこの形） */
+  var T = {x:81.25, y:4.5}, R = {x:138, y:60}, B = {x:81.25, y:115.5}, L = {x:24.5, y:60};
+  var SD = 29;                      // 案内のひし形の半径（走路の約半分）
+  var ST = {x:CENTER.x, y:CENTER.y - SD}, SR = {x:CENTER.x + SD, y:CENTER.y};
+  var SB = {x:CENTER.x, y:CENTER.y + SD}, SL = {x:CENTER.x - SD, y:CENTER.y};
+  // 案内の点線が伸びる先（打撃欄の辺の中点）
+  var EDGE = {
+    t:{x:CENTER.x, y:FRAME.y0}, r:{x:FRAME.x1, y:CENTER.y},
+    b:{x:CENTER.x, y:FRAME.y1}, l:{x:OX, y:CENTER.y}
+  };
   // 斜線1〜4（1=一塁 2=二塁 3=三塁 4=本塁）
   var SLASH = [ [B,R], [R,T], [T,L], [L,B] ];
   // 進塁理由を書く位置（区画の外側の角）
@@ -922,7 +938,6 @@ var Cell = (function(){
   // 打撃結果（右下）の右端とベースライン。
   // 安打の点（y=112付近）がマスの枠（y=118.5）に触れない位置。
   var RES_RIGHT = 127, RES_BASE = 108;
-  var CENTER = {x:82, y:56};
 
   /* 3色のペン。色そのものが「打数に入るか・誰の手柄か」を表す
      黒＝打数に入ってアウト ／ 赤＝安打と得点（打者の手柄） ／
@@ -995,27 +1010,36 @@ var Cell = (function(){
       stroke:'currentColor', 'stroke-opacity':.22, 'stroke-width':1.2
     }));
 
-    // ひし形の薄い下敷き（点線）。すべてのマスに標準で描く。
-    // 市販の早稲田式スコアブックにも薄く印刷されているのと同じで、
-    // 「どの区画がどの塁か」が最初から見える（2026-07-27 本人FBで標準化。
-    // 斜線はこの点線を太くなぞる形になり、紙に書くときの手の動きとも一致する）
+    // 案内のひし形（薄い点線・小）＋4本の放射線。すべてのマスに標準で描く。
+    // 市販の早稲田式スコアブックに最初から薄く刷ってあるのと同じ形で、
+    // これがマスを4つの区画（一塁・二塁・三塁・本塁）に割っている。
+    // 安打の斜線はこの点線をなぞらない——外側の大きなひし形を回る
+    // （2026-07-29 本人FB。一次情報の図もすべてこの形）
     if(!g.noDiamond){
       svgEl.appendChild(svg('path', {
-        d:'M ' + B.x + ' ' + B.y + ' L ' + R.x + ' ' + R.y + ' L ' + T.x + ' ' + T.y +
-          ' L ' + L.x + ' ' + L.y + ' Z',
+        d:'M ' + SB.x + ' ' + SB.y + ' L ' + SR.x + ' ' + SR.y + ' L ' + ST.x + ' ' + ST.y +
+          ' L ' + SL.x + ' ' + SL.y + ' Z',
         fill:'none', stroke:'currentColor', 'stroke-opacity':.18,
         'stroke-width':1.3, 'stroke-dasharray':'3 3'
       }));
+      [[ST, EDGE.t], [SR, EDGE.r], [SB, EDGE.b], [SL, EDGE.l]].forEach(function(seg){
+        svgEl.appendChild(svg('line', {
+          x1:seg[0].x, y1:seg[0].y, x2:seg[1].x, y2:seg[1].y,
+          stroke:'currentColor', 'stroke-opacity':.18,
+          'stroke-width':1.3, 'stroke-dasharray':'3 3'
+        }));
+      });
     }
 
     // 区画の指し示し（出題用）。色掛け＋「ここ」の文字で、色だけに頼らない
     if(g.highlight >= 1 && g.highlight <= 4){
-      var X1 = FRAME.x1, Y0 = FRAME.y0, Y1 = FRAME.y1;
+      // 区画を割っているのは案内の点線（小さいひし形＋放射線）なので、そこで塗る
+      var X1 = FRAME.x1, Y0 = FRAME.y0, Y1 = FRAME.y1, CY = CENTER.y, CX = CENTER.x;
       var QUADS = {
-        1: [[B.x,B.y],[R.x,R.y],[X1,56],[X1,Y1],[B.x,Y1]],
-        2: [[R.x,R.y],[T.x,T.y],[T.x,Y0],[X1,Y0],[X1,56]],
-        3: [[T.x,T.y],[L.x,L.y],[OX,56],[OX,Y0],[T.x,Y0]],
-        4: [[L.x,L.y],[B.x,B.y],[B.x,Y1],[OX,Y1],[OX,56]]
+        1: [[SB.x,SB.y],[SR.x,SR.y],[X1,CY],[X1,Y1],[CX,Y1]],
+        2: [[SR.x,SR.y],[ST.x,ST.y],[CX,Y0],[X1,Y0],[X1,CY]],
+        3: [[ST.x,ST.y],[SL.x,SL.y],[OX,CY],[OX,Y0],[CX,Y0]],
+        4: [[SL.x,SL.y],[SB.x,SB.y],[CX,Y1],[OX,Y1],[OX,CY]]
       };
       var LABELS = {1:[119,113], 2:[119,16], 3:[45,16], 4:[45,113]};
       svgEl.appendChild(svg('polygon', {
@@ -1156,8 +1180,10 @@ var Cell = (function(){
         addStep('trace', mkLine({x:left, y:ly}, {x:RES_RIGHT, y:ly}, {w:1.9, pen:tpen}), 'line');
       }
 
-      /* 安打の点（・）。位置で何塁打かが分かる
-         下＝単打／上＝二塁打／横＝三塁打（本塁打は中央の得点で分かる） */
+      /* 安打の点（・）。位置が表すのは「打球がどこへ飛んだか」であって、
+         何塁打かではない（何塁打かは斜線の本数が表す）。
+         下＝その野手の前／上＝その野手を越えた／横＝そちらのライン際
+         例: 9の下＝右前、7の上＝左越え、9の横＝右線 */
       if(res.dot){
         var dx = cx0, dy = RES_BASE + 4.2;
         if(res.dot === 'over'){ dy = RES_BASE - size * 1.02; }
@@ -1165,15 +1191,35 @@ var Cell = (function(){
         addStep('dot', svg('circle', {cx:dx, cy:dy, r:2.2, fill:penColor(rpen)}), 'text');
       }
 
-      // 内野安打は数字を楕円で囲む
-      if(res.oval){
-        var ovRx = w/2 + 4.5, ovRy = size * 0.72;
-        var ov = svg('ellipse', {
-          cx:cx0, cy:RES_BASE - size*0.28, rx:ovRx, ry:ovRy,
-          fill:'none', stroke:penColor(rpen), 'stroke-width':1.6
-        });
-        ov.__len = 2 * Math.PI * ovRx;
-        addStep('oval', ov, 'line');
+      /* 内野安打は数字を「半円」で囲む。
+         半円の直線側（弦）は安打の斜線そのもので、丸い側がマスの角へふくらむ。
+         ＝斜線と半円で数字を挟む形（BASEBALL ONE の図がこの形）。
+         バントヒットはさらに斜線の上側に BH を添える。 */
+      if(res.half || res.bh){
+        var ux = R.x - B.x, uy = R.y - B.y, ul = Math.sqrt(ux*ux + uy*uy);
+        ux /= ul; uy /= ul;                      // 斜線の向き（右上へ）
+        var nx = -uy, ny = ux;                   // 斜線の外側（右下）へ向く法線
+        var ccx = cx0, ccy = RES_BASE - size * 0.33;
+        var dOut = (ccx - B.x) * nx + (ccy - B.y) * ny;   // 斜線から数字までの距離
+        var mx = ccx - dOut * nx, my = ccy - dOut * ny;   // 弦の中点（斜線の上）
+        if(res.half){
+          var rr = dOut + size * 0.62;
+          var hc = svg('path', {
+            d:'M ' + (mx - rr*ux) + ' ' + (my - rr*uy) +
+              ' A ' + rr + ' ' + rr + ' 0 0 0 ' + (mx + rr*ux) + ' ' + (my + rr*uy),
+            fill:'none', stroke:penColor(rpen), 'stroke-width':1.8, 'stroke-linecap':'round'
+          });
+          hc.__len = Math.PI * rr;
+          addStep('half', hc, 'line');
+        }
+        if(res.bh){
+          var deg = Math.atan2(uy, ux) * 180 / Math.PI;
+          var qx = mx - nx * size * 0.52 - ux * size * 0.18;
+          var qy = my - ny * size * 0.52 - uy * size * 0.18;
+          var bh = mkText(qx, qy, size * 0.82, 'BH', {weight:700, pen:rpen});
+          bh.setAttribute('transform', 'rotate(' + deg.toFixed(2) + ' ' + qx + ' ' + qy + ')');
+          addStep('bh', bh, 'text');
+        }
       }
       // 犠打は四角、犠飛は三角で囲む（どちらも青）
       if(res.box === 'square'){
@@ -1284,7 +1330,9 @@ var Cell = (function(){
 
     if(instant){
       built.steps.forEach(function(s){ s.reveal(true); });
-      if(built.glow) built.glow.style.opacity = '.85';
+      // アニメなしのときは光を控えめに。強く出すと金色が赤い斜線を隠して
+      // 「◇は赤で引く」という凡例と食い違って見える（0.85 → 0.3）
+      if(built.glow) built.glow.style.opacity = '.3';
       say(opt.finalCaption || '');
       if(opt.onEnd) opt.onEnd();
       return {stop:function(){}};
@@ -2849,7 +2897,8 @@ function buildPrintSheets(withDiamond){
     ]));
     wrap.appendChild(col('マスの地図', [
       ['区画', '右下＝一塁／右上＝二塁／左上＝三塁／左下＝本塁（反時計回り）'],
-      ['安打の斜線', '赤。打撃で得た塁の分だけ。点の位置＝下が単打／上が二塁打／横が三塁打'],
+      ['ひし形', '真ん中の小さい点線は案内。斜線はそれをなぞらず、外側を大きく回る'],
+      ['安打の斜線', '赤。打撃で得た塁の分だけ（1本＝単打／2本＝二塁打…）'],
       ['進塁', '到達した塁に (打順番号)／通過しただけの塁に ↰（斜線は増やさない）'],
       ['中央', 'アウト＝Ⅰ Ⅱ Ⅲ／得点＝●（赤）／残塁＝ℓ'],
       ['打点', '還した打者の打順を丸で囲み、還った走者の本塁区画へ']
@@ -2859,12 +2908,13 @@ function buildPrintSheets(withDiamond){
       ['ライナー', '数字の上に 直線（まっすぐ飛んだ）'],
       ['ゴロ', '印を付けない（番号をつなぐのが証）'],
       ['ファウルフライ', '守備番号に F を添える（例 3F）'],
-      ['内野安打', '数字を楕円で囲む']
+      ['点（・）の位置', '打球が飛んだ先。下＝その野手の前／上＝越えた／横＝ライン際'],
+      ['内野安打', '斜線を弦にした半円で数字を囲む（バントヒットは＋BH）']
     ]));
     wrap.appendChild(col('投球経過（マス左の細い欄に、上から1球ずつ）', [
       ['●', 'ボール'],
-      ['／', '見逃しストライク'],
-      ['×', '空振りストライク'],
+      ['×', '見逃しストライク'],
+      ['⊗', '空振りストライク（×に1本足す）'],
       ['△', 'ファウル'],
       ['□', '打った（インプレー）']
     ]));
@@ -2892,8 +2942,8 @@ function buildPrintSheets(withDiamond){
     ex.style.marginTop = '2mm';
     ex.appendChild(el('h4', null, '書き上がりの例'));
     var cells = el('div', 'pkeycells');
-    [['ground63-out1','遊ゴロ 6-3（黒）'], ['single','単打＝赤い斜線1本＋下に点'],
-     ['double','二塁打＝斜線2本＋上に点'], ['walk-to2nd-lob','四球（青）→(3)で二塁→残塁ℓ'],
+    [['ground63-out1','遊ゴロ 6-3（黒）'], ['single','単打＝斜線1本／9の下の点＝右前'],
+     ['double','二塁打＝斜線2本／7の上の点＝左越え'], ['walk-to2nd-lob','四球（青）→(3)で二塁→残塁ℓ'],
      ['single-to3rd','↰＝通過／(4)＝到達'], ['scored','生還して1点（●と打点）'],
      ['sh','犠打＝青い四角'], ['sf','犠飛＝青い三角']].forEach(function(r){
       var c = el('div', 'c');
@@ -3095,10 +3145,11 @@ var LEGEND = [
   ['ground63-out1', 'ゴロでアウト：処理した野手を「-」でつなぐ。ゴロに印は付けない'],
   ['fly8-out2', 'フライでアウト：数字の上の弧＝打球が上がった'],
   ['liner-out', 'ライナー：数字の上の直線＝まっすぐ飛んだ'],
-  ['single', '単打：赤い斜線1本＋数字の【下】に点'],
-  ['double', '二塁打：赤い斜線2本＋数字の【上】に点'],
-  ['triple', '三塁打：赤い斜線3本＋数字の【横】に点'],
-  ['infield-hit', '内野安打：数字を楕円で囲む（足で勝ち取った出塁を残す）'],
+  ['single', '単打：赤い斜線1本。9の【下】の点＝右翼手の前に落ちた（右前）'],
+  ['double', '二塁打：赤い斜線2本。7の【上】の点＝左翼手を越えた（左越え）'],
+  ['triple', '三塁打：赤い斜線3本。9の【横】の点＝右翼線への打球'],
+  ['infield-hit', '内野安打：安打の斜線を弦にした半円で、数字を囲む'],
+  ['bunt-hit', 'バントヒット：内野安打の半円に、斜線の上へ BH を添える'],
   ['bb', '四球：青い B。打数に入らないので、斜線は引かない'],
   ['sh', '犠打：処理の経路を青い四角で囲む'],
   ['sf', '犠飛：守備番号を青い三角で囲む'],
@@ -3265,7 +3316,7 @@ function selfTest(){
   pass &= ok('すべてのマスが描ける', drawErr.length === 0, drawErr.join(','));
 
   // 3-b. 実際に描いた結果の座標を測る（枠からのはみ出し・打撃結果の位置ずれ）
-  //      反転（逆K）や楕円は目で見ないと気づけない崩れ方をするので、機械で測る
+  //      反転（逆K）や内野安打の半円は目で見ないと気づけない崩れ方をするので、機械で測る
   var geoOut = [], geoPos = [];
   var stage = document.createElement('div');
   stage.style.cssText = 'position:fixed;left:0;top:0;opacity:0.001;pointer-events:none;z-index:-1';

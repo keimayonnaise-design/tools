@@ -12,8 +12,10 @@
          r:'out'|'hit'|'bb'|'db'|'k'|'kl'|'e'|'fc'|'sh'|'sf',
          at:'6-3',            // 処理した野手（記号系は不要）
          trace:'ground'|'fly'|'liner',
-         bases:2,             // r:'hit' のとき到達塁（1〜4）
-         oval:true,           // 内野安打
+         bases:2,             // r:'hit' のとき到達塁（1〜4）＝赤い斜線の本数
+         dot:'under',         // 打球の落下位置 under=野手の前／over=越えた／side=線
+         ih:true,             // 内野安打（数字を半円で囲む）
+         bh:true,             // バントヒット（半円＋BH）
          adv:{1:2, 2:4},      // 走者の進塁 {いまの塁: 行き先}（4=本塁）
          outsOn:{2:'8-4'}     // 走者がアウト {いまの塁: 経路}
        },
@@ -48,13 +50,15 @@
       pitches:[], kind:null};
   }
 
-  // 安打の点（・）の位置で何塁打かを表す（下=単打／上=二塁打／横=三塁打）
-  var HIT_DOT = {1:'under', 2:'over', 3:'side', 4:null};
-
+  /* 安打の点（・）は「打球がどこへ飛んだか」を表す。何塁打かではない
+     （何塁打かは斜線の本数。下＝野手の前／上＝越えた／横＝ライン際）。
+     どこへ飛んだかはシナリオの読み上げ文が決めることなので、
+     塁数から機械的に決めず、シナリオの dot をそのまま使う。 */
   function resultOf(p){
     switch(p.r){
       case 'out':  return {text:p.at, trace:p.trace || null};
-      case 'hit':  return {text:p.at, dot:HIT_DOT[p.bases || 1], oval:!!p.oval};
+      case 'hit':  return {text:p.at, dot:p.dot || null,
+                           half:!!(p.ih || p.bh), bh:!!p.bh};
       case 'bb':   return {text:'B'};
       case 'db':   return {text:'DB'};
       case 'k':    return {text:'K'};
@@ -228,7 +232,8 @@
   /* 見比べチェックリストを、計算されたマスから自動生成する。
      手で書くと盤面とズレるので、必ずここから作る。 */
   var TRACE_JP = {fly:'上に弧＝フライ', liner:'上に直線＝ライナー'};
-  var DOT_JP = {under:'下に点＝単打', over:'上に点＝二塁打', side:'横に点＝三塁打'};
+  var DOT_JP = {under:'数字の下に点＝その野手の前', over:'数字の上に点＝その野手を越えた',
+    side:'数字の横に点＝そちらのライン際'};
   var PEN_JP = {hit:'赤', walk:'青', sac:'青'};
   var PITCH_JP = {B:'●', S:'×', W:'⊗', F:'△', X:'□'};
 
@@ -247,7 +252,8 @@
         var s = '右下に ' + c.result.text + '（' + penJP + '）';
         if(c.result.trace) s += '＋' + TRACE_JP[c.result.trace];
         if(c.result.dot) s += '＋' + DOT_JP[c.result.dot];
-        if(c.result.oval) s += '＋楕円で囲む';
+        if(c.result.half) s += '＋斜線を弦にした半円で数字を囲む（内野安打）';
+        if(c.result.bh) s += '＋斜線の上に BH（バントヒット）';
         if(c.result.box === 'square') s += '＋青い四角で囲む';
         if(c.result.box === 'triangle') s += '＋青い三角で囲む';
         parts.push(s);

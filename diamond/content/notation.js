@@ -3,6 +3,7 @@
    ---------------------------------------------------------
    2026-07-29、本人指定の2サイトの「記号早見表」を画像で直接読んで
    確定した。テキスト要約では取り違えたため、図そのものを見ている。
+   （同日の実機FB第4弾で、安打まわりを図と1つずつ突き合わせて修正）
 
    一次情報:
    ・パ・リーグ.com「野球スコアのつけ方は？」記号の早見表（(C) PLM）
@@ -12,14 +13,28 @@
 
    ※ 記号に全国共通の公式規格は存在しない（団体ごとに違う）。
      ここは「早稲田式の標準形」であり、使うスコアブックの凡例と
-     所属連盟の記録要領が最優先。学校ごとのローカル差は v2 で
-     切り替えられるようにする（仕様書 §13 要判断⑦）。
+     所属連盟の記録要領が最優先。2ソースで食い違うものは others に
+     両方を残した（他人のスコアを読むために必要）。
+     学校ごとのローカル差は v2 で切り替えられるようにする
+     （仕様書 §13 要判断⑦）。
 
    このファイルは「何が正しい書き方か」の一覧であり、
    辞典・ドリル・凡例・印刷シートはここを参照する（二重管理しない）。
    ========================================================= */
 (function (root) {
   'use strict';
+
+  /* ---- マスの形 ----
+     ひし形は2つある。ここを取り違えると全部の記号がずれる。 */
+  var SHAPE = {
+    guide: '小さいひし形の点線＋そこから4辺の中点へ伸びる点線。' +
+           'マスに最初から薄く刷ってあり、マスを4つの区画に割っている',
+    quads: '右下＝一塁／右上＝二塁／左上＝三塁／左下＝本塁',
+    path:  '走路のひし形は、マスの4辺の中点を結ぶ大きなひし形。' +
+           '安打の斜線と進塁の線はこの大きい方に引く',
+    warn:  '安打の斜線は、真ん中の小さい点線のひし形を「なぞる」のではない。' +
+           'その外側を大きく回る（2ソースの図がどちらもこの形）'
+  };
 
   /* ---- 3色のペン ----
      色そのものが「打数に入るか・誰の手柄か」を表す */
@@ -32,23 +47,42 @@
      why:'打数に入らない（打者の打撃で決まった結果ではない）'}
   ];
 
-  /* ---- 打球の種類 ----
-     ゴロは印を付けない。数字をハイフンでつなぐこと自体がゴロの証。 */
+  /* ---- 打球の種類 ---- */
   var TRACE = [
-    {id:'ground', name:'ゴロ', how:'印は付けない。処理した野手を「-」でつなぐ（例 6-3）'},
-    {id:'fly',    name:'フライ', how:'数字の上に ⌒（弧）'},
-    {id:'liner',  name:'ライナー', how:'数字の上に −（直線）'},
-    {id:'foul',   name:'ファウルフライ', how:'数字に F を添える（例 3F）＋上に弧'}
+    {id:'ground', name:'ゴロ', how:'印は付けない。処理した野手を「-」でつなぐ（例 6-3）',
+     others:'パ・リーグ.comは「守備番号の下に短い線」を引く'},
+    {id:'fly',    name:'フライ', how:'数字の上に ⌒（弧）', others:'F8'},
+    {id:'liner',  name:'ライナー', how:'数字の上に −（直線）', others:'L4'},
+    {id:'foul',   name:'ファウルフライ', how:'守備番号に F を添える（例 3F）＋上に弧',
+     others:'BASEBALL ONEは F を前に置く（F5）'}
   ];
 
   /* ---- 安打 ----
-     赤い斜線は「打者が自分の打撃で得た塁」の数だけ引く。
-     守備番号に打つ点（・）の位置で、何塁打かがひと目で分かる。 */
+     ここが2026-07-29の実機FBで直したところ。
+     斜線の本数と、点（・）の位置は、別々のことを表している。 */
   var HITS = [
-    {bases:1, name:'単打', dot:'under', how:'赤い斜線1本＋守備番号の【下】に・'},
-    {bases:2, name:'二塁打', dot:'over', how:'赤い斜線2本＋守備番号の【上】に・'},
-    {bases:3, name:'三塁打', dot:'side', how:'赤い斜線3本＋守備番号の【横】に・'},
-    {bases:4, name:'本塁打', dot:null,   how:'赤い斜線4本＋中央に得点の●'}
+    {bases:1, name:'単打',   how:'赤い斜線1本（本塁→一塁）'},
+    {bases:2, name:'二塁打', how:'赤い斜線2本（一塁→二塁まで）'},
+    {bases:3, name:'三塁打', how:'赤い斜線3本（三塁まで）'},
+    {bases:4, name:'本塁打', how:'赤い斜線4本で◇が閉じる＋中央に得点の●'}
+  ];
+
+  /* 守備番号に打つ点（・）は「打球がどこへ飛んだか」を表す。
+     何塁打かではない（何塁打かは斜線の本数が表す）。
+     だから 9の下＝右前の単打にも、9の下＝右前で二塁打、もありうる。 */
+  var DOTS = [
+    {id:'under', name:'数字の【下】', means:'その野手の前に落ちた', ex:'9の下に点＝右翼手の前（右前）'},
+    {id:'over',  name:'数字の【上】', means:'その野手を越えた',     ex:'7の上に点＝左翼手の頭を越えた（左越え）'},
+    {id:'side',  name:'数字の【横】', means:'そちらのライン際',     ex:'9の横に点＝右翼線'}
+  ];
+
+  /* ---- 安打の中の特別なもの ---- */
+  var HIT_MARKS = [
+    {id:'ih', name:'内野安打', how:'安打の斜線を弦にした半円で、守備番号を囲む',
+     note:'斜線と半円で数字を挟む形。丸い側はマスの角へふくらむ',
+     others:'IH と添える流儀もある'},
+    {id:'bh', name:'バントヒット', how:'内野安打の半円に、斜線の上側へ BH を添える',
+     note:'BH＝Bunt Hit。バントによる内野安打', others:'－'}
   ];
 
   /* ---- 進塁 ----
@@ -63,18 +97,24 @@
 
   /* ---- 打席の結果の記号 ---- */
   var RESULTS = [
-    {id:'k',    name:'空振り三振', sym:'K',   pen:'ink'},
-    {id:'so',   name:'見逃し三振', sym:'SO',  pen:'ink'},
-    {id:'bb',   name:'四球',       sym:'B',   pen:'blue'},
-    {id:'db',   name:'死球',       sym:'DB',  pen:'blue'},
-    {id:'dib',  name:'申告敬遠',   sym:'DIB', pen:'blue'},
+    {id:'k',    name:'空振り三振', sym:'K',   pen:'ink',
+     others:'BASEBALL ONEは空振り・見逃しを分けず、どちらも K'},
+    {id:'so',   name:'見逃し三振', sym:'SO',  pen:'ink', others:'逆さまの K（ꓘ）'},
+    {id:'k3b',  name:'スリーバント失敗', sym:'K', pen:'ink',
+     note:'K に波線の下線を引く', others:'－'},
+    {id:'bb',   name:'四球',       sym:'B',   pen:'blue', others:'BB・4B'},
+    {id:'db',   name:'死球',       sym:'DB',  pen:'blue',
+     others:'HP（Hit by Pitch。BASEBALL ONEはこちら）'},
+    {id:'dib',  name:'申告敬遠',   sym:'DIB', pen:'blue',
+     others:'IB（故意四球 Intentional Base on Balls）'},
     {id:'sh',   name:'犠打',       sym:'1-3', pen:'blue', box:'square',
      note:'処理の経路を青い四角で囲む'},
     {id:'sf',   name:'犠飛',       sym:'8',   pen:'blue', box:'triangle',
      note:'守備番号を青い三角で囲む'},
-    {id:'fc',   name:'野手選択',   sym:'3FC', pen:'ink'},
-    {id:'ih',   name:'内野安打',   sym:'6',   pen:'red', oval:true,
-     note:'安打の数字を半円（楕円）で囲む'}
+    {id:'fc',   name:'野手選択',   sym:'3FC', pen:'ink', others:'Fc'},
+    {id:'base', name:'ベースを踏んでアウト', sym:'3A', pen:'ink',
+     note:'一塁A・二塁B・三塁C・本塁D。3A＝一塁手が捕ってそのまま塁を踏んだ',
+     others:'3・-3 とだけ書く流儀もあるが、他の結果と紛れる'}
   ];
 
   /* ---- 失策 ----
@@ -82,7 +122,7 @@
   var ERRORS = [
     {name:'悪送球',            sym:'6E-3', note:'投げた側で失敗＝番号のあとに E'},
     {name:'捕球ミス',          sym:'4-3E', note:'受けた側で失敗＝受け手の番号のあとに E'},
-    {name:'落球',              sym:'7E'},
+    {name:'落球',              sym:'7E',   note:'フライの弧に E を添える'},
     {name:'後逸・ファンブル',  sym:'5E'},
     {name:'安打＋失策',        sym:'9E ＋ ↰ ＋ 赤い斜線と 9',
      note:'安打の分は赤、失策で進んだ分は矢印で表す'}
@@ -90,17 +130,18 @@
 
   /* ---- 走者まわり ---- */
   var RUNNER = [
-    {name:'盗塁',       sym:'S',   pen:'blue', note:'下に (打順) ＝何番打者の打席中に起きたか'},
+    {name:'盗塁',       sym:'S',   pen:'blue', note:'下に (打順) ＝何番打者の打席中に起きたか。投球経過の欄にも印を付ける'},
+    {name:'重盗',       sym:'DS',  pen:'blue', note:'三重盗は TP'},
     {name:'盗塁死',     sym:'CS',  pen:'blue', note:'同じく (打順) を添える'},
-    {name:'暴投',       sym:'WP',  pen:'ink'},
-    {name:'捕逸',       sym:'PB',  pen:'ink'},
-    {name:'ボーク',     sym:'BK',  pen:'ink'},
-    {name:'打撃妨害',   sym:'2IF', pen:'ink'},
-    {name:'走塁妨害',   sym:'OB4', pen:'ink'},
-    {name:'守備妨害',   sym:'IP2', pen:'ink'},
+    {name:'暴投',       sym:'WP',  pen:'ink', others:'W'},
+    {name:'捕逸',       sym:'PB',  pen:'ink', others:'P'},
+    {name:'ボーク',     sym:'BK',  pen:'ink', note:'ボークの球はカウントしない'},
+    {name:'打撃妨害',   sym:'2IF', pen:'ink', others:'IF（Interference）'},
+    {name:'走塁妨害',   sym:'OB4', pen:'ink', others:'OB（Obstruction）'},
+    {name:'守備妨害',   sym:'IP2', pen:'ink', others:'×'},
     {name:'タッチアウト', sym:'4-6-5 T.O', pen:'ink'},
-    {name:'併殺打',     sym:'4-6 → 4-6-3 と DP', pen:'ink',
-     note:'先にアウトになった走者のマスと、打者のマスの両方に書く'}
+    {name:'併殺打',     sym:'4-6 → 4-6-3', pen:'ink',
+     note:'先にアウトになった走者のマスと、打者のマスの両方に書く。DP と添える流儀もある'}
   ];
 
   /* ---- マスの中央（結末） ---- */
@@ -108,7 +149,8 @@
     {id:'out1', name:'1アウト目', sym:'Ⅰ', pen:'ink'},
     {id:'out2', name:'2アウト目', sym:'Ⅱ', pen:'ink'},
     {id:'out3', name:'3アウト目', sym:'Ⅲ', pen:'ink'},
-    {id:'run',  name:'得点（自責点）', sym:'●', pen:'red'},
+    {id:'run',  name:'得点（自責点）', sym:'●', pen:'red',
+     others:'○の中に E（Earned run）と書く流儀もある'},
     {id:'unearned', name:'得点（自責点でない）', sym:'○', pen:'red'},
     {id:'lob',  name:'残塁', sym:'ℓ', pen:'ink'}
   ];
@@ -119,13 +161,19 @@
     {id:'S', name:'見逃しストライク', sym:'×'},
     {id:'W', name:'空振りストライク', sym:'⊗', note:'×に線を1本足す'},
     {id:'F', name:'ファウル',         sym:'△'},
-    {id:'X', name:'打った（インプレー）', sym:'□'}
+    {id:'X', name:'打った（インプレー）', sym:'□',
+     note:'教材16の書き方。2サイトは打った球に印を付けない（右下の結果で分かるため）'}
+  ];
+  var PITCH_EXTRA = [
+    {name:'バントファウル',   sym:'△の中に黒点'},
+    {name:'バント空振り',     sym:'空振りの印にもう1本足す'}
   ];
 
   root.DIAMOND_NOTATION = {
-    pens: PENS, trace: TRACE, hits: HITS, advance: ADVANCE,
+    shape: SHAPE, pens: PENS, trace: TRACE, hits: HITS, dots: DOTS,
+    hitMarks: HIT_MARKS, advance: ADVANCE,
     results: RESULTS, errors: ERRORS, runner: RUNNER,
-    center: CENTER, pitch: PITCH,
+    center: CENTER, pitch: PITCH, pitchExtra: PITCH_EXTRA,
     sources: [
       {name:'パ・リーグ.com「野球スコアのつけ方は？」記号の早見表', url:'https://pacificleague.com/news/2023/2/47589'},
       {name:'BASEBALL ONE「野球 スコアブックの書き方とは？！」', url:'https://baseball-one.com/blog/archives/274598/'}

@@ -41,10 +41,10 @@
          say:'1番。初球はボール、2球目は空振り。3球目を打って、遊撃手の正面へのゴロ。一塁でアウトです。'},
         {batter:2, pitches:['B','B','S','B','B'], r:'bb',
          say:'2番。フルカウントから外れて、四球。歩いて一塁へ。'},
-        {batter:3, pitches:['S','X'], r:'hit', bases:1, at:'9',
+        {batter:3, pitches:['S','X'], r:'hit', bases:1, at:'9', dot:'under',
          adv:{1:2},
          say:'3番。2球目を打って、右翼手の前に転がる安打。一塁走者は二塁へ進みました。'},
-        {batter:4, pitches:['B','X'], r:'hit', bases:1, at:'7',
+        {batter:4, pitches:['B','X'], r:'hit', bases:1, at:'7', dot:'under',
          adv:{2:4, 1:2},
          say:'4番。左翼手の前へ落ちる安打。二塁走者が生還して1点。一塁走者は二塁へ、打った4番は一塁に止まりました。'},
         {batter:5, pitches:['S','B','S','S'], r:'kl',
@@ -71,7 +71,7 @@
          say:'2番。二塁手へのゴロで一塁アウト。その間に二塁走者は三塁へ進みました。'},
         {batter:3, pitches:['B'], run:'wp', adv:{3:4},
          say:'3番の打席の初球。投手の球が大きく外れてワンバウンド。捕手が止められず、三塁走者が生還して1点。投手の暴投です。'},
-        {batter:3, pitches:['B','S','X'], r:'hit', bases:2, at:'8',
+        {batter:3, pitches:['B','S','X'], r:'hit', bases:2, at:'8', dot:'over',
          say:'3番。中堅手の頭を越えるライナー。打者は二塁まで進んで、二塁打です。'},
         {batter:4, pitches:['X'], r:'out', at:'5', trace:'fly',
          say:'4番。初球を打ち上げて、三塁手が捕球。2アウトです。'},
@@ -89,7 +89,7 @@
       lineup: LINEUP_A,
       plays:[
         /* --- 1回 --- */
-        {batter:1, pitches:['X'], r:'hit', bases:1, at:'6', oval:true,
+        {batter:1, pitches:['X'], r:'hit', bases:1, at:'6', dot:'under', ih:true,
          say:'1番。遊撃手の深いところへのゴロ。足で一塁を陥れました。内野安打です。'},
         {batter:2, pitches:['B','X'], r:'out', at:'6-4-3',
          outsOn:{1:'6-4'},
@@ -101,12 +101,12 @@
            犠飛（SF）は無死か一死のときだけ成立する。2アウトで外野フライが
            捕られたらそこでイニングが終わり、走者は還れないため。
            ここは「一死・三塁」を作ってから犠飛を出している。 */
-        {batter:4, pitches:['B','X'], r:'hit', bases:1, at:'7',
+        {batter:4, pitches:['B','X'], r:'hit', bases:1, at:'7', dot:'under',
          say:'2回の先頭、4番。左翼手の前へ落ちる安打です。'},
         {batter:5, pitches:['X'], r:'sh', at:'1-3',
          adv:{1:2},
          say:'5番。初球をバントで転がし、投手が捕って一塁へ。打者はアウトですが、走者は二塁へ進みました。送りバント成功です。1アウト。'},
-        {batter:6, pitches:['B','B','X'], r:'hit', bases:1, at:'9',
+        {batter:6, pitches:['B','B','X'], r:'hit', bases:1, at:'9', dot:'under',
          adv:{2:3},
          say:'6番。右翼手の前への安打。二塁走者は三塁へ、打者は一塁に止まりました。1アウト、一塁三塁です。'},
         {batter:7, pitches:['S','X'], r:'sf', at:'8',
@@ -118,10 +118,10 @@
         /* --- 3回 --- */
         {batter:9, pitches:['B','S','B','B','B'], r:'bb',
          say:'3回の先頭、9番。四球で歩いて一塁へ。'},
-        {batter:1, pitches:['X'], r:'hit', bases:1, at:'9',
+        {batter:1, pitches:['X'], r:'hit', bases:1, at:'9', dot:'under',
          adv:{1:2},
          say:'打順が一巡して1番。右翼手の前への安打。一塁走者は二塁へ進みました。'},
-        {batter:2, pitches:['S','X'], r:'hit', bases:1, at:'8',
+        {batter:2, pitches:['S','X'], r:'hit', bases:1, at:'8', dot:'under',
          adv:{2:4, 1:2},
          say:'2番。中堅手の前への安打。二塁走者が生還して1点。一塁走者は二塁へ、打者は一塁です。'},
         {batter:3, pitches:['B','X'], r:'out', at:'4-3',
