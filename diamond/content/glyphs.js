@@ -76,6 +76,17 @@
     }
   };
 
+  G['ground43-out1'] = {
+    title: '二ゴロ 4-3・1アウト目',
+    pitches: ['S','X'],
+    result: { text: '4-3' },
+    center: { out: 1 },
+    captions: {
+      result: '二塁手（4）が捕って一塁手（3）が受けた。書くのは打った方向でなく、処理した野手',
+      center: 'この回の1アウト目なので中央にⅠ'
+    }
+  };
+
   G['fly8-out2'] = {
     title: '中堅フライ・2アウト目',
     pitches: ['S','X'],
