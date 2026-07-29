@@ -21,6 +21,9 @@
   --accent:#15604A;     /* 芝の緑 */
   --on-accent:#FFFFFF;  /* 緑のボタンに載せる文字。明暗を反転させてAAを保つ */
   --accent-weak:#E9F0EC;
+  /* スコアを書く3色のペン。色そのものが「打数に入るか・誰の手柄か」を表す */
+  --pen-red:#B3261E;    /* 安打・得点・打点 */
+  --pen-blue:#1A5FA8;   /* 四死球・犠打・犠飛＝打数に入らない */
   --gold:#9A7B12;       /* ◇が完成したときの光 */
   --bad:#9B2C2C;
   --shadow:0 1px 2px rgba(31,36,33,.06), 0 6px 18px rgba(31,36,33,.05);
@@ -30,6 +33,7 @@
   :root{
     --bg:#15181A; --surface:#1E2325; --ink:#ECE9E1; --muted:#9BA3A0;
     --line:#333B3D; --accent:#5FB394; --on-accent:#10201A; --accent-weak:#1C2E28; --gold:#D9B84A;
+    --pen-red:#FF8A80; --pen-blue:#8FC0FF;
     --bad:#E88B8B;
     --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25);
   }
@@ -333,28 +337,76 @@ body.group-mode #run-answer-title, body.group-mode #run-check-title{font-size:cl
 }
 .pairnote b{color:var(--accent)}
 
-/* ---- 印刷（スコアシート） ---- */
+/* ---- 凡例（3色・投球経過） ---- */
+.penrow{display:flex; gap:12px; align-items:flex-start; padding:11px 0; border-top:1px solid var(--line)}
+.penrow:first-child{border-top:none}
+.penchip{
+  flex:none; width:36px; height:36px; border-radius:9px;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:700; font-size:15px; border:1.5px solid;
+}
+.penchip.pen-ink{color:var(--ink); border-color:var(--ink)}
+.penchip.pen-red{color:var(--pen-red); border-color:var(--pen-red)}
+.penchip.pen-blue{color:var(--pen-blue); border-color:var(--pen-blue)}
+.penbody{flex:1; min-width:0}
+.penbody .pt{font-size:14px; line-height:1.7}
+.penbody .ps{font-size:12.5px; color:var(--muted); margin-top:2px}
+.pitchkey{display:flex; flex-wrap:wrap; gap:6px 10px; margin-top:10px; justify-content:center}
+.pitchkey .pk{font-size:12.5px; color:var(--muted); white-space:nowrap}
+.pitchkey .pk b{color:var(--ink); margin-right:4px; font-size:14px}
+
+/* ---- 印刷（スコアシート） ----
+   市販のスコアブックと同じ A4横。1枚＝1ページに収まるよう、
+   すべて mm で寸法を決めている（iPhoneからの印刷で
+   ページの切れ方が悪かったため・2026-07-29 本人FB） */
 #print-area{display:none}
 @media print{
-  body{background:#fff; color:#000; padding:0}
+  html, body{background:#fff !important; color:#000 !important; padding:0; margin:0}
   .wrap{display:none !important}
   #print-area{display:block !important; padding:0; color:#000}
-  @page{size:A4 portrait; margin:9mm}
-  .psheet{page-break-after:always}
-  .psheet:last-child{page-break-after:auto}
-  .phead{display:flex; flex-wrap:wrap; gap:4px 14px; font-size:9pt; margin-bottom:5mm}
-  .phead span{border-bottom:1px solid #999; min-width:26mm; padding:0 2px 1px}
-  .pgrid{display:grid; gap:0; border:1px solid #333}
-  .pgrid .hd{
-    font-size:7.5pt; text-align:center; padding:1mm 0; border-right:1px solid #333;
-    border-bottom:1px solid #333; background:#f0f0f0;
+  @page{size:A4 landscape; margin:7mm}
+  .psheet{
+    page-break-after:always; break-after:page;
+    width:283mm; height:196mm; overflow:hidden; position:relative;
+    font-family:"Hiragino Sans","Noto Sans JP",sans-serif;
   }
-  .pgrid .nm{border-right:1px solid #333; border-bottom:1px solid #333; padding:1mm}
-  .pgrid .cl{border-right:1px solid #333; border-bottom:1px solid #333; padding:0.6mm}
+  .psheet:last-child{page-break-after:auto; break-after:auto}
+
+  .ptop{display:flex; align-items:flex-end; gap:3mm; margin-bottom:1.5mm}
+  .ptitle{font-size:10pt; font-weight:700; white-space:nowrap}
+  .pfields{display:flex; flex-wrap:wrap; gap:0.5mm 4mm; font-size:7pt; flex:1}
+  .pfields span.lb{white-space:nowrap}
+  .pfields span.ln{border-bottom:1px solid #888; min-width:18mm}
+  .pboard{border-collapse:collapse; font-size:6.5pt}
+  .pboard td, .pboard th{border:1px solid #444; width:6mm; height:4mm; text-align:center; padding:0}
+  .pboard th{background:#eee; font-weight:600}
+  .pboard td.tm{width:20mm; text-align:left; padding-left:1mm}
+
+  .pgrid{display:grid; gap:0; border:1px solid #333; border-width:1px 0 0 1px}
+  .pgrid > div{border:1px solid #333; border-width:0 1px 1px 0; min-height:0}
+  .pgrid .hd{
+    font-size:6.5pt; text-align:center; padding:0.6mm 0; background:#eee;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .pgrid .nm{}
+  .pgrid .cl{padding:0.4mm}
   .pgrid .cl svg{width:100%; height:auto; display:block; color:#000}
-  .plegend{margin-top:4mm; font-size:8pt; line-height:1.6; border-top:1px solid #999; padding-top:2mm}
-  .plegend b{display:inline-block; min-width:15mm}
-  .ptitle{font-size:11pt; font-weight:700; margin:0 0 3mm}
+
+  .ppit{margin-top:1.2mm; border-collapse:collapse; font-size:6.5pt; width:100%}
+  .ppit th, .ppit td{border:1px solid #444; height:4.2mm; text-align:center; padding:0}
+  .ppit th{background:#eee; font-weight:600}
+  .ppit td.nm2{text-align:left; padding-left:1mm}
+
+  .pnote{font-size:6pt; color:#333; margin-top:1mm; line-height:1.5}
+
+  /* 2枚目: 記号の早見表 */
+  .pkey{display:grid; grid-template-columns:1fr 1fr 1fr; gap:2.5mm 5mm; font-size:7pt; line-height:1.45}
+  .pkey h4{font-size:8.5pt; margin:0 0 1mm; border-bottom:1px solid #666; padding-bottom:0.6mm}
+  .pkey .row{display:flex; gap:2mm; margin-bottom:0.8mm}
+  .pkey .row b{min-width:22mm; flex:none}
+  .pkeycells{display:grid; grid-template-columns:repeat(4, 1fr); gap:2mm; margin-top:1mm}
+  .pkeycells .c{text-align:center; font-size:6pt}
+  .pkeycells .c svg{width:100%; height:auto; color:#000}
 }
 
 /* ---- しるし・注意 ---- */
@@ -408,7 +460,7 @@ pre.diag{
   <!-- ============ ホーム ============ -->
   <main id="s-home">
     <div class="card">
-      <div class="cellbox"><svg class="cell" id="hero-cell" viewBox="0 0 120 120" role="img" aria-label="スコアのマスに1人の走者の記録が描かれていく図"></svg></div>
+      <div class="cellbox"><svg class="cell" id="hero-cell" viewBox="0 0 142 120" role="img" aria-label="スコアのマスに1人の走者の記録が描かれていく図"></svg></div>
       <p class="caption" id="hero-caption"></p>
       <button type="button" id="btn-replay" class="btn-quiet">もう一度見る</button>
     </div>
@@ -464,7 +516,7 @@ pre.diag{
       <span class="num" id="q-lv"></span>
     </div>
     <div class="card">
-      <div class="cellbox hidden" id="q-cellbox"><svg class="cell small" id="q-cell" viewBox="0 0 120 120" role="img"></svg></div>
+      <div class="cellbox hidden" id="q-cellbox"><svg class="cell small" id="q-cell" viewBox="0 0 142 120" role="img"></svg></div>
       <p class="qtext" id="q-text"></p>
       <div class="choices" id="q-choices"></div>
       <button type="button" id="btn-unknown" class="btn-quiet" style="margin-top:12px">わからない・とばす</button>
@@ -535,7 +587,7 @@ pre.diag{
       <span class="num" id="dq-unit"></span>
     </div>
     <div class="card">
-      <div class="cellbox hidden" id="dq-cellbox"><svg class="cell small" id="dq-cell" viewBox="0 0 120 120" role="img"></svg></div>
+      <div class="cellbox hidden" id="dq-cellbox"><svg class="cell small" id="dq-cell" viewBox="0 0 142 120" role="img"></svg></div>
       <p class="caption hidden" id="dq-caption"></p>
       <button type="button" id="dq-replay" class="btn-replay-mini hidden">▶ 描き方を見る</button>
       <p class="qtext" id="dq-text"></p>
@@ -666,7 +718,7 @@ pre.diag{
       </div>
       <button type="button" id="run-pause" class="btn-quiet hidden">⏸ 止める</button>
       <details style="margin-top:6px">
-        <summary>いま何が起きたか、もう一度読む</summary>
+        <summary>この回のプレーをふり返る</summary>
         <div id="run-log" class="mini"></div>
       </details>
     </div>
@@ -731,7 +783,7 @@ pre.diag{
       <p class="mini" id="jd-cat" style="margin-bottom:2px"></p>
       <h2 id="jd-title" style="font-size:19px"></h2>
       <div class="cellbox hidden" id="jd-cellbox">
-        <svg class="cell" id="jd-cell" viewBox="0 0 120 120" role="img"></svg>
+        <svg class="cell" id="jd-cell" viewBox="0 0 142 120" role="img"></svg>
       </div>
       <p class="caption hidden" id="jd-caption"></p>
       <button type="button" id="jd-replay" class="btn-replay-mini hidden">▶ 描き方を見る</button>
@@ -757,7 +809,21 @@ pre.diag{
   <main id="s-settings" class="hidden">
     <div class="card">
       <h2>このアプリの決め事（凡例）</h2>
-      <p class="mini">記号は流儀が分かれます。Diamond は教材の推奨（早稲田式ベース）に統一しています。<b>チームでは1つに統一するのが唯一の正解</b>です。</p>
+      <p class="mini">Diamond は<b>早稲田式（アマチュアの主流）</b>に揃えています。ただし記号に全国共通の公式規格はなく、細部は団体ごとに違います。<b>使うスコアブックの凡例と、所属連盟の記録要領が最優先</b>です。</p>
+
+      <h3 style="margin-top:16px">3色のペン — 色そのものが意味を持つ</h3>
+      <p class="mini">スコアは黒・赤・青の3色で書きます。色を見るだけで「打数に入るか・誰の手柄か」が分かる仕組みです。</p>
+      <div id="legend-pens"></div>
+
+      <h3 style="margin-top:16px">打球の印 — 形が軌道そのもの</h3>
+      <p class="mini">上にある印は<b>空中</b>の打球、下にある印は<b>地面</b>の打球。弧は曲がった軌道、直線はまっすぐ。</p>
+      <div id="legend-trace"></div>
+
+      <h3 style="margin-top:16px">投球経過 — 1球ずつ左の欄に</h3>
+      <p class="mini">マスの左側の細い欄に、上から順に1球ずつ。ここが埋まっていると、後から配球まで復元できます。</p>
+      <div id="legend-pitch"></div>
+
+      <h3 style="margin-top:16px">場面ごとの書き方</h3>
       <div id="legend"></div>
     </div>
 
@@ -837,20 +903,31 @@ function reducedMotion(){
    描く順番は engine が決める（＝いつでも「正しい書く順番」になる）
    ========================================================= */
 var Cell = (function(){
-  // ひし形の頂点（マスは 120×120）
-  var T = {x:60, y:13}, R = {x:105, y:56}, B = {x:60, y:99}, L = {x:15, y:56};
+  /* マスの寸法 142×120。左の 1.5〜22 が投球経過（カウント）欄、
+     22〜140.5 が打撃欄。市販のスコアブックと同じで、1球ずつの
+     ボール・ストライクもここに書く（2026-07-29 本人FBで新設）。 */
+  var VB = '0 0 142 120';
+  var OX = 22;                      // 打撃欄の左端
+  var FRAME = {x0:1.5, y0:1.5, x1:140.5, y1:118.5};
+  var T = {x:82, y:13}, R = {x:127, y:56}, B = {x:82, y:99}, L = {x:37, y:56};
   // 斜線1〜4（1=一塁 2=二塁 3=三塁 4=本塁）
   var SLASH = [ [B,R], [R,T], [T,L], [L,B] ];
   // 進塁理由を書く位置（区画の外側の角）
   var REASON_POS = {
-    2: {x:113, y:27, anchor:'end'},
-    3: {x:7,   y:27, anchor:'start'},
-    4: {x:7,   y:110, anchor:'start'}
+    2: {x:135, y:27, anchor:'end'},
+    3: {x:29,  y:27, anchor:'start'},
+    4: {x:29,  y:110, anchor:'start'}
   };
   // 打撃結果（右下）の右端とベースライン。
-  // 下線（ゴロ）が y=114.5 に来ても、マスの枠（y=118.5）まで4の余白が残る位置。
-  var RES_RIGHT = 105, RES_BASE = 110;
-  var CENTER = {x:60, y:56};
+  // ゴロの∪（y=117付近）がマスの枠（y=118.5）に触れない位置。
+  var RES_RIGHT = 127, RES_BASE = 108;
+  var CENTER = {x:82, y:56};
+
+  /* 3色のペン。色そのものが「打数に入るか・誰の手柄か」を表す
+     黒＝打数に入ってアウト ／ 赤＝安打と得点（打者の手柄） ／
+     青＝四死球・犠打・犠飛（打数に入らない） */
+  var PEN = {ink:'currentColor', red:'var(--pen-red)', blue:'var(--pen-blue)'};
+  function penColor(name){ return PEN[name] || PEN.ink; }
 
   // 文字幅のおおよそ（getBBoxは非表示時に0を返すので使わない）
   function approxWidth(text, size){
@@ -889,10 +966,37 @@ var Cell = (function(){
     var steps = [];
     var caps = g.captions || {};
 
-    // 枠（マスの外周）
+    // 使うペンを決める。glyph が pens で明示していればそれを、
+    // 無ければ kind（hit/walk/sac）から既定を引く
+    var pens = g.pens || {};
+    var kindPen = (g.kind === 'hit') ? 'red'
+      : (g.kind === 'walk' || g.kind === 'sac') ? 'blue' : 'ink';
+    function penFor(part, idx){
+      if(pens[part]){
+        if(typeof pens[part] === 'string') return pens[part];
+        if(idx !== undefined && pens[part][idx]) return pens[part][idx];
+      }
+      if(part === 'result' || part === 'trace' || part === 'oval') return kindPen;
+      if(part === 'slash'){
+        // 打者が自分で得た塁は打席結果の色。それ以降の進塁は黒。
+        // ただし本塁（＝得点）は赤（3ソースとも「安打と得点は赤」で一致）
+        if(g.center && g.center.run && idx === 4) return 'red';
+        if(g.own && idx <= g.own) return kindPen;
+        return 'ink';
+      }
+      if(part === 'center') return (g.center && g.center.run) ? 'red' : 'ink';
+      if(part === 'rbi') return 'red';
+      return 'ink';
+    }
+
+    // 枠（マスの外周）と、投球経過欄の仕切り
     svgEl.appendChild(svg('rect', {
-      x:1.5, y:1.5, width:117, height:117, rx:5,
+      x:FRAME.x0, y:FRAME.y0, width:FRAME.x1-FRAME.x0, height:FRAME.y1-FRAME.y0, rx:5,
       fill:'none', stroke:'currentColor', 'stroke-opacity':.22, 'stroke-width':1.4
+    }));
+    svgEl.appendChild(svg('line', {
+      x1:OX, y1:FRAME.y0, x2:OX, y2:FRAME.y1,
+      stroke:'currentColor', 'stroke-opacity':.22, 'stroke-width':1.2
     }));
 
     // ひし形の薄い下敷き（点線）。すべてのマスに標準で描く。
@@ -910,13 +1014,14 @@ var Cell = (function(){
 
     // 区画の指し示し（出題用）。色掛け＋「ここ」の文字で、色だけに頼らない
     if(g.highlight >= 1 && g.highlight <= 4){
+      var X1 = FRAME.x1, Y0 = FRAME.y0, Y1 = FRAME.y1;
       var QUADS = {
-        1: [[B.x,B.y],[R.x,R.y],[118.5,56],[118.5,118.5],[60,118.5]],
-        2: [[R.x,R.y],[T.x,T.y],[60,1.5],[118.5,1.5],[118.5,56]],
-        3: [[T.x,T.y],[L.x,L.y],[1.5,56],[1.5,1.5],[60,1.5]],
-        4: [[L.x,L.y],[B.x,B.y],[60,118.5],[1.5,118.5],[1.5,56]]
+        1: [[B.x,B.y],[R.x,R.y],[X1,56],[X1,Y1],[B.x,Y1]],
+        2: [[R.x,R.y],[T.x,T.y],[T.x,Y0],[X1,Y0],[X1,56]],
+        3: [[T.x,T.y],[L.x,L.y],[OX,56],[OX,Y0],[T.x,Y0]],
+        4: [[L.x,L.y],[B.x,B.y],[B.x,Y1],[OX,Y1],[OX,56]]
       };
-      var LABELS = {1:[97,113], 2:[97,16], 3:[23,16], 4:[23,113]};
+      var LABELS = {1:[119,113], 2:[119,16], 3:[45,16], 4:[45,113]};
       svgEl.appendChild(svg('polygon', {
         points: QUADS[g.highlight].map(function(p){ return p.join(','); }).join(' '),
         fill:'var(--accent)', 'fill-opacity':.13
@@ -929,7 +1034,7 @@ var Cell = (function(){
 
     // 塁の名前（学習用の薄い案内）。区画の角に置き、ひし形の線をまたがせない
     if(g.guides){
-      var guides = [['一塁',95,100],['二塁',95,26],['三塁',25,26],['本塁',25,100]];
+      var guides = [['一塁',117,100],['二塁',117,26],['三塁',47,26],['本塁',47,100]];
       guides.forEach(function(gd){
         var t = svg('text', {x:gd[1], y:gd[2], 'text-anchor':'middle', 'font-size':11,
           fill:'currentColor', 'fill-opacity':.45});
@@ -969,14 +1074,14 @@ var Cell = (function(){
     function mkLine(a, b, opt){
       var n = svg('line', {
         x1:a.x, y1:a.y, x2:b.x, y2:b.y,
-        stroke:'currentColor', 'stroke-width':(opt && opt.w) || 2.4,
+        stroke:penColor(opt && opt.pen), 'stroke-width':(opt && opt.w) || 2.4,
         'stroke-linecap':'round'
       });
       n.__len = lineLen(a, b);
       return n;
     }
     function mkText(x, y, size, str, opt){
-      var attrs = {x:x, y:y, 'font-size':size, fill:'currentColor',
+      var attrs = {x:x, y:y, 'font-size':size, fill:penColor(opt && opt.pen),
         'text-anchor':(opt && opt.anchor) || 'middle',
         'font-family':'inherit', 'font-weight':(opt && opt.weight) || 600};
       var n = svg('text', attrs);
@@ -990,40 +1095,82 @@ var Cell = (function(){
       return n;
     }
 
+    /* --- 0. 投球経過（左の欄） ---
+       ボール●／見逃しストライク／／空振り×／ファウル△／打った□
+       2列×9行で並べる（1打席18球まで） */
+    var pitches = g.pitches || [];
+    if(pitches.length){
+      var pg = svg('g', {});
+      pitches.slice(0, 18).forEach(function(p, i){
+        var col = Math.floor(i / 9), row = i % 9;
+        var px = 8 + col * 8, py = 12 + row * 11.6;
+        var m = null;
+        if(p === 'B'){
+          m = svg('circle', {cx:px, cy:py, r:2.7, fill:'currentColor'});
+        } else if(p === 'S'){
+          m = svg('line', {x1:px-2.6, y1:py+2.8, x2:px+2.6, y2:py-2.8,
+            stroke:'currentColor', 'stroke-width':1.5, 'stroke-linecap':'round'});
+        } else if(p === 'W'){
+          m = svg('path', {d:'M '+(px-2.6)+' '+(py-2.6)+' L '+(px+2.6)+' '+(py+2.6)+
+            ' M '+(px+2.6)+' '+(py-2.6)+' L '+(px-2.6)+' '+(py+2.6),
+            stroke:'currentColor', 'stroke-width':1.5, fill:'none', 'stroke-linecap':'round'});
+        } else if(p === 'F'){
+          m = svg('path', {d:'M '+px+' '+(py-3)+' L '+(px+3)+' '+(py+2.4)+' L '+(px-3)+' '+(py+2.4)+' Z',
+            stroke:'currentColor', 'stroke-width':1.3, fill:'none', 'stroke-linejoin':'round'});
+        } else if(p === 'X'){
+          m = svg('rect', {x:px-2.6, y:py-2.6, width:5.2, height:5.2,
+            stroke:'currentColor', 'stroke-width':1.3, fill:'none'});
+        }
+        if(m) pg.appendChild(m);
+      });
+      addStep('pitches', pg, 'text');
+    }
+
     /* --- 1. 打撃結果（右下） --- */
     var res = g.result;
     if(res && res.text){
       var size = fitSize(res.text);
       var w = approxWidth(res.text, size);
       var left = RES_RIGHT - w;
+      var rpen = penFor('result');
       var grp = svg('g', {});
       grp.appendChild(mkText(RES_RIGHT, RES_BASE, size, res.text,
-        {anchor:'end', mirror: !!res.mirror, mirrorCenter: left + w/2, weight:700}));
+        {anchor:'end', mirror: !!res.mirror, mirrorCenter: left + w/2, weight:700, pen:rpen}));
       addStep('result', grp, 'text');
 
-      // 打球の種類の印（形が軌道そのもの）
+      /* 打球の種類の印。形が打球の軌道そのものになっている:
+           上に弧（∩）＝フライ（上がって落ちた）
+           上に直線（−）＝ライナー（まっすぐ飛んだ）
+           下に∪＝ゴロ（地面を転がった）
+         上にある印は空中の打球、下にある印は地面の打球、という並びになる。 */
+      var tpen = penFor('trace');
       if(res.trace === 'ground'){
-        addStep('trace', mkLine({x:left, y:RES_BASE+4.5}, {x:RES_RIGHT, y:RES_BASE+4.5}, {w:2}), 'line');
+        var gy = RES_BASE + 2.5;
+        var u = svg('path', {
+          d:'M ' + left + ' ' + gy + ' Q ' + (left + w/2) + ' ' + (gy + size*0.62) + ' ' + RES_RIGHT + ' ' + gy,
+          fill:'none', stroke:penColor(tpen), 'stroke-width':2, 'stroke-linecap':'round'
+        });
+        u.__len = w * 1.2;
+        addStep('trace', u, 'line');
       } else if(res.trace === 'fly'){
         var top = RES_BASE - size * 0.95;
         var arc = svg('path', {
           d:'M ' + left + ' ' + top + ' Q ' + (left + w/2) + ' ' + (top - size*0.55) + ' ' + RES_RIGHT + ' ' + top,
-          fill:'none', stroke:'currentColor', 'stroke-width':2, 'stroke-linecap':'round'
+          fill:'none', stroke:penColor(tpen), 'stroke-width':2, 'stroke-linecap':'round'
         });
         arc.__len = w * 1.15;
         addStep('trace', arc, 'line');
       } else if(res.trace === 'liner'){
-        var ly = RES_BASE - size * 0.32;
-        addStep('trace', mkLine({x:RES_RIGHT+4, y:ly}, {x:RES_RIGHT+12, y:ly}, {w:2}), 'line');
+        var ly = RES_BASE - size * 0.95;
+        addStep('trace', mkLine({x:left, y:ly}, {x:RES_RIGHT, y:ly}, {w:2, pen:tpen}), 'line');
       }
-      // 内野安打は楕円で囲む（数字とゴロの下線をまとめて囲む）
-      // ry を詰めているのは、マスの枠（y=118.5）まで3以上の余白を残すため
+      // 内野安打は楕円で囲む（数字と打球の印をまとめて囲む）
       if(res.oval){
-        var ovRx = w/2 + 4.5, ovRy = size * 0.60;
+        var ovRx = w/2 + 4.5, ovRy = size * 0.72;
         var ov = svg('ellipse', {
-          cx:(left + RES_RIGHT)/2, cy:RES_BASE - size*0.33,
+          cx:(left + RES_RIGHT)/2, cy:RES_BASE - size*0.28,
           rx:ovRx, ry:ovRy,
-          fill:'none', stroke:'currentColor', 'stroke-width':1.6
+          fill:'none', stroke:penColor(penFor('oval')), 'stroke-width':1.6
         });
         ov.__len = 2 * Math.PI * ovRx;
         addStep('oval', ov, 'line');
@@ -1035,19 +1182,20 @@ var Cell = (function(){
     var reasons = g.reasons || {};
     for(var i = 1; i <= n; i++){
       var pair = SLASH[i-1];
-      addStep('slash:' + i, mkLine(pair[0], pair[1]), 'line');
+      addStep('slash:' + i, mkLine(pair[0], pair[1], {pen:penFor('slash', i)}), 'line');
 
       var r = reasons[i];
       if(r && REASON_POS[i]){
         var p = REASON_POS[i];
         if(typeof r === 'object' && r.circle){
-          // 丸で囲んだ打順番号＝打点
+          // 丸で囲んだ打順番号＝打点（得点まわりなので赤）
+          var rbiPen = penColor(penFor('rbi'));
           var gg = svg('g', {});
-          var cx = (i === 4) ? 20 : p.x, cy = (i === 4) ? 100 : p.y;
+          var cx = (i === 4) ? 42 : p.x, cy = (i === 4) ? 100 : p.y;
           gg.appendChild(svg('circle', {cx:cx, cy:cy, r:12.5, fill:'none',
-            stroke:'currentColor', 'stroke-width':1.8}));
+            stroke:rbiPen, 'stroke-width':1.8}));
           var tt = svg('text', {x:cx, y:cy + 5.6, 'font-size':15.5, 'text-anchor':'middle',
-            fill:'currentColor', 'font-weight':700});
+            fill:rbiPen, 'font-weight':700});
           tt.textContent = String(r.circle);
           gg.appendChild(tt);
           addStep('reason:' + i, gg, 'text');
@@ -1071,10 +1219,16 @@ var Cell = (function(){
         var roman = ['','Ⅰ','Ⅱ','Ⅲ'][c.out] || String(c.out);
         addStep('center', mkText(CENTER.x, CENTER.y + 9, 26, roman, {weight:700}), 'text');
       } else if(c.run){
-        addStep('center', svg('circle', {cx:CENTER.x, cy:CENTER.y, r:9, fill:'currentColor'}), 'text');
+        // 得点は中央を塗る（●）。赤で書く
+        addStep('center', svg('circle', {cx:CENTER.x, cy:CENTER.y, r:9,
+          fill:penColor(penFor('center'))}), 'text');
       } else if(c.lob){
-        addStep('center', svg('circle', {cx:CENTER.x, cy:CENTER.y, r:8.4, fill:'none',
-          stroke:'currentColor', 'stroke-width':2}), 'text');
+        // 残塁は ℓ（斜体の小文字L）。Wikipedia・少年野球メモ・BASEBALL ONE で一致
+        var lob = svg('text', {x:CENTER.x, y:CENTER.y + 9, 'font-size':26,
+          'text-anchor':'middle', fill:'currentColor', 'font-weight':600,
+          'font-style':'italic', 'font-family':'Georgia, "Times New Roman", serif'});
+        lob.textContent = 'ℓ';
+        addStep('center', lob, 'text');
       }
     }
 
@@ -1161,7 +1315,17 @@ var Cell = (function(){
   // アニメなしで完成形だけ描く
   function still(svgEl, glyph){ return play(svgEl, glyph, {instant:true}); }
 
-  return {play:play, still:still, build:build};
+  // マス1つぶんの空のSVGを作る（viewBoxを1か所に閉じ込める）
+  function svgFor(cls){
+    var s = document.createElementNS(SVGNS, 'svg');
+    s.setAttribute('viewBox', VB);
+    s.setAttribute('role', 'img');
+    if(cls) s.setAttribute('class', cls);
+    return s;
+  }
+
+  return {play:play, still:still, build:build, viewBox:VB, svgFor:svgFor,
+    frame:FRAME, width:142, resRight:RES_RIGHT};
 })();
 
 /* =========================================================
@@ -1363,7 +1527,7 @@ function playHero(){
   heroPlayer = Cell.play($('hero-cell'), 'hero', {
     pace:'read',
     onCaption:function(t){ cap.textContent = t; },
-    finalCaption:'1マスは打席の記録ではなく「その人の旅の記録」。4本そろって◇が完成＝1点。',
+    finalCaption:'1マスに入るのは打席の結果だけではありません。その打者が塁に出てから、還るか・アウトになるか・塁に残るまでが1マス。4本そろって◇が完成＝1点。',
     onEnd:function(){ cap.classList.remove('step'); }
   });
 }
@@ -1604,7 +1768,7 @@ function renderResult(latest){
         var wrap = el('div', 'cellbox');
         var s = document.createElementNS(SVGNS, 'svg');
         s.setAttribute('class', 'cell small');
-        s.setAttribute('viewBox', '0 0 120 120');
+        s.setAttribute('viewBox', Cell.viewBox);
         wrap.appendChild(s);
         item.appendChild(wrap);
         Cell.still(s, showGlyph);
@@ -1957,7 +2121,7 @@ function renderBoard(host, cells, focusBatter){
   keys.forEach(function(no){
     var wrap = el('div', 'bcell' + (no === focusBatter ? ' now' : ''));
     var s = document.createElementNS(SVGNS, 'svg');
-    s.setAttribute('viewBox', '0 0 120 120');
+    s.setAttribute('viewBox', Cell.viewBox);
     s.setAttribute('role', 'img');
     var v = cells[no];
     var g = (typeof v === 'string') ? (window.DIAMOND_GLYPHS || {})[v] : v;
@@ -2521,72 +2685,211 @@ function showRunDoneSilently(){
   }
 }
 
-/* ---- 印刷用スコアシート（F6） ---- */
+/* ---- 印刷用スコアシート（F6） ----
+   市販のスコアブックと同じ形（A4横・打順9人×9回＋成績欄＋投手欄）。
+   1枚が1ページにぴったり収まるよう、寸法はすべて mm で決め打ちしている。 */
 function buildPrintSheets(withDiamond){
   var area = $('print-area');
   clear(area);
   var key = withDiamond ? 'empty' : 'empty-nodiamond';
 
-  // 「日付：____」のように、記入欄を下線で作る
-  function headLine(fields){
-    var h = el('div', 'phead');
-    fields.forEach(function(f){
-      var lab = document.createElement('span');
-      lab.style.borderBottom = 'none';
-      lab.style.minWidth = '0';
-      lab.textContent = f + '：';
-      h.appendChild(lab);
-      h.appendChild(el('span', null, ''));   // ここが記入欄（下線）
+  function fields(list){
+    var f = el('div', 'pfields');
+    list.forEach(function(pair){
+      f.appendChild(el('span', 'lb', pair[0] + '：'));
+      var ln = el('span', 'ln', '');
+      if(pair[1]) ln.style.minWidth = pair[1];
+      f.appendChild(ln);
     });
-    return h;
+    return f;
   }
 
-  function sheet(title, innings, rows, note){
+  // スコアボード（回ごとの得点）
+  function scoreboard(innings){
+    var t = document.createElement('table');
+    t.className = 'pboard';
+    var r1 = document.createElement('tr');
+    var th0 = document.createElement('th'); th0.className = 'tm'; th0.textContent = 'チーム';
+    r1.appendChild(th0);
+    for(var i=1;i<=innings;i++){
+      var th = document.createElement('th'); th.textContent = String(i); r1.appendChild(th);
+    }
+    var thR = document.createElement('th'); thR.textContent = '計'; r1.appendChild(thR);
+    t.appendChild(r1);
+    for(var k=0;k<2;k++){
+      var tr = document.createElement('tr');
+      var td0 = document.createElement('td'); td0.className = 'tm'; tr.appendChild(td0);
+      for(var j=0;j<=innings;j++) tr.appendChild(document.createElement('td'));
+      t.appendChild(tr);
+    }
+    return t;
+  }
+
+  /* 1枚のスコアシート。
+     列 = 打順6 / 守備8 / 背番号8 / 名前34 / 各回20×n / 成績7×4
+     行の高さはマスの縦横比（142:120）で決まるので、
+     20mm幅なら約16.9mm。9行で152mm＝A4横に収まる。 */
+  function sheet(title, innings, note){
     var s = el('div', 'psheet');
-    s.appendChild(el('div', 'ptitle', title));
-    s.appendChild(headLine(['日付', '対戦', '球場', '天候', '記録者']));
+
+    var top = el('div', 'ptop');
+    top.appendChild(el('div', 'ptitle', title));
+    top.appendChild(fields([
+      ['日付', '26mm'], ['対戦相手', '30mm'], ['球場', '24mm'],
+      ['天候', '18mm'], ['開始', '16mm'], ['終了', '16mm'], ['記録者', '24mm']
+    ]));
+    s.appendChild(top);
+    s.appendChild(scoreboard(innings));
+
     var g = el('div', 'pgrid');
-    g.style.gridTemplateColumns = '7mm 26mm repeat(' + innings + ', 1fr)';
-    // 見出し行
-    g.appendChild(el('div', 'hd', '打順'));
-    g.appendChild(el('div', 'hd', '守備 ／ 名前'));
+    g.style.gridTemplateColumns =
+      '6mm 8mm 8mm 34mm repeat(' + innings + ', 18.4mm) repeat(4, 7mm)';
+    g.style.marginTop = '1.2mm';
+
+    ['打順','守備','番号','選手名'].forEach(function(h){ g.appendChild(el('div','hd',h)); });
     for(var i=1;i<=innings;i++) g.appendChild(el('div', 'hd', i + '回'));
-    // 本体
-    for(var r=1;r<=rows;r++){
+    ['打数','安打','打点','得点'].forEach(function(h){ g.appendChild(el('div','hd',h)); });
+
+    for(var r=1;r<=9;r++){
       g.appendChild(el('div', 'hd', String(r)));
-      g.appendChild(el('div', 'nm', ''));
+      g.appendChild(el('div', 'nm', ''));   // 守備
+      g.appendChild(el('div', 'nm', ''));   // 背番号
+      g.appendChild(el('div', 'nm', ''));   // 名前
       for(var c=0;c<innings;c++){
         var cellBox = el('div', 'cl');
         var sv = document.createElementNS(SVGNS, 'svg');
-        sv.setAttribute('viewBox', '0 0 120 120');
+        sv.setAttribute('viewBox', Cell.viewBox);
         cellBox.appendChild(sv);
         g.appendChild(cellBox);
         Cell.still(sv, key);
       }
+      for(var m=0;m<4;m++) g.appendChild(el('div', 'nm', ''));
     }
     s.appendChild(g);
-    var lg = el('div', 'plegend');
-    [
-      ['マスの地図', '右下＝一塁／右上＝二塁／左上＝三塁／左下＝本塁（反時計回り）。斜線1本＝1つ進塁、4本で◇＝得点'],
-      ['打撃結果', '右下に、処理した野手の番号。ゴロ＝下線／フライ＝上の弧／ライナー＝横線／ファウルフライ＝f＋番号／内野安打＝楕円で囲む'],
-      ['打たずに出る', '四球 BB ／ 死球 DB ／ 失策 E＋番号 ／ 野手選択 FC ／ 三振 K（見逃しは逆K）'],
-      ['進塁の理由', '打撃で進んだら (打順番号)。盗塁 SB ／ 暴投 WP ／ 捕逸 PB ／ ボーク BK'],
-      ['結末（中央）', 'アウト＝Ⅰ Ⅱ Ⅲ（その回の何アウト目か）／得点＝●／残塁＝○。打点＝還した打順を丸で囲み、還った走者の本塁区画へ'],
-      ['検算', '打者数 ＝ アウト ＋ 得点 ＋ 残塁（必ず合う）']
-    ].forEach(function(row){
-      var p = el('div');
-      p.appendChild(el('b', null, row[0]));
-      p.appendChild(document.createTextNode(row[1]));
-      lg.appendChild(p);
+
+    // 投手成績
+    var pt = document.createElement('table');
+    pt.className = 'ppit';
+    var head = document.createElement('tr');
+    ['投手名','回','打者','打数','被安打','四死球','三振','失点','自責','球数'].forEach(function(h){
+      var th = document.createElement('th');
+      th.textContent = h;
+      if(h === '投手名') th.style.width = '40mm';
+      head.appendChild(th);
     });
-    if(note) lg.appendChild(el('div', null, note));
-    s.appendChild(lg);
+    pt.appendChild(head);
+    for(var p=0;p<2;p++){
+      var tr2 = document.createElement('tr');
+      for(var q=0;q<10;q++){
+        var td = document.createElement('td');
+        if(q === 0) td.className = 'nm2';
+        tr2.appendChild(td);
+      }
+      pt.appendChild(tr2);
+    }
+    s.appendChild(pt);
+
+    s.appendChild(el('div', 'pnote',
+      '検算: 打者数 ＝ アウト ＋ 得点 ＋ 残塁（1イニングごとに必ず合う）　／　'
+      + 'ペン: 黒＝アウト・進塁・投球経過　赤＝安打と得点　青＝四死球・犠打・犠飛（打数に入らない）'
+      + (note ? '　／　' + note : '')));
     return s;
   }
 
-  area.appendChild(sheet('スコアシート（練習用・3イニング）', 3, 9,
-    '練習用。1イニングだけ書くときは1列目だけ使います。'));
-  area.appendChild(sheet('スコアシート（試合用・9イニング）', 9, 9, null));
+  /* 2枚目: 記号の早見表（手元に置いて使う） */
+  function keySheet(){
+    var s = el('div', 'psheet');
+    var top = el('div', 'ptop');
+    top.appendChild(el('div', 'ptitle', 'スコアの記号 早見表'));
+    s.appendChild(top);
+
+    var wrap = el('div', 'pkey');
+
+    function col(title, rows){
+      var c = el('div');
+      c.appendChild(el('h4', null, title));
+      rows.forEach(function(r){
+        var row = el('div', 'row');
+        row.appendChild(el('b', null, r[0]));
+        row.appendChild(el('span', null, r[1]));
+        c.appendChild(row);
+      });
+      return c;
+    }
+
+    wrap.appendChild(col('3色のペン（色そのものが意味を持つ）', [
+      ['黒', 'アウトになった打席・失策・野選・進塁・投球経過（打数に入り、手柄ではない）'],
+      ['赤', '安打とその斜線・得点（◇と●）・打点の丸囲み（打数に入り、打者の手柄）'],
+      ['青', '四球・死球・犠打・犠飛とその斜線（打数に入らない）']
+    ]));
+    wrap.appendChild(col('マスの地図', [
+      ['区画', '右下＝一塁／右上＝二塁／左上＝三塁／左下＝本塁（反時計回り）'],
+      ['斜線', '1本＝1つ進塁。4本で◇が完成＝得点'],
+      ['中央', 'アウト＝Ⅰ Ⅱ Ⅲ（その回の何アウト目か）／得点＝●／残塁＝ℓ'],
+      ['打点', '還した打者の打順を丸で囲み、還った走者の本塁区画へ']
+    ]));
+    wrap.appendChild(col('打球の印（形が軌道そのもの）', [
+      ['フライ', '数字の上に ∩（上がって落ちた）'],
+      ['ライナー', '数字の上に 直線（まっすぐ飛んだ）'],
+      ['ゴロ', '数字の下に ∪（地面を転がった）'],
+      ['ファウルフライ', '数字の前に小さく f（例 f3）'],
+      ['内野安打', '数字を楕円で囲む']
+    ]));
+    wrap.appendChild(col('投球経過（マス左の細い欄に、上から1球ずつ）', [
+      ['●', 'ボール'],
+      ['／', '見逃しストライク'],
+      ['×', '空振りストライク'],
+      ['△', 'ファウル'],
+      ['□', '打った（インプレー）']
+    ]));
+    wrap.appendChild(col('打たずに出る', [
+      ['四球 / 死球', 'BB / DB（青。打数に入らない）'],
+      ['故意四球', 'IBB'],
+      ['失策', 'E＋野手番号（打数に入る・安打ではない）'],
+      ['野手選択', 'FC'],
+      ['三振', 'K（見逃しは逆K）'],
+      ['振り逃げ', 'K に出塁の理由を添える（PB / WP / E2）'],
+      ['犠打 / 犠飛', 'SH / SF（青。打数に入らない）']
+    ]));
+    wrap.appendChild(col('走者と進塁', [
+      ['打撃で進んだ', '(打順番号) — 例 (3)＝3番の打撃で進んだ'],
+      ['盗塁 / 盗塁死', 'SB / CS＋経路'],
+      ['暴投 / 捕逸', 'WP / PB'],
+      ['ボーク', 'BK'],
+      ['牽制死', 'PO＋経路'],
+      ['代打 / 代走', 'PH / PR（打順は引き継ぐ）']
+    ]));
+    s.appendChild(wrap);
+
+    // 実例のマス
+    var ex = el('div');
+    ex.style.marginTop = '2mm';
+    ex.appendChild(el('h4', null, '書き上がりの例'));
+    var cells = el('div', 'pkeycells');
+    [['ground63-out2','遊ゴロ 6-3（黒）'], ['single-9','右前安打（赤）'],
+     ['bb-to2nd-lob','四球→(3)で二塁→残塁'], ['hero','生還して1点（赤）']].forEach(function(r){
+      var c = el('div', 'c');
+      var sv = document.createElementNS(SVGNS, 'svg');
+      sv.setAttribute('viewBox', Cell.viewBox);
+      c.appendChild(sv);
+      c.appendChild(el('div', null, r[1]));
+      cells.appendChild(c);
+      Cell.still(sv, r[0]);
+    });
+    ex.appendChild(cells);
+    s.appendChild(ex);
+
+    s.appendChild(el('div', 'pnote',
+      '記号に全国共通の公式規格はありません。細部は団体ごとに違うので、'
+      + '使うスコアブックの凡例と、所属連盟の記録要領が最優先です。'
+      + 'この表は早稲田式（アマチュアの主流）に揃えてあります。'));
+    return s;
+  }
+
+  area.appendChild(sheet('スコアシート（試合用・9イニング）', 9, null));
+  area.appendChild(sheet('スコアシート（練習用・5イニング）', 5,
+    '練習用。1イニングだけ書くときは1列目だけ使います'));
+  area.appendChild(keySheet());
 }
 
 function openPrint(){
@@ -2800,13 +3103,71 @@ function renderLegend(){
     var wrap = el('div', 'cellbox');
     var s = document.createElementNS(SVGNS, 'svg');
     s.setAttribute('class', 'cell small');
-    s.setAttribute('viewBox', '0 0 120 120');
+    s.setAttribute('viewBox', Cell.viewBox);
     wrap.appendChild(s);
     item.appendChild(wrap);
     Cell.still(s, row[0]);
     item.appendChild(el('p', 'mini center', row[1]));
     box.appendChild(item);
   });
+
+  // 3色の意味
+  var pens = $('legend-pens');
+  clear(pens);
+  [
+    ['ink',  '黒', 'アウトになった打席・失策・野選・進塁・投球経過', '打数に入って、手柄ではない'],
+    ['red',  '赤', '安打とその斜線・得点（◇と●）・打点の丸囲み', '打数に入って、打者の手柄'],
+    ['blue', '青', '四球・死球・犠打・犠飛とその斜線', '打数に入らない']
+  ].forEach(function(r){
+    var row = el('div', 'penrow');
+    var chip = el('span', 'penchip pen-' + r[0], r[1]);
+    var body = el('span', 'penbody');
+    body.appendChild(el('div', 'pt', r[2]));
+    body.appendChild(el('div', 'ps', '→ ' + r[3]));
+    row.appendChild(chip);
+    row.appendChild(body);
+    pens.appendChild(row);
+  });
+
+  // 打球の印
+  var tr = $('legend-trace');
+  clear(tr);
+  [['fly8-out1', 'フライ ＝ 数字の上に ∩'],
+   ['liner-4', 'ライナー ＝ 数字の上に 直線'],
+   ['ground63-out2', 'ゴロ ＝ 数字の下に ∪']].forEach(function(r){
+    var item = el('div', 'review-item');
+    var wrap = el('div', 'cellbox');
+    var s = document.createElementNS(SVGNS, 'svg');
+    s.setAttribute('class', 'cell small');
+    s.setAttribute('viewBox', Cell.viewBox);
+    wrap.appendChild(s);
+    item.appendChild(wrap);
+    Cell.still(s, r[0]);
+    item.appendChild(el('p', 'mini center', r[1]));
+    tr.appendChild(item);
+  });
+
+  // 投球経過の記号
+  var pc = $('legend-pitch');
+  clear(pc);
+  var demo = el('div', 'cellbox');
+  var ds = document.createElementNS(SVGNS, 'svg');
+  ds.setAttribute('class', 'cell small');
+  ds.setAttribute('viewBox', Cell.viewBox);
+  demo.appendChild(ds);
+  pc.appendChild(demo);
+  Cell.still(ds, 'bb-1');
+  pc.appendChild(el('p', 'mini center',
+    '例: ボール → 見逃し → ボール → ボール → ファウル → ボールで四球'));
+  var tbl = el('div', 'pitchkey');
+  [['●', 'ボール'], ['／', '見逃しストライク'], ['×', '空振り'],
+   ['△', 'ファウル'], ['□', '打った（インプレー）']].forEach(function(r){
+    var k = el('span', 'pk');
+    k.appendChild(el('b', null, r[0]));
+    k.appendChild(document.createTextNode(r[1]));
+    tbl.appendChild(k);
+  });
+  pc.appendChild(tbl);
 }
 
 /* ---- 設定：データ ---- */
@@ -2861,7 +3222,7 @@ function selfTest(){
   // 3. マスが全部エラーなく描けるか
   var drawErr = [];
   var probe = document.createElementNS(SVGNS, 'svg');
-  probe.setAttribute('viewBox', '0 0 120 120');
+  probe.setAttribute('viewBox', Cell.viewBox);
   Object.keys(window.DIAMOND_GLYPHS).forEach(function(k){
     try{ Cell.build(probe, k); } catch(e){ drawErr.push(k); }
   });
@@ -2876,12 +3237,14 @@ function selfTest(){
   try{
     Object.keys(window.DIAMOND_GLYPHS).forEach(function(k){
       var s = document.createElementNS(SVGNS, 'svg');
-      s.setAttribute('viewBox', '0 0 120 120');
+      s.setAttribute('viewBox', Cell.viewBox);
       s.style.width = '240px'; s.style.display = 'block';
       stage.appendChild(s);
       Cell.still(s, k);
       var bb = s.getBBox();   // 子の transform も含めた全体の範囲
-      if(bb.width > 0 && (bb.x < 1.4 || bb.y < 1.4 || bb.x + bb.width > 118.6 || bb.y + bb.height > 118.6)){
+      var F = Cell.frame, tol = 1.2;   // 枠線の太さぶんの許容
+      if(bb.width > 0 && (bb.x < F.x0 - tol || bb.y < F.y0 - tol ||
+         bb.x + bb.width > F.x1 + tol || bb.y + bb.height > F.y1 + tol)){
         geoOut.push(k + '[' + [bb.x, bb.y, bb.width, bb.height].map(Math.round).join(',') + ']');
       }
       // 打撃結果はどのマスでも同じ位置（右端105）に来ているか
@@ -2891,8 +3254,8 @@ function selfTest(){
         if(t){
           var tr = t.getBoundingClientRect(), sr = s.getBoundingClientRect();
           if(sr.width > 0){
-            var right = (tr.right - sr.left) / sr.width * 120;
-            if(Math.abs(right - 105) > 2) geoPos.push(k + '(右端' + right.toFixed(1) + ')');
+            var right = (tr.right - sr.left) / sr.width * Cell.width;
+            if(Math.abs(right - Cell.resRight) > 2.5) geoPos.push(k + '(右端' + right.toFixed(1) + ')');
           }
         }
       }
@@ -3037,13 +3400,15 @@ function selfTest(){
       r.innings.forEach(function(inn){
         Object.keys(inn.cells).forEach(function(no){
           var s = document.createElementNS(SVGNS, 'svg');
-          s.setAttribute('viewBox', '0 0 120 120');
+          s.setAttribute('viewBox', Cell.viewBox);
           s.style.width = '200px'; s.style.display = 'block';
           stage2.appendChild(s);
           try{
             Cell.still(s, inn.cells[no]);
             var bb = s.getBBox();
-            if(bb.width > 0 && (bb.x < 1.4 || bb.y < 1.4 || bb.x + bb.width > 118.6 || bb.y + bb.height > 118.6)){
+            var F2 = Cell.frame, tol2 = 1.2;
+            if(bb.width > 0 && (bb.x < F2.x0 - tol2 || bb.y < F2.y0 - tol2 ||
+               bb.x + bb.width > F2.x1 + tol2 || bb.y + bb.height > F2.y1 + tol2)){
               cbad.push(sc.id + ' ' + inn.no + '回' + no + '番:枠外');
             }
           } catch(e){ cbad.push(sc.id + ' ' + no + '番:描画失敗'); }

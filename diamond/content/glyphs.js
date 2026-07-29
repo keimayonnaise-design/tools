@@ -7,8 +7,8 @@
 
    データの形:
      result  : 右下に書く打撃結果 { text, trace, oval, mirror }
-                 trace = 'ground'(ゴロ=下線) | 'fly'(フライ=上の弧)
-                       | 'liner'(ライナー=横の線) | なし
+                 trace = 'ground'(ゴロ=数字の下に∪) | 'fly'(フライ=上に弧∩)
+                       | 'liner'(ライナー=上に直線−) | なし
                  oval   = true で数字を楕円で囲む（内野安打）
                  mirror = true で左右反転（見逃し三振の逆K）
      slashes : 到達した塁の数 0〜4（1本＝1つ進塁。4本で◇完成）
@@ -26,8 +26,8 @@
      「ダイヤモンドがないと分かりにくい」を受けて標準化）。
 
    Diamond の決め事（教材16「記号早見表」の推奨列に合わせた・§3.2）:
-     得点 = ●（中央を塗る＝一周して還ってきた）
-     残塁 = ○（塗らない＝一周できなかった）
+     得点 = ●（中央を塗る＝一周して還ってきた・赤で書く）
+     残塁 = ℓ（斜体の小文字L）
      アウト = Ⅰ Ⅱ Ⅲ（そのイニングの何アウト目か）
    ========================================================= */
 (function (root) {
@@ -49,14 +49,16 @@
      中前安打 → 盗塁で二塁 → 3番の適時打で生還。
      教材ドリル3・6・8・9の全部が1マスに入っている。 */
   G['hero'] = {
-    title: '1マスは「その人の旅の記録」',
+    kind: 'hit', own: 1,
+    pitches: ['B','S','F','X'],
+    title: '1マスは「出てから還るまで」の記録',
     result: { text: '8', trace: 'ground' },
     slashes: 4,
     reasons: { 2: 'SB', 3: '(3)', 4: { circle: '3' } },
     center: { run: true },
     captions: {
       result: '中堅の前へ安打。書くのは打った方向でなく、処理した野手の番号（8）',
-      trace: '数字の下の線＝ゴロ。印の形が打球の軌道そのもの',
+      trace: '数字の下の∪＝ゴロ。下向きの印は地面を転がった打球',
       'slash:1': '一塁へ。斜線1本＝1つ進んだ',
       'slash:2': '盗塁で二塁へ。斜線をもう1本',
       'reason:2': 'SB＝盗塁。進塁には必ず「理由」を書く',
@@ -64,13 +66,14 @@
       'reason:3': '(3)＝「3番の打撃で進んだ」という理由',
       'slash:4': '本塁へ生還。斜線が4本そろった',
       'reason:4': '丸囲みの③＝この1点は3番の打点',
-      center: '中央に●。◇が完成＝1点が入った'
+      center: '中央に●（赤）。◇が完成＝1点が入った'
     }
   };
 
   /* ---- アウト・三振 ---- */
 
   G['fly8-out1'] = {
+    pitches: ['S','X'],
     title: '中堅フライ・1アウト目',
     result: { text: '8', trace: 'fly' },
     center: { out: 1 },
@@ -87,7 +90,7 @@
     center: { out: 2 },
     captions: {
       result: '遊撃手（6）が捕って、一塁手（3）が受けた。ハイフン＝送球',
-      trace: '数字の下の線＝ゴロ',
+      trace: '数字の下の∪＝ゴロ',
       center: '中央にⅡ＝この回の2アウト目'
     }
   };
@@ -98,7 +101,7 @@
     center: { out: 1 },
     captions: {
       result: '処理した野手の番号（4＝二塁手）',
-      trace: '数字の横の線＝ライナー（直線の打球）',
+      trace: '数字の上の直線＝ライナー。上向きの印は空中の打球で、直線はまっすぐ飛んだしるし',
       center: '中央にⅠ＝1アウト目'
     }
   };
@@ -119,12 +122,13 @@
     center: { out: 2 },
     captions: {
       result: '触った順に全部つなぐ。遊撃（6）→二塁（4）→一塁（3）',
-      trace: 'ゴロの印',
+      trace: '数字の下の∪＝ゴロ',
       center: '打者はこの回2つ目のアウト（一塁走者が1つ目）'
     }
   };
 
   G['k-swing'] = {
+    pitches: ['S','F','W'],
     title: '空振り三振・1アウト目',
     result: { text: 'K' },
     center: { out: 1 },
@@ -135,6 +139,7 @@
   };
 
   G['strikeout-looking'] = {
+    pitches: ['B','W','F','S'],
     title: '見逃し三振・3アウト目',
     result: { text: 'K', mirror: true },
     center: { out: 3 },
@@ -147,29 +152,32 @@
   /* ---- 安打 ---- */
 
   G['single-9'] = {
+    kind: 'hit', own: 1,
     title: '右前安打（単打）',
     result: { text: '9', trace: 'ground' },
     slashes: 1,
     captions: {
-      result: '打球方向＝処理した野手（9＝右翼手）',
-      trace: 'ゴロで転がった打球',
-      'slash:1': '一塁への斜線1本＝単打'
+      result: '打球方向＝処理した野手（9＝右翼手）。安打は赤で書く',
+      trace: '数字の下の∪＝ゴロ。安打なので赤で書く',
+      'slash:1': '一塁への斜線1本＝単打。斜線も赤'
     }
   };
 
   G['double-7'] = {
+    kind: 'hit', own: 2,
     title: '左翼へライナーの二塁打',
     result: { text: '7', trace: 'liner' },
     slashes: 2,
     captions: {
       result: '打球方向（7＝左翼手）',
-      trace: '横の線＝ライナー',
+      trace: '数字の上の直線＝ライナー（まっすぐ飛んだ）',
       'slash:1': '一塁を回って',
       'slash:2': '二塁へ。斜線2本＝二塁打'
     }
   };
 
   G['triple-8'] = {
+    kind: 'hit', own: 3,
     title: '中堅への三塁打',
     result: { text: '8', trace: 'liner' },
     slashes: 3,
@@ -179,6 +187,7 @@
   };
 
   G['hr-7'] = {
+    kind: 'hit', own: 4,
     title: '本塁打',
     result: { text: '7', trace: 'fly' },
     slashes: 4,
@@ -191,6 +200,7 @@
   };
 
   G['infield-hit'] = {
+    kind: 'hit', own: 1,
     title: '内野安打（6を楕円で囲む）',
     result: { text: '6', trace: 'ground', oval: true },
     slashes: 1,
@@ -204,22 +214,26 @@
   /* ---- 打たずに出る ---- */
 
   G['bb-1'] = {
+    kind: 'walk', own: 1,
+    pitches: ['B','S','B','B','F','B'],
     title: '四球で出塁',
     result: { text: 'BB' },
     slashes: 1,
     captions: {
-      result: 'BB＝四球。打数には入らない',
-      'slash:1': '一塁へ'
+      result: 'BB＝四球。打数に入らないので青で書く',
+      'slash:1': '打っていないので、この斜線も青'
     }
   };
 
   G['db-1'] = {
+    kind: 'walk', own: 1,
     title: '死球で出塁',
     result: { text: 'DB' },
     slashes: 1
   };
 
   G['error-6'] = {
+    own: 1,
     title: '遊撃手の失策で出塁',
     result: { text: 'E6' },
     slashes: 1,
@@ -230,6 +244,7 @@
   };
 
   G['fc-1'] = {
+    own: 1,
     title: '野手選択で出塁',
     result: { text: 'FC' },
     slashes: 1,
@@ -239,6 +254,7 @@
   };
 
   G['furinige-k'] = {
+    own: 1,
     title: '振り逃げ（捕逸で出塁）',
     result: { text: 'K･PB' },
     slashes: 1,
@@ -249,6 +265,7 @@
   };
 
   G['sh-bunt'] = {
+    kind: 'sac',
     title: '犠打（送りバント）',
     result: { text: 'SH' },
     center: { out: 1 },
@@ -261,6 +278,7 @@
   /* ---- 走者の記録 ---- */
 
   G['sb-2'] = {
+    kind: 'hit', own: 1,
     title: '安打で出て、盗塁で二塁へ',
     result: { text: '9', trace: 'ground' },
     slashes: 2,
@@ -272,6 +290,7 @@
   };
 
   G['bb-to2nd-lob'] = {
+    kind: 'walk', own: 1,
     title: '四球で出塁 → 3番の打撃で二塁 → 残塁',
     result: { text: 'BB' },
     slashes: 2,
@@ -282,7 +301,7 @@
       'slash:1': '一塁へ。斜線1本＝1つ進んだ',
       'slash:2': '3番打者の打撃で二塁へ',
       'reason:2': '(3)＝理由。「3番の打撃で進んだ」',
-      center: '○＝そのまま塁に残った（残塁）'
+      center: 'ℓ＝そのまま塁に残った（残塁）'
     }
   };
 
@@ -291,6 +310,7 @@
      -a -b -c は「その時点でのそのマス」を表す。 */
 
   G['in1-b1'] = {
+    pitches: ['B','W','X'],
     title: '1番: 遊ゴロ 6-3',
     result: { text: '6-3', trace: 'ground' },
     center: { out: 1 },
@@ -302,6 +322,8 @@
   };
 
   G['in1-b2-a'] = {
+    kind: 'walk', own: 1,
+    pitches: ['B','S','B','B','B'],
     title: '2番: 四球で一塁',
     result: { text: 'BB' },
     slashes: 1,
@@ -311,6 +333,7 @@
     }
   };
   G['in1-b2-b'] = {
+    kind: 'walk', own: 1,
     title: '2番: 3番の安打で二塁へ',
     result: { text: 'BB' },
     slashes: 2,
@@ -321,6 +344,7 @@
     }
   };
   G['in1-b2-c'] = {
+    kind: 'walk', own: 1,
     title: '2番: 4番の適時打で生還（4番に打点）',
     result: { text: 'BB' },
     slashes: 4,
@@ -335,6 +359,7 @@
   };
 
   G['in1-b3-a'] = {
+    kind: 'hit', own: 1,
     title: '3番: 右前安打',
     result: { text: '9', trace: 'ground' },
     slashes: 1,
@@ -344,6 +369,7 @@
     }
   };
   G['in1-b3-b'] = {
+    kind: 'hit', own: 1,
     title: '3番: 4番の安打で二塁へ',
     result: { text: '9', trace: 'ground' },
     slashes: 2,
@@ -354,15 +380,17 @@
     }
   };
   G['in1-b3-end'] = {
+    kind: 'hit', own: 1,
     title: '3番: 二塁に残って残塁',
     result: { text: '9', trace: 'ground' },
     slashes: 2,
     reasons: { 2: '(4)' },
     center: { lob: true },
-    captions: { center: '3アウトの時点で塁上に残ったので○（残塁）' }
+    captions: { center: '3アウトの時点で塁上に残ったのでℓ（残塁）' }
   };
 
   G['in1-b4'] = {
+    kind: 'hit', own: 1,
     title: '4番: 左前へ適時打',
     result: { text: '7', trace: 'ground' },
     slashes: 1,
@@ -372,11 +400,12 @@
     }
   };
   G['in1-b4-end'] = {
+    kind: 'hit', own: 1,
     title: '4番: 一塁に残って残塁',
     result: { text: '7', trace: 'ground' },
     slashes: 1,
     center: { lob: true },
-    captions: { center: '一塁に残ったので○（残塁）' }
+    captions: { center: '一塁に残ったのでℓ（残塁）' }
   };
 
   G['in1-b5'] = {

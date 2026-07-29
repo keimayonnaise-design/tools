@@ -35,8 +35,17 @@
   // 打点がつかない結果（失策・野選での得点。教材 詳説A-3）
   var NO_RBI = {e:1, fc:1};
 
+  // 打席結果ごとのペン（色）。色そのものが「打数に入るか・誰の手柄か」を表す
+  //   赤＝安打と得点（打者の手柄）／青＝四死球・犠打・犠飛（打数に入らない）／黒＝それ以外
+  var KIND = {
+    hit:'hit',
+    bb:'walk', db:'walk',
+    sh:'sac', sf:'sac'
+  };
+
   function newCell(){
-    return {result:null, slashes:0, reasons:{}, center:null, outAt:null};
+    return {result:null, slashes:0, reasons:{}, center:null, outAt:null,
+      pitches:[], kind:null, own:0};
   }
 
   function resultOf(p){
@@ -137,6 +146,8 @@
       inning.order.push(no);
       var c = cell(no);
       c.result = resultOf(p);
+      c.kind = KIND[p.r] || null;                 // ペンの決定に使う
+      c.pitches = (c.pitches || []).concat(p.pitches || []);
 
       // 打者の結果を先に確定させ、そのあと走者（表示上は奥からだが、
       // 状態としては打者の到達塁と走者の行き先が独立して決まる）
@@ -155,6 +166,7 @@
       // 打者自身
       if(reachesBase(p.r)){
         var b = (p.r === 'hit') ? (p.bases || 1) : 1;
+        c.own = b;                                 // 自分で得た塁＝打席結果の色で書く
         c.slashes = Math.max(c.slashes, b);
         if(b >= 4){
           inning.runs++;
@@ -207,21 +219,35 @@
 
   /* 見比べチェックリストを、計算されたマスから自動生成する。
      手で書くと盤面とズレるので、必ずここから作る。 */
-  var TRACE_JP = {ground:'ゴロの線', fly:'フライの弧', liner:'ライナーの線'};
+  var TRACE_JP = {ground:'下に∪＝ゴロ', fly:'上に∩＝フライ', liner:'上に直線＝ライナー'};
+  var PEN_JP = {hit:'赤', walk:'青', sac:'青'};
+  var PITCH_JP = {B:'●', S:'／', W:'×', F:'△', X:'□'};
+
   function buildChecks(inn){
     var out = [];
     inn.order.forEach(function(no){
       var c = inn.cells[no];
       if(!c) return;
       var parts = [];
+      var penJP = PEN_JP[c.kind] || '黒';
+      if(c.pitches && c.pitches.length){
+        parts.push('左の欄に ' + c.pitches.map(function(p){ return PITCH_JP[p] || p; }).join('') +
+          '（' + c.pitches.length + '球）');
+      }
       if(c.result){
         var t = c.result.mirror ? '逆' + c.result.text : c.result.text;
-        var s = '右下に ' + t;
-        if(c.result.trace) s += '（' + TRACE_JP[c.result.trace] + '）';
+        var s = '右下に ' + t + '（' + penJP + '）';
+        if(c.result.trace) s += '＋' + TRACE_JP[c.result.trace];
         if(c.result.oval) s += '＋楕円で囲む';
         parts.push(s);
       }
-      if(c.slashes > 0) parts.push('斜線 ' + c.slashes + '本');
+      if(c.slashes > 0){
+        var sl = '斜線 ' + c.slashes + '本';
+        if(c.own > 0 && penJP !== '黒'){
+          sl += '（打者が自分で得た' + c.own + '本は' + penJP + '）';
+        }
+        parts.push(sl);
+      }
       Object.keys(c.reasons).map(Number).sort().forEach(function(b){
         var r = c.reasons[b];
         var where = {2:'二塁', 3:'三塁', 4:'本塁'}[b] || (b + '塁');
@@ -231,8 +257,8 @@
       if(c.outAt) parts.push({2:'二塁',3:'三塁',4:'本塁'}[c.outAt.base] + 'の区画に ' + c.outAt.text + '（アウトの経路）');
       if(c.center){
         if(c.center.out) parts.push('中央に ' + ['','Ⅰ','Ⅱ','Ⅲ'][c.center.out]);
-        else if(c.center.run) parts.push('中央に ●（得点）');
-        else if(c.center.lob) parts.push('中央に ○（残塁）');
+        else if(c.center.run) parts.push('中央に ●（得点・赤）');
+        else if(c.center.lob) parts.push('中央に ℓ（残塁）');
       }
       out.push({batter:no, text: no + '番のマス: ' + parts.join(' ／ ')});
     });
