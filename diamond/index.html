@@ -1639,10 +1639,10 @@ function renderHomeLevel(){
   if(!latest){
     box.appendChild(el('h2', null, 'まず、いまの自分を確かめる'));
     box.appendChild(el('p', null,
-      'スコアシートの何がどこまで分かっているか、17問（5分ほど）で測ります。答え合わせは最後にまとめて出るので、ここは「測る」時間です。'));
+      'スコアシートの何がどこまで分かっているか、26問（10分ほど）で測ります。答え合わせは最後にまとめて出るので、ここは「測る」時間です。'));
     box.appendChild(el('p', 'mini',
-      '通らないと先に進めない関門ではありません。全部の機能は最初から開いています。受けなくても大丈夫です。'));
-    var b = el('button', 'btn-main', '現在地を確かめる（約5分）');
+      '通らないと先に進めない関門ではありません。全部の機能は最初から開いています。受けなくても大丈夫ですし、途中でやめても、そこまでで結果が出ます。'));
+    var b = el('button', 'btn-main', '現在地を確かめる（約10分）');
     b.id = 'btn-start';
     b.addEventListener('click', startQuiz);
     box.appendChild(b);
@@ -1744,7 +1744,9 @@ function renderQuestion(){
   });
 
   if(quiz.i === 0) hide($('btn-back')); else show($('btn-back'));
-  if(quiz.answers.length >= 5) show($('btn-stop')); else hide($('btn-stop'));
+  // 「途中でやめても、そこまでで結果が出る」の約束どおり、1問目から出す
+  // （診断は関門でなく計器。仕様書§F1「途中でやめても答えた範囲で暫定判定」）
+  if(quiz.answers.length >= 1) show($('btn-stop')); else hide($('btn-stop'));
 }
 
 function answer(choice){
@@ -1809,10 +1811,13 @@ function renderResult(latest){
 
   if(latest.near !== null && latest.near !== undefined){
     var nd = Score.levelDef(latest.near);
-    $('r-near').textContent = 'Lv' + nd.level + '「' + nd.name + '」にも、あと少しで届きそうです。';
+    $('r-near').textContent = 'Lv' + nd.level + '「' + nd.name + '」にも、あと少しで届きそうです。'
+      + ' 現在地は目安で、境界の1〜2問で1つ動くことがあります。';
     show($('r-near'));
   } else {
-    hide($('r-near'));
+    // 判定は点でなく幅で伝える（測定には必ず誤差がある。診断は関門でなく計器）
+    $('r-near').textContent = '現在地は26問からの目安です。境界の1〜2問で1つ動くことがあるので、幅をもって見てください。';
+    show($('r-near'));
   }
 
   // できていたこと。取りこぼしのある分野は出さない

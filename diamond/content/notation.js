@@ -136,7 +136,7 @@
   /* ---- 走者まわり ---- */
   var RUNNER = [
     {name:'盗塁',       sym:'S',   pen:'blue', note:'下に (打順) ＝何番打者の打席中に起きたか。投球経過の欄にも印を付ける'},
-    {name:'重盗',       sym:'DS',  pen:'blue', note:'三重盗は TP'},
+    {name:'重盗',       sym:'DS',  pen:'blue', note:'三重盗は TS（TP は三重殺なので混同しない）'},
     {name:'盗塁死',     sym:'CS',  pen:'blue', note:'同じく (打順) を添える'},
     {name:'暴投',       sym:'WP',  pen:'ink', others:'W'},
     {name:'捕逸',       sym:'PB',  pen:'ink', others:'P'},
