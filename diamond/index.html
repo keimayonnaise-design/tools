@@ -25,6 +25,8 @@
   --pen-red:#B3261E;    /* 安打・得点・打点 */
   --pen-blue:#1A5FA8;   /* 四死球・犠打・犠飛＝打数に入らない */
   --gold:#9A7B12;       /* ◇が完成したときの光 */
+  --amber:#8A5A00;      /* 正誤表示の「おしい」側。責めない色（赤にしない） */
+  --on-amber:#FFFFFF;
   --bad:#9B2C2C;
   --shadow:0 1px 2px rgba(31,36,33,.06), 0 6px 18px rgba(31,36,33,.05);
   --radius:14px;
@@ -33,6 +35,7 @@
   :root{
     --bg:#15181A; --surface:#1E2325; --ink:#ECE9E1; --muted:#9BA3A0;
     --line:#333B3D; --accent:#5FB394; --on-accent:#10201A; --accent-weak:#1C2E28; --gold:#D9B84A;
+    --amber:#E5B85C; --on-amber:#2A1F06;
     --pen-red:#FF8A80; --pen-blue:#8FC0FF;
     --bad:#E88B8B;
     --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25);
@@ -229,9 +232,15 @@ svg.cell.small{width:min(46vw, 180px)}
 .choices button.chosen-wrong{border-color:var(--muted)}
 .choices button.chosen-wrong .mark{border-color:var(--muted)}
 .choices button:disabled{opacity:1; cursor:default}
-.verdict{font-weight:700; margin:14px 0 8px; font-size:15px}
+/* 正誤の表示。ひと目で分かる大きさにする（2026-07-29 本人FB第5弾「小さくて分かりにくい」）。
+   「おしい」側は琥珀色＝責めない（文言も「ここは、こうなります」のまま） */
+.verdict{display:flex; align-items:center; gap:10px; font-weight:800; margin:14px 0 8px; font-size:20px}
+.verdict .vicon{flex:none; width:34px; height:34px; border-radius:50%; display:grid; place-items:center;
+  font-size:19px; font-weight:800; line-height:1}
 .verdict.ok{color:var(--accent)}
-.verdict.ng{color:var(--ink)}
+.verdict.ok .vicon{background:var(--accent); color:var(--on-accent)}
+.verdict.ng{color:var(--amber)}
+.verdict.ng .vicon{background:var(--amber); color:var(--on-amber)}
 
 /* 盤面（複数マス） */
 /* 正解シートは「紙と見比べる」ための画面なので、記号が読める大きさを優先する。
@@ -1268,6 +1277,18 @@ var Cell = (function(){
         tt.textContent = String(m.circle);
         gg.appendChild(tt);
         addStep('mark:' + b, gg, 'text');
+      } else if(String(m) === '↰'){
+        /* 通過の矢印。小さな文字でなく、実物どおり区画に描く（2026-07-29 本人FB第5弾）。
+           向きは走者の進行どおり: 二塁＝上がって左折／三塁＝左へ行って本塁へ下りる。
+           得点まで駆け抜けた通過は赤（得点・打点＝赤、と同じ理屈。本人の手本スコア） */
+        var apen = (g.center && g.center.run) ? 'red' : penFor('mark', b);
+        var ad = (b === 2)
+          ? 'M 127 36 L 127 15 L 109 15 M 115 10 L 109 15 M 115 20 L 109 15'
+          : 'M 52 15 L 34 15 L 34 33 M 29 27 L 34 33 M 39 27 L 34 33';
+        var ar = svg('path', {d:ad, fill:'none', stroke:penColor(apen),
+          'stroke-width':2.2, 'stroke-linecap':'round', 'stroke-linejoin':'round'});
+        ar.__len = 56;
+        addStep('mark:' + b, ar, 'line');
       } else {
         addStep('mark:' + b, mkText(p.x, p.y, 15, String(m),
           {anchor:p.anchor, pen:penFor('mark', b)}), 'text');
@@ -1303,9 +1324,12 @@ var Cell = (function(){
       }
     }
 
-    /* --- 4. ◇が完成したときの光 --- */
+    /* --- 4. ◇が完成したときの光 ---
+       光るのは本塁打（斜線4本）だけ。走者の得点では◇は線で完成しない
+       （斜線は打者自身の安打の分だけ）ので、光らせると「ひし形が書かれた」
+       ように見えて誤解を生む（2026-07-29 本人FB第5弾） */
     var glow = null;
-    if(hit >= 4 || (g.center && g.center.run)){
+    if(hit >= 4){
       glow = svg('path', {
         d:'M ' + B.x + ' ' + B.y + ' L ' + R.x + ' ' + R.y + ' L ' + T.x + ' ' + T.y +
           ' L ' + L.x + ' ' + L.y + ' Z',
@@ -1600,7 +1624,7 @@ function playHero(){
   heroPlayer = Cell.play($('hero-cell'), 'hero', {
     pace:'read',
     onCaption:function(t){ cap.textContent = t; },
-    finalCaption:'1マスに入るのは打席の結果だけではありません。その打者が塁に出てから、還るか・アウトになるか・塁に残るまでが1マス。4本そろって◇が完成＝1点。',
+    finalCaption:'1マスに入るのは打席の結果だけではありません。その打者が塁に出てから、還るか・アウトになるか・塁に残るまでが1マス。ダイヤモンドを一周して、中央に赤い●＝1点。',
     onEnd:function(){ cap.classList.remove('step'); }
   });
 }
@@ -2020,9 +2044,7 @@ function answerDrill(choice){
     else if(idx === choice) b.classList.add('chosen-wrong');
   });
 
-  var v = $('dq-verdict');
-  v.textContent = ok ? 'そのとおり' : 'ここは、こうなります';
-  v.className = 'verdict ' + (ok ? 'ok' : 'ng');
+  setVerdict($('dq-verdict'), ok);
   $('dq-why').textContent = q.why;
   $('dq-ref').textContent = '教材16「スコアシートの書き方」' + q.ref;
 
@@ -2249,6 +2271,16 @@ function renderInningStep(){
   });
 }
 
+/* 正誤をひと目で。丸いアイコン＋大きめの文字（ドリルと1イニング再現で共用）。
+   文言は従来どおり＝責めない（「ここは、こうなります」） */
+function setVerdict(node, ok){
+  clear(node);
+  node.className = 'verdict ' + (ok ? 'ok' : 'ng');
+  node.setAttribute('role', 'status');
+  node.appendChild(el('span', 'vicon', ok ? '○' : '×'));
+  node.appendChild(document.createTextNode(ok ? 'そのとおり' : 'ここは、こうなります'));
+}
+
 function answerInning(choice){
   var step = INN.steps[inning.i];
   var ok = (choice === step.answer);
@@ -2261,9 +2293,7 @@ function answerInning(choice){
     else if(idx === choice) b.classList.add('chosen-wrong');
   });
 
-  var v = $('in-verdict');
-  v.textContent = ok ? 'そのとおり' : 'ここは、こうなります';
-  v.className = 'verdict ' + (ok ? 'ok' : 'ng');
+  setVerdict($('in-verdict'), ok);
   $('in-why').textContent = step.why;
 
   // 盤面を進める。回答後は「この打席で変わったマスだけ」を大きく見せる
@@ -3465,11 +3495,14 @@ function selfTest(){
         if(c.center && c.center.run && (c.hit || 0) < 4 && !mk[4]){
           sbad.push(sc.id + ' ' + no + '番:得点なのに本塁到達の記録なし');
         }
-        // 安打の点の位置が塁打数と合っているか
+        // 安打の点＝打球の落下位置（塁打数とは無関係。右前で二塁打もありうる）。
+        // 位置の値が正しいか・安打でないのに点が付いていないか、だけを見る
         if(c.result && c.result.dot){
-          var want = {1:'under', 2:'over', 3:'side'}[c.hit];
-          if(want && c.result.dot !== want){
-            sbad.push(sc.id + ' ' + no + '番:' + c.hit + '塁打なのに点が' + c.result.dot);
+          if(['under','over','side'].indexOf(c.result.dot) < 0){
+            sbad.push(sc.id + ' ' + no + '番:点の位置が不正 (' + c.result.dot + ')');
+          }
+          if((c.hit || 0) === 0){
+            sbad.push(sc.id + ' ' + no + '番:安打でないのに点が付いている');
           }
         }
       });

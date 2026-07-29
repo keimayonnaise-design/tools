@@ -263,7 +263,8 @@
         var r = c.marks[b];
         var where = {2:'二塁', 3:'三塁', 4:'本塁'}[b] || (b + '塁');
         if(r && r.circle) parts.push(where + 'の区画に 丸囲みの' + r.circle + '（打点）');
-        else if(r === '↰') parts.push(where + 'の区画に ↰（通過しただけ）');
+        else if(r === '↰') parts.push(where + 'の区画に 通過の矢印' +
+          (c.center && c.center.run ? '（得点までの通過なので赤）' : ''));
         else if(r) parts.push(where + 'の区画に ' + r);
       });
       if(c.outAt) parts.push({2:'二塁',3:'三塁',4:'本塁'}[c.outAt.base] + 'の区画に ' + c.outAt.text + '（アウトの経路）');
