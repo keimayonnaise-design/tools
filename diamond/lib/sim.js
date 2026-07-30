@@ -235,7 +235,7 @@
   var DOT_JP = {under:'数字の下に点＝その野手の前', over:'数字の上に点＝その野手を越えた',
     side:'数字の横に点＝そちらのライン際'};
   var PEN_JP = {hit:'赤', walk:'青', sac:'青'};
-  var PITCH_JP = {B:'●', S:'×', W:'⊗', F:'△', X:'□'};
+  var PITCH_JP = {B:'●', S:'×', W:'×＋斜線', F:'△', X:'□'};
 
   function buildChecks(inn){
     var out = [];
