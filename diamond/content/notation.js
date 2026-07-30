@@ -164,21 +164,33 @@
   var PITCH = [
     {id:'B', name:'ボール',           sym:'●'},
     {id:'S', name:'見逃しストライク', sym:'×'},
-    {id:'W', name:'空振りストライク', sym:'⊗', note:'×に線を1本足す'},
+    {id:'W', name:'空振りストライク', sym:'⊗',
+     note:'×に【斜めの】線を1本足す（縦線ではない。2026-07-30に図を8倍に拡大して確認）'},
     {id:'F', name:'ファウル',         sym:'△'},
     {id:'X', name:'打った（インプレー）', sym:'□',
      note:'教材16の書き方。2サイトは打った球に印を付けない（右下の結果で分かるため）'}
   ];
   var PITCH_EXTRA = [
     {name:'バントファウル',   sym:'△の中に黒点'},
-    {name:'バント空振り',     sym:'空振りの印にもう1本足す'}
+    {name:'バント空振り',     sym:'空振りの印に、斜めの線をもう1本足す'}
+  ];
+
+  /* ---- 交代（パ・リーグ.comの記入例の図で確定・2026-07-30）----
+     交代は2か所に書く。①打順欄 ②マスの境目の波線。 */
+  var SUBS = [
+    {name:'代打', sym:'PH', where:'打順欄は同じ打順の中に 19・29 と行を足して PH＋選手名。' +
+     'マスは【左】の境目に波線を引き、脇に PH と選手名（打席の前の交代だから左）'},
+    {name:'代走', sym:'PR', where:'マスは【右】の境目に波線（出塁したあとの交代だから右）。' +
+     'そのまま守備についたら、打順欄に守備番号も書く'},
+    {name:'投手・野手の交代', sym:'守備番号＋名前',
+     where:'守備の出来事なので【相手の攻撃を書いている側】のマスの上端に横の波線を引き、その上に書く'}
   ];
 
   root.DIAMOND_NOTATION = {
     shape: SHAPE, pens: PENS, trace: TRACE, hits: HITS, dots: DOTS,
     hitMarks: HIT_MARKS, advance: ADVANCE,
     results: RESULTS, errors: ERRORS, runner: RUNNER,
-    center: CENTER, pitch: PITCH, pitchExtra: PITCH_EXTRA,
+    center: CENTER, pitch: PITCH, pitchExtra: PITCH_EXTRA, subs: SUBS,
     sources: [
       {name:'パ・リーグ.com「野球スコアのつけ方は？」記号の早見表', url:'https://pacificleague.com/news/2023/2/47589'},
       {name:'BASEBALL ONE「野球 スコアブックの書き方とは？！」', url:'https://baseball-one.com/blog/archives/274598/'}

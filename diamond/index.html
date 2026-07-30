@@ -491,7 +491,7 @@ pre.diag{
     <!-- 学ぶ（ドリル）への入口 -->
     <div class="card">
       <h2>学ぶ — 部品を身につける</h2>
-      <p class="mini">マスの地図・守備番号・打球の種類…。7つの単元を、解きながら覚えます。順番は自由です。</p>
+      <p class="mini" id="home-drill-lead">1球ずつの書き方・守備番号・マスの地図…。単元を、解きながら覚えます。上から順に難しくなります。</p>
       <button type="button" id="btn-drill" class="btn-main">✏️ ドリルをひらく</button>
     </div>
 
@@ -575,8 +575,8 @@ pre.diag{
   <!-- ============ 学ぶ（単元一覧） ============ -->
   <main id="s-drill" class="hidden">
     <div class="card">
-      <h2>学ぶ — 7つの単元</h2>
-      <p class="mini">どこからでも始められます。間違えた部品は「今日の3問」で戻ってきます。</p>
+      <h2 id="drill-title">学ぶ — 単元</h2>
+      <p class="mini">上から順に難しくなります。どこからでも始められますし、間違えた部品は「今日の3問」で戻ってきます。</p>
       <div id="unit-list"></div>
     </div>
     <div class="card">
@@ -1014,10 +1014,13 @@ var Cell = (function(){
       x:FRAME.x0, y:FRAME.y0, width:FRAME.x1-FRAME.x0, height:FRAME.y1-FRAME.y0, rx:5,
       fill:'none', stroke:'currentColor', 'stroke-opacity':.22, 'stroke-width':1.4
     }));
-    svgEl.appendChild(svg('line', {
-      x1:OX, y1:FRAME.y0, x2:OX, y2:FRAME.y1,
-      stroke:'currentColor', 'stroke-opacity':.22, 'stroke-width':1.2
-    }));
+    // 投球経過欄の仕切り。打順欄の記入例（lineup）はマスではないので引かない
+    if(!g.lineup){
+      svgEl.appendChild(svg('line', {
+        x1:OX, y1:FRAME.y0, x2:OX, y2:FRAME.y1,
+        stroke:'currentColor', 'stroke-opacity':.22, 'stroke-width':1.2
+      }));
+    }
 
     // 案内のひし形（薄い点線・小）＋4本の放射線。すべてのマスに標準で描く。
     // 市販の早稲田式スコアブックに最初から薄く刷ってあるのと同じ形で、
@@ -1143,10 +1146,12 @@ var Cell = (function(){
             ' M '+(px+2.6)+' '+(py-2.6)+' L '+(px-2.6)+' '+(py+2.6),
             stroke:'currentColor', 'stroke-width':1.5, fill:'none', 'stroke-linecap':'round'});
         } else if(p === 'W'){
-          // 空振り＝×に縦線を1本足す
+          /* 空振り＝見逃しの × に「斜めの線」を1本足す。
+             縦線ではない（2026-07-30 本人指摘＋一次情報の図を8倍に拡大して確認）。
+             足す線は × の「／」と平行で、左上へずらして重ねる＝✗に斜線が入った形。 */
           m = svg('path', {d:'M '+(px-2.6)+' '+(py-2.6)+' L '+(px+2.6)+' '+(py+2.6)+
             ' M '+(px+2.6)+' '+(py-2.6)+' L '+(px-2.6)+' '+(py+2.6)+
-            ' M '+px+' '+(py-3.4)+' L '+px+' '+(py+3.4),
+            ' M '+(px+1.4)+' '+(py-4.1)+' L '+(px-4.1)+' '+(py+1.4),
             stroke:'currentColor', 'stroke-width':1.5, fill:'none', 'stroke-linecap':'round'});
         } else if(p === 'F'){
           m = svg('path', {d:'M '+px+' '+(py-3)+' L '+(px+3)+' '+(py+2.4)+' L '+(px-3)+' '+(py+2.4)+' Z',
@@ -1160,6 +1165,87 @@ var Cell = (function(){
       addStep('pitches', pg, 'text');
     }
 
+    /* --- 0-b. 交代の波線（2026-07-30・パ・リーグ.comの記入例の図で確定）---
+       代打・代走はマスの境目に縦の波線を引き、脇に PH／PR と選手名。
+       投手・野手の交代は、相手の攻撃側のマスの上端に横の波線を引き、その上に
+       「守備番号＋名前」。at で 'left'（代打＝打席の前）／'right'（代走＝出塁後）
+       ／'top'（守備の交代）を指定する。 */
+    if(g.sub && g.sub.at){
+      var sg = svg('g', {});
+      function zig(x1, y1, x2, y2, amp){
+        var dx = x2 - x1, dy = y2 - y1;
+        var len = Math.sqrt(dx*dx + dy*dy);
+        var ux = dx/len, uy = dy/len, nx = -uy, ny = ux;
+        var n = Math.max(4, Math.round(len / 5));
+        var d = 'M ' + x1 + ' ' + y1;
+        for(var k = 1; k <= n; k++){
+          var t = k / n, s = (k % 2 ? 1 : -1) * amp;
+          d += ' L ' + (x1 + dx*t + nx*s).toFixed(2) + ' ' + (y1 + dy*t + ny*s).toFixed(2);
+        }
+        return d;
+      }
+      var sp = penColor(g.sub.pen || 'ink');
+      var zd, lx, ly, rot, fs;
+      if(g.sub.at === 'top'){
+        zd = zig(OX, 17, FRAME.x1 - 2, 17, 1.6);
+        lx = 26; ly = 12; rot = 0; fs = 9;
+      } else if(g.sub.at === 'right'){
+        zd = zig(FRAME.x1 - 1.5, 22, FRAME.x1 - 1.5, FRAME.y1 - 4, 1.6);
+        lx = 128; ly = 26; rot = 90; fs = 10;
+      } else {
+        zd = zig(FRAME.x0 + 1.5, 6, FRAME.x0 + 1.5, FRAME.y1 - 4, 1.6);
+        lx = 11; ly = 14; rot = 90; fs = 10;
+      }
+      sg.appendChild(svg('path', {d:zd, fill:'none', stroke:sp,
+        'stroke-width':1.3, 'stroke-linejoin':'round'}));
+      if(g.sub.label){
+        var lb = svg('text', {x:lx, y:ly, 'font-size':fs, fill:sp,
+          'text-anchor':'start', 'font-weight':700, 'font-family':'inherit'});
+        lb.textContent = g.sub.label;
+        if(rot) lb.setAttribute('transform', 'rotate(' + rot + ' ' + lx + ' ' + ly + ')');
+        sg.appendChild(lb);
+      }
+      addStep('sub', sg, 'text');
+    }
+
+    /* --- 0-c. 打順欄の記入例（交代はここに書くので、マスだけでは教えられない）---
+       lineup: [{no, pos, name, mark}] を小さな表として描く。
+       選手名は content/names.js の創作名だけ（実名ゼロ設計・§6-4）。 */
+    if(g.lineup && g.lineup.length){
+      var lg = svg('g', {});
+      var LX = 8, LY = 26, LW = 124, RH = 19;
+      var cols = [0, 20, 40, 60];         // 打順 / 記号 / 守備 / 名前
+      lg.appendChild(svg('rect', {x:LX, y:LY - RH, width:LW, height:RH,
+        fill:'currentColor', 'fill-opacity':.05, stroke:'currentColor',
+        'stroke-opacity':.35, 'stroke-width':1}));
+      [['打順',0], ['守備',cols[2]], ['選手',cols[3]]].forEach(function(h){
+        var ht = svg('text', {x:LX + h[1] + 3, y:LY - 6, 'font-size':9,
+          fill:'currentColor', 'fill-opacity':.6, 'font-family':'inherit'});
+        ht.textContent = h[0];
+        lg.appendChild(ht);
+      });
+      g.lineup.slice(0, 4).forEach(function(row, ri){
+        var y = LY + ri * RH;
+        lg.appendChild(svg('rect', {x:LX, y:y, width:LW, height:RH, fill:'none',
+          stroke:'currentColor', 'stroke-opacity':.35, 'stroke-width':1}));
+        cols.slice(1, 3).forEach(function(cx){
+          lg.appendChild(svg('line', {x1:LX + cx, y1:y, x2:LX + cx, y2:y + RH,
+            stroke:'currentColor', 'stroke-opacity':.35, 'stroke-width':1}));
+        });
+        var pen = penColor(row.pen || 'ink');
+        [[String(row.no || ''), 3], [String(row.mark || ''), cols[1] + 2],
+         [String(row.pos || ''), cols[2] + 4], [String(row.name || ''), cols[3] + 3]]
+        .forEach(function(cell){
+          if(!cell[0]) return;
+          var t = svg('text', {x:LX + cell[1], y:y + RH - 6, 'font-size':11,
+            fill:pen, 'font-weight':row.mark ? 700 : 600, 'font-family':'inherit'});
+          t.textContent = cell[0];
+          lg.appendChild(t);
+        });
+      });
+      addStep('lineup', lg, 'text');
+    }
+
     /* --- 1. 打撃結果（右下） --- */
     var res = g.result;
     if(res && res.text){
@@ -1168,7 +1254,9 @@ var Cell = (function(){
       var left = RES_RIGHT - w;
       var cx0 = left + w / 2;
       var rpen = penFor('result');
-      var grp = svg('g', {});
+      // data-role を持たせて、自己テストが「打撃結果の文字」を確実に選べるようにする
+      // （位置で探していたため、交代の波線の文字を結果と誤認した・2026-07-30）
+      var grp = svg('g', {'data-role':'result'});
       grp.appendChild(mkText(RES_RIGHT, RES_BASE, size, res.text,
         {anchor:'end', mirror: !!res.mirror, mirrorCenter: cx0, weight:700, pen:rpen}));
       addStep('result', grp, 'text');
@@ -1942,6 +2030,8 @@ function drillById(id){
 function renderUnitList(){
   var box = $('unit-list');
   clear(box);
+  // 単元の数は数えて出す（増やしたときに見出しが嘘になるのを防ぐ・2026-07-30 本人FB）
+  $('drill-title').textContent = '学ぶ — ' + DR.units.length + 'つの単元';
   var d = drillState();
   DR.units.forEach(function(u, idx){
     var qs = drillQuestionsOf(u.id);
@@ -2278,13 +2368,18 @@ function renderInningStep(){
 }
 
 /* 正誤をひと目で。丸いアイコン＋大きめの文字（ドリルと1イニング再現で共用）。
-   文言は従来どおり＝責めない（「ここは、こうなります」） */
+   正解の言葉は数種類から順に出す（「そのとおり」ばかりだと機械的に見える・
+   2026-07-30 本人FB）。褒めすぎず・煽らず、記録の言葉で短く。
+   不正解は1つに固定＝責めない言い方をぶらさない（憲法§4）。 */
+var VERDICT_OK = ['そのとおり', 'その形です', '合っています', 'いいですね', 'そう書きます'];
+var verdictTurn = 0;
 function setVerdict(node, ok){
   clear(node);
   node.className = 'verdict ' + (ok ? 'ok' : 'ng');
   node.setAttribute('role', 'status');
   node.appendChild(el('span', 'vicon', ok ? '○' : '×'));
-  node.appendChild(document.createTextNode(ok ? 'そのとおり' : 'ここは、こうなります'));
+  var word = ok ? VERDICT_OK[verdictTurn++ % VERDICT_OK.length] : 'ここは、こうなります';
+  node.appendChild(document.createTextNode(word));
 }
 
 function answerInning(choice){
@@ -3373,7 +3468,7 @@ function selfTest(){
       // 打撃結果はどのマスでも同じ位置（右端105）に来ているか
       var g = window.DIAMOND_GLYPHS[k];
       if(g.result && g.result.text){
-        var t = s.querySelector('g > text');
+        var t = s.querySelector('g[data-role="result"] > text');
         if(t){
           var tr = t.getBoundingClientRect(), sr = s.getBoundingClientRect();
           if(sr.width > 0){
