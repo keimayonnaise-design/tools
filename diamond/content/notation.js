@@ -186,11 +186,27 @@
      where:'守備の出来事なので【相手の攻撃を書いている側】のマスの上端に横の波線を引き、その上に書く'}
   ];
 
+  /* 1球ずつの読み上げ文をここで作る（2026-07-30 本人指摘＝FB第10弾）。
+     「3球目を打って」とだけ読み上げていたので、1球目・2球目に何が来たかが分からず、
+     投球経過の欄を埋めようがなかった——正解シートには出るのに書けない、という穴。
+     手で読み上げ文に書くと pitches とズレるので、必ずここから作る（実践編も1イニング再現も）。
+     from = この打席で何球目から始まるか（走者が動いた後の続きを読むときに使う。0起点） */
+  var PITCH_SAY = {B:'ボール', S:'見逃しのストライク', W:'空振り', F:'ファウル', X:'打った'};
+  function pitchSay(pitches, from){
+    if(!pitches || !pitches.length) return '';
+    var base = from || 0;
+    return pitches.map(function(p, i){
+      var n = base + i;
+      return (n === 0 ? '初球' : (n + 1) + '球目') + ' ' + (PITCH_SAY[p] || p);
+    }).join(' ／ ');
+  }
+
   root.DIAMOND_NOTATION = {
     shape: SHAPE, pens: PENS, trace: TRACE, hits: HITS, dots: DOTS,
     hitMarks: HIT_MARKS, advance: ADVANCE,
     results: RESULTS, errors: ERRORS, runner: RUNNER,
     center: CENTER, pitch: PITCH, pitchExtra: PITCH_EXTRA, subs: SUBS,
+    pitchSay: pitchSay,
     sources: [
       {name:'パ・リーグ.com「野球スコアのつけ方は？」記号の早見表', url:'https://pacificleague.com/news/2023/2/47589'},
       {name:'BASEBALL ONE「野球 スコアブックの書き方とは？！」', url:'https://baseball-one.com/blog/archives/274598/'}

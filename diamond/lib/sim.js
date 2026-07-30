@@ -22,7 +22,15 @@
        // 打席の途中の走者の動き
        { say:'…', run:'sb'|'wp'|'pb'|'bk', adv:{1:2} }
        { say:'…', run:'cs', from:1, at:'2-4' }
+       // 選手交代（マスの境目に波線。打順欄への書き足しは lineupSubs に出る）
+       { say:'…', sub:'ph',      order:5, name:'…' }        // 相手の代打  → 左の波線
+       { say:'…', sub:'pr',      order:2, name:'…' }        // 相手の代走  → 右の波線
+       { say:'…', sub:'pitcher', name:'…' }                 // 自軍の投手交代 → 次打者のマスの上端
      ]
+
+   ※ 記録するのは「相手の攻撃」なので、このページに乗る交代は
+     相手チームの代打・代走（攻撃の出来事）と、自分のチームの投手・野手の交代
+     （守備の出来事＝相手の攻撃を書いている側に記す）の両方になる。
 
    出力:
      { innings:[ {no, cells:{打順:glyph}, order:[], outs, runs, lob, batters,
@@ -31,6 +39,14 @@
    ========================================================= */
 (function (root) {
   'use strict';
+
+  /* 1球ずつの読み上げ文は content/notation.js（記号の正）が作る。
+     読み上げ文に手で「初球はボール」と書くと pitches とズレるので、二重管理しない。 */
+  function sayPitches(pitches, from){
+    var N = root.DIAMOND_NOTATION;
+    if(!N || typeof N.pitchSay !== 'function') return '';
+    return N.pitchSay(pitches, from);
+  }
 
   // 進塁の理由に「打者の打順」を書く結果か（＝打撃で進めた）
   var BY_BATTING = {hit:1, out:1, bb:1, db:1, sh:1, sf:1, fc:1, e:1, k:1, kl:1};
@@ -47,7 +63,7 @@
 
   function newCell(){
     return {result:null, hit:0, marks:{}, center:null, outAt:null,
-      pitches:[], kind:null};
+      pitches:[], kind:null, sub:[]};
   }
 
   /* 安打の点（・）は「打球がどこへ飛んだか」を表す。何塁打かではない
@@ -80,6 +96,8 @@
     var timeline = [];
     var pitchTotal = 0;
     var byBatter = {};
+    var lineupSubs = [];       // 打順欄への書き足し（19・29 の行＋PH/PR＋守備番号）
+    var pendingPitcher = null; // 投手交代は「次の打者のマスの上端」に出る
 
     var inning = null;
     function openInning(no){
@@ -140,15 +158,53 @@
         if(owner) byBatter[owner] = (byBatter[owner] || 0) + np0;
       }
 
+      // ---- 選手交代 ----
+      // 代打＝打席の【前】なので左の境目、代走＝出塁した【あと】なので右の境目。
+      // 投手交代は守備の出来事なので、次の打者のマスの上端に横の波線。
+      if(p.sub){
+        inning.lineupNotes = inning.lineupNotes || [];
+        var note;
+        if(p.sub === 'ph'){
+          cell(p.order).sub.push({at:'left', label:'PH ' + p.name});
+          note = '打順欄: ' + p.order + '番の欄を区切って、下に PH と ' + p.name
+            + '（打順は引き継ぐので、下に10番目を足さない）';
+        } else if(p.sub === 'pr'){
+          cell(p.order).sub.push({at:'right', label:'PR ' + p.name});
+          note = '打順欄: ' + p.order + '番の欄を区切って、下に PR と ' + p.name
+            + '（打順は引き継ぐので、下に10番目を足さない）';
+        } else if(p.sub === 'pitcher'){
+          pendingPitcher = {at:'top', label:'P ' + p.name};
+          note = '打順欄: 自分のチームの投手交代なので、相手の攻撃を書いているこのページに残す。'
+            + '次の打者のマスの上端に横の波線＋「1 ' + p.name + '」。'
+            + 'あわせて、交代した時点の走者とアウトカウントを余白にメモする（失点の帰属に要る）';
+        }
+        if(note){
+          lineupSubs.push({order:p.order || null, mark:p.sub, name:p.name, note:note});
+          inning.lineupNotes.push(note);
+        }
+        timeline.push({say:p.say, outs:inning.outs, bases:snapshot(),
+          inning:inning.no, kind:'sub'});
+        return;
+      }
+
       // ---- 走者だけが動くプレー ----
+      // 打席の途中なので、投げられた球はその打者のマスにも積む
+      //（pitches は「前のプレーからの続き」だけを書く決まり・2026-07-30）
       if(p.run){
+        var rFrom = 0;
+        if(p.batter && (p.pitches || []).length){
+          var rc = cell(p.batter);
+          rFrom = (rc.pitches || []).length;
+          rc.pitches = (rc.pitches || []).concat(p.pitches);
+        }
         if(p.run === 'cs'){
           runnerOut(p.from, p.at);
         } else {
           var sym = {sb:'S', wp:'WP', pb:'PB', bk:'BK'}[p.run] || p.run.toUpperCase();
           moveRunners(p.adv, sym, null);
         }
-        timeline.push({say:p.say, outs:inning.outs, bases:snapshot(), inning:inning.no, kind:'run'});
+        timeline.push({say:p.say, pitchSay:sayPitches(p.pitches, rFrom),
+          outs:inning.outs, bases:snapshot(), inning:inning.no, kind:'run'});
         return;
       }
 
@@ -159,7 +215,9 @@
       var c = cell(no);
       c.result = resultOf(p);
       c.kind = KIND[p.r] || null;                 // ペンの決定に使う
+      var pFrom = (c.pitches || []).length;       // 走者が動いた後なら、その続きから数える
       c.pitches = (c.pitches || []).concat(p.pitches || []);
+      if(pendingPitcher){ c.sub.push(pendingPitcher); pendingPitcher = null; }
 
       // 打者の結果を先に確定させ、そのあと走者（表示上は奥からだが、
       // 状態としては打者の到達塁と走者の行き先が独立して決まる）
@@ -192,7 +250,8 @@
         c.center = {out: inning.outs};
       }
 
-      timeline.push({say:p.say, outs:inning.outs, bases:snapshot(), inning:inning.no,
+      timeline.push({say:p.say, pitchSay:sayPitches(p.pitches, pFrom),
+        outs:inning.outs, bases:snapshot(), inning:inning.no,
         kind:'pa', batter:no, pitches:p.pitches || []});
 
       // 3アウトでイニングを閉じる
@@ -225,6 +284,7 @@
       scenario: sc,
       innings: innings,
       pitches: {total: pitchTotal, byBatter: byBatter},
+      lineupSubs: lineupSubs,
       timeline: timeline
     };
   }
@@ -244,8 +304,14 @@
       if(!c) return;
       var parts = [];
       var penJP = PEN_JP[c.kind] || '黒';
+      (c.sub || []).forEach(function(s0){
+        var whereJP = {left:'マスの左の境目に縦の波線', right:'マスの右の境目に縦の波線',
+          top:'マスの上端に横の波線'}[s0.at] || '境目に波線';
+        parts.push(whereJP + '＋' + s0.label);
+      });
       if(c.pitches && c.pitches.length){
-        parts.push('左の欄に ' + c.pitches.map(function(p){ return PITCH_JP[p] || p; }).join('') +
+        // 「×＋斜線」のように2文字以上の印が混ざるので、区切らないと続けて読めない
+        parts.push('左の欄に ' + c.pitches.map(function(p){ return PITCH_JP[p] || p; }).join('・') +
           '（' + c.pitches.length + '球）');
       }
       if(c.result){
@@ -275,6 +341,8 @@
       }
       out.push({batter:no, text: no + '番のマス: ' + parts.join(' ／ ')});
     });
+    // 交代は、マスだけでなく打順欄にも書き足す（マスの波線だけでは足りない）
+    (inn.lineupNotes || []).forEach(function(n){ out.push({batter:null, text:n}); });
     out.push({batter:null, text:'イニングの締め: 得点 ' + inn.runs + ' ／ 残塁 ' + inn.lob +
       ' ／ 3アウト目の下に区切り線'});
     return out;
