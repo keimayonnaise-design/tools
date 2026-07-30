@@ -49,6 +49,10 @@ body{
   font-size:16px; line-height:1.75;
   padding:0 0 max(28px, env(safe-area-inset-bottom));
   -webkit-font-smoothing:antialiased;
+  /* 最終行に1文字だけ残る折り返しを避ける（2026-07-30 本人指摘「1文字だけ
+     2行目に行ってるのが気になる」）。対応ブラウザでは自動で行が整う。
+     未対応でも従来どおり表示されるだけなので害はない。 */
+  text-wrap:pretty;
 }
 .wrap{max-width:560px; margin:0 auto; padding:0 16px}
 
@@ -88,8 +92,15 @@ button:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
   background:transparent; border:none; color:var(--muted);
   min-height:44px; text-align:center; text-decoration:underline; padding:8px;
 }
-.btn-row{display:flex; gap:10px; margin-top:12px}
-.btn-row > *{flex:1}
+/* 横並びのボタン。幅が足りないときだけ縦に積む。
+   flex:1（＝基準0）で等分すると、文字が入りきらないボタンが折り返して
+   「1文字だけ2行目」になる（2026-07-30 本人指摘。「もう一度確かめる」は
+   162px必要なのに150pxしか無かった）。基準を中身の幅（auto）にして
+   flex-wrap を許すと、入る行は横並びのまま・入らない行だけ縦積みになる。 */
+.btn-row{display:flex; flex-wrap:wrap; gap:10px; margin-top:12px}
+/* width:auto を明示するのが要。button に width:100% があるので、これが無いと
+   flex-basis:auto が「親幅いっぱい」を基準にしてしまい、全部が縦積みになる */
+.btn-row > *{flex:1 1 auto; width:auto}
 
 /* ---- マス（SVG） ---- */
 .cellbox{display:flex; justify-content:center; margin:4px 0 10px}
@@ -527,12 +538,11 @@ pre.diag{
       <button type="button" id="btn-today" class="btn-main">▶ 3問だけ解く</button>
     </div>
 
-    <!-- 鍛える（実践編）への入口。ここがこのツールの目的地なので、学ぶより先に置く -->
-    <div class="card">
-      <h2>鍛える — 紙に書く</h2>
-      <p class="mini">アプリが試合を1プレーずつ読み上げます。あなたは紙のスコアシートに書いて、検算して、正解と見比べる。ここがDiamondの目的地です。</p>
-      <button type="button" id="btn-practice" class="btn-main">📋 実践編をひらく</button>
-    </div>
+    <!-- ホームの並びは「いまの自分 → 学ぶ → 鍛える → 引く」（2026-07-30 本人FB）。
+         まず現在地が目に入り、そこから ドリル→実践編→辞典 と進む順にする。 -->
+
+    <!-- 現在地（診断前は招待カード） -->
+    <div class="card" id="home-level"></div>
 
     <!-- 学ぶ（ドリル）への入口 -->
     <div class="card">
@@ -541,15 +551,19 @@ pre.diag{
       <button type="button" id="btn-drill" class="btn-main">✏️ ドリルをひらく</button>
     </div>
 
-    <!-- 引く（逆引き辞典）への入口。試合の場で3秒で引けるよう、ホームの上段に置く -->
+    <!-- 鍛える（実践編）への入口。このツールの目的地 -->
+    <div class="card">
+      <h2>鍛える — 紙に書く</h2>
+      <p class="mini">アプリが試合を1プレーずつ読み上げます。あなたは紙のスコアシートに書いて、検算して、正解と見比べる。ここがDiamondの目的地です。</p>
+      <button type="button" id="btn-practice" class="btn-main">📋 実践編をひらく</button>
+    </div>
+
+    <!-- 引く（逆引き辞典）への入口。試合の場で3秒で引く -->
     <div class="card">
       <h2>引く — これ、どう書くんだっけ？</h2>
       <p class="mini">振り逃げ・盗塁・打点・追いつけないとき…。場面から3秒で引ける逆引き辞典。</p>
       <button type="button" id="btn-jiten" class="btn-main">🔎 辞典をひらく</button>
     </div>
-
-    <!-- 現在地（診断前は招待カード） -->
-    <div class="card" id="home-level"></div>
 
     <div class="card">
       <h2>Diamond でできるようになること</h2>
@@ -3455,7 +3469,7 @@ var LEGEND = [
   ['liner-out', 'ライナー：数字の上の直線＝まっすぐ飛んだ'],
   ['single', '単打：赤い斜線1本。9の【下】の点＝右翼手の前に落ちた（右前）'],
   ['double', '二塁打：赤い斜線2本。7の【上】の点＝左翼手を越えた（左越え）'],
-  ['triple', '三塁打：赤い斜線3本。9の【横】の点＝右翼線への打球'],
+  ['triple', '三塁打：赤い斜線3本。9の【横】の点＝右翼線'],
   ['infield-hit', '内野安打：安打の斜線を弦にした半円で、数字を囲む'],
   ['bunt-hit', 'バントヒット：内野安打の半円に、斜線の上へ BH を添える'],
   ['bb', '四球：青い B。打数に入らないので、斜線は引かない'],
