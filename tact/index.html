@@ -3,215 +3,320 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#2f6b4f">
+<meta name="theme-color" content="#f3f5f1">
 <meta name="apple-mobile-web-app-title" content="Tact">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Tact — 采配の千本ノック</title>
 <style>
+/* =========================================================================
+   デザインの前提 — プロの目/WebデザインUI.md v3.0 の初適用（2026-08-01）
+   コンセプト1枚:
+   ① 実世界の物に例えると: 監督がダグアウトで手にする、深緑の作戦盤（マグネットボード）
+   ② 擬音語: かちり（マグネットを置く音 ＝ 決断の音）
+   ③ 形容詞3語: 静か / 即断 / 骨太
+   ④ 主役: 盤面。点差の数字を画面で一番大きくする（44px）
+   ⑤ やらないこと3つ: グラデを使わない / 常設のカード・行に影を付けない /
+      盤面緑・マグネット朱・土（達成時のみ）以外の彩色を足さない
+   署名要素: 菱形（ベース）1つだけ。見出しの頭・進捗・選択の印に使う
+   分離手段: 面（カード）を主に1段階。罫線は一覧と検討室の区切りのみ。影は浮くもの（モーダル・トースト）だけ
+   ========================================================================= */
 :root {
-  --paper: #f6f4ee;
-  --card: #ffffff;
-  --ink: #21313d;
-  --ink-soft: #5b6b76;
-  --line: #e2ddd2;
-  --green: #2f6b4f;
-  --green-soft: #e7f0eb;
-  --accent: #b4541e;
-  --accent-soft: #fbeee4;
-  --safety-bg: #fdf3e0;
-  --safety-line: #d9962e;
-  --danger: #b3261e;
-  --chip: #eee9dd;
-  --shadow: 0 1px 3px rgba(33,49,61,.08), 0 4px 14px rgba(33,49,61,.06);
+  color-scheme: light dark;
+  /* 色 — 題材（作戦盤・石灰・土）から。ニュートラルは緑の色相を微量に載せる */
+  --paper: #f3f5f1;        /* 地: 石灰がうっすら混ざった白 */
+  --card: #fbfcfa;         /* 面: 地との明度差は約2ポイントに留める（線や影で囲まない） */
+  --ink: #1e2720;          /* 本文: 緑がかった墨 */
+  --ink-soft: #57635a;     /* 補助文字: 地に対して5.5:1 */
+  --line: #dde3dc;         /* 飾りの罫線（区切り用） */
+  --line-strong: #6f7d72;  /* 対話部品の境界: 地に対して3:1 */
+  --seal: #156b3f;         /* 印: 盤面の深緑。面積5%未満の要素にだけ使う */
+  --seal-deep: #0f5731;
+  --seal-ink: #ffffff;
+  --seal-soft: #e4efe6;
+  --board: #33493c;        /* 盤面: 面積が大きいので彩度を落とした作戦盤の緑 */
+  --board-line: #96a898;   /* 盤面上の枠線 */
+  --board-soft: #c6d1c7;   /* 盤面上の補助文字 */
+  --board-ink: #f2f5f1;
+  --base-on: #e08b5c;      /* 走者マグネットの朱（盤面上） */
+  --magnet: #b4470e;       /* 注意・異議・ライブ状態の朱（マグネットの色） */
+  --magnet-soft: #f9ece3;
+  --safety-bg: #f8f0dc;    /* 安全の箱の琥珀だけ、例外的に別色相 */
+  --safety-ink: #8a5e13;
+  --clay: #96602f;         /* 土: 達成の瞬間にだけ出る色 */
+  --chip: #eaeee8;
+  --danger: #b4470e;       /* JSのインラインstyleから参照（= --magnet） */
+  --shadow-float: 0 2px 6px rgba(22, 42, 30, .10), 0 14px 32px rgba(22, 42, 30, .16);
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #161c21;
-    --card: #1f272e;
-    --ink: #e6e2d8;
-    --ink-soft: #9aa7b0;
-    --line: #333e47;
-    --green: #6fae90;
-    --green-soft: #24352d;
-    --accent: #e0854f;
-    --accent-soft: #3a2a1f;
-    --safety-bg: #382c17;
-    --safety-line: #d9962e;
-    --danger: #e28680;
-    --chip: #2b333b;
-    --shadow: 0 1px 3px rgba(0,0,0,.4);
+    /* ダークは反転でなく別設計: 影を使わず、面の明度差で階層を作る */
+    --paper: #131713;
+    --card: #1b211c;
+    --ink: #e5e9e3;
+    --ink-soft: #a0aca2;
+    --line: #2a322b;
+    --line-strong: #556357;
+    --seal: #5fae83;       /* Lを上げてCを下げる（蛍光化を防ぐ） */
+    --seal-deep: #79c29a;
+    --seal-ink: #0c2013;
+    --seal-soft: #21372a;
+    --board: #243129;
+    --board-line: #6b7c6d;
+    --board-soft: #b9c4ba;
+    --board-ink: #e5e9e3;
+    --base-on: #e08b5c;
+    --magnet: #e08b5c;
+    --magnet-soft: #34261b;
+    --safety-bg: #332a15;
+    --safety-ink: #d9a94e;
+    --clay: #c08a4a;
+    --chip: #232b24;
+    --danger: #e08b5c;
+    --shadow-float: 0 0 0 1px rgba(255, 255, 255, .07);
   }
 }
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html { font-size: 16px; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* ---------- 土台と日本語組版 ---------- */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-padding-top: 64px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 body {
-  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic Medium", "Yu Gothic", Meiryo, system-ui, sans-serif;
+  font-family: ui-sans-serif, -apple-system, "Segoe UI",
+    "BIZ UDPGothic", "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", Meiryo, sans-serif;
   background: var(--paper); color: var(--ink);
-  line-height: 1.75;
+  font-size: 1rem; line-height: 1.75; letter-spacing: .02em;
+  line-break: strict; word-break: normal; overflow-wrap: break-word;
   padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  -webkit-tap-highlight-color: rgba(21, 107, 63, .18);
 }
+::selection { background: var(--seal-soft); color: var(--ink); }
+::placeholder { color: var(--ink-soft); opacity: 1; }
+input, textarea { caret-color: var(--seal); }
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--seal); outline-offset: 2px;
+}
+:where(input, select, textarea):focus-visible { outline-offset: 0; }
+a { color: var(--seal); }
+
+/* ---------- 見出しと文字（サイズは 14 / 16 / 20 / 44 の4段） ---------- */
+h2 { font-size: 1.25rem; line-height: 1.45; letter-spacing: .01em; font-feature-settings: "palt" 1; margin: 24px 0 10px; }
+h2:first-child { margin-top: 2px; }
+h2::before { content: ""; display: inline-block; width: 9px; height: 9px; background: var(--seal);
+  border-radius: 1px; transform: rotate(45deg); margin-right: 10px; vertical-align: .08em; }
+h3 { font-size: 1rem; line-height: 1.6; margin: 18px 0 6px; }
+p.lead { color: var(--ink-soft); margin-bottom: 12px; }
+.muted { color: var(--ink-soft); }
+.small { font-size: .875rem; line-height: 1.6; }
+.center { text-align: center; }
+
+/* ---------- アプリバー ---------- */
 .appbar {
   position: sticky; top: 0; z-index: 20;
-  background: var(--green); color: #fff;
-  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
   display: flex; align-items: baseline; gap: 10px;
-  box-shadow: var(--shadow);
+  background: var(--paper); border-bottom: 1px solid var(--line);
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
 }
-.appbar h1 { font-size: 1.05rem; letter-spacing: .12em; font-weight: 700; white-space: nowrap; }
-.appbar .sub { font-size: .68rem; opacity: .85; letter-spacing: .05em; white-space: nowrap; }
+.appbar h1 { font-size: 1.0625rem; font-weight: 700; letter-spacing: .06em; white-space: nowrap; }
+.appbar h1::before { content: ""; display: inline-block; width: 10px; height: 10px; background: var(--seal);
+  border-radius: 1px; transform: rotate(45deg); margin-right: 9px; vertical-align: .02em; }
+.appbar .sub { font-size: .875rem; color: var(--ink-soft); white-space: nowrap; }
 @media (max-width: 480px) { .appbar .sub { display: none; } }
-.appbar .lock { margin-left: auto; font-size: .66rem; background: rgba(255,255,255,.16); border-radius: 99px; padding: 2px 9px; white-space: nowrap; }
-main { max-width: 640px; margin: 0 auto; padding: 16px 14px 32px; }
-h2 { font-size: 1.02rem; margin: 20px 0 10px; letter-spacing: .04em; }
-h2:first-child { margin-top: 4px; }
-h3 { font-size: .92rem; margin: 14px 0 6px; }
-p.lead { color: var(--ink-soft); font-size: .86rem; margin-bottom: 12px; }
-.card {
-  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-  padding: 14px 16px; margin-bottom: 12px; box-shadow: var(--shadow);
-}
-.card.plain { box-shadow: none; }
-.muted { color: var(--ink-soft); font-size: .82rem; }
-.small { font-size: .8rem; }
-.center { text-align: center; }
+.appbar .lock { margin-left: auto; font-size: .875rem; color: var(--ink-soft);
+  border: 1px solid var(--line); border-radius: 9999px; padding: 1px 10px; white-space: nowrap; }
+main { max-width: 640px; margin: 0 auto; padding: 16px 14px 40px; }
+
+/* ---------- ボタン ---------- */
 button {
-  font: inherit; cursor: pointer; border: 1px solid var(--line);
-  background: var(--card); color: var(--ink); border-radius: 11px; padding: 9px 14px;
+  font: inherit; letter-spacing: .02em; line-height: 1.35; cursor: pointer;
+  border: 1px solid var(--line-strong); background: var(--card); color: var(--ink);
+  border-radius: 8px; padding: 10px 14px; min-height: 44px;
+  transition: transform .12s var(--ease-out), background-color .12s linear, border-color .12s linear;
 }
-button:disabled { opacity: .45; cursor: not-allowed; }
-button.primary { background: var(--green); border-color: var(--green); color: #fff; font-weight: 700; letter-spacing: .04em; }
-button.big { width: 100%; padding: 13px; font-size: 1rem; border-radius: 13px; }
+button:active { transform: scale(.98); }
+button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+button.primary { background: var(--seal); border-color: var(--seal); color: var(--seal-ink); font-weight: 700; }
+button.big { width: 100%; padding: 13px 16px; }
 button.ghost { background: transparent; }
-button.chipbtn { border-radius: 99px; padding: 10px 14px; font-size: .82rem; min-height: 44px; }
-button.chipbtn.on { background: var(--green); color: #fff; border-color: var(--green); }
-.btnrow { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+button.chipbtn { border-radius: 9999px; font-size: .875rem; padding: 9px 14px; }
+button.chipbtn.on { background: var(--seal); border-color: var(--seal); color: var(--seal-ink); }
+button.dangerbtn { background: var(--magnet); border-color: var(--magnet); color: #fff; font-weight: 700; }
+@media (hover: hover) and (pointer: fine) {
+  button.primary:hover { background: var(--seal-deep); border-color: var(--seal-deep); }
+  button:not(.primary):not(.dangerbtn):hover { border-color: var(--ink-soft); }
+}
+.btnrow { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
 .btnrow button { flex: 1 1 auto; }
+
+/* ---------- フォーム ---------- */
 textarea, input[type=text], input[type=date], input[type=number], select {
-  font: inherit; width: 100%; border: 1px solid var(--line); border-radius: 10px;
-  background: var(--card); color: var(--ink); padding: 9px 11px;
+  font: inherit; letter-spacing: .02em; width: 100%;
+  border: 1px solid var(--line-strong); border-radius: 8px;
+  background: var(--card); color: var(--ink); padding: 10px 12px;
 }
 textarea { min-height: 72px; resize: vertical; }
-label.fld { display: block; margin: 10px 0 4px; font-size: .82rem; color: var(--ink-soft); }
-.tag { display: inline-block; background: var(--chip); border-radius: 99px; padding: 1px 10px; font-size: .72rem; margin: 0 4px 4px 0; color: var(--ink-soft); }
-.badge { display: inline-block; border-radius: 6px; padding: 0 7px; font-size: .72rem; font-weight: 700; letter-spacing: .03em; color: #fff; vertical-align: middle; }
-.badge.guideline { background: var(--danger); }
-.badge.research-based { background: #1f5da0; }
-.badge.coach-consensus { background: var(--green); }
-.badge.experimental { background: #8a6d1f; }
-.lvchip { font-size: .72rem; color: var(--ink-soft); border: 1px solid var(--line); border-radius: 99px; padding: 0 8px; }
+label.fld { display: block; margin: 18px 0 6px; font-size: .875rem; line-height: 1.6; color: var(--ink-soft); }
 
-/* 盤面 */
-.board { background: var(--green-soft); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin: 10px 0; }
-.scoreline { display: flex; align-items: baseline; justify-content: center; gap: 12px; font-variant-numeric: tabular-nums; }
-.scoreline .team { font-size: .78rem; color: var(--ink-soft); }
-.scoreline .num { font-size: 1.7rem; font-weight: 800; }
-.stateline { text-align: center; font-size: .92rem; margin-top: 2px; font-weight: 700; letter-spacing: .05em; font-variant-numeric: tabular-nums; }
-.boardrow { display: flex; align-items: center; justify-content: center; gap: 22px; margin-top: 8px; }
+/* ---------- タグ・バッジ ---------- */
+.tag { display: inline-block; background: var(--chip); border-radius: 9999px; padding: 1px 10px;
+  font-size: .875rem; line-height: 1.6; margin: 0 4px 4px 0; color: var(--ink-soft); }
+.badge { display: inline-block; border-radius: 6px; padding: 0 8px; font-size: .875rem; line-height: 1.5;
+  font-weight: 700; color: #fff; vertical-align: middle; }
+.badge.guideline { background: #b4470e; }
+.badge.research-based { background: #1e5fa8; }
+.badge.coach-consensus { background: #156b3f; }
+.badge.experimental { background: #7a611b; }
+.lvchip { font-size: .875rem; line-height: 1.5; color: var(--ink-soft);
+  border: 1px solid var(--line); border-radius: 9999px; padding: 0 9px; }
+
+/* ---------- カード（面のみ・線と影で囲まない） ---------- */
+.card { background: var(--card); border-radius: 12px; padding: 16px 16px 18px; margin-bottom: 16px; }
+.card.plain { background: transparent; padding: 0; }
+
+/* ---------- 盤面（主役・作戦盤そのもの） ---------- */
+.board { background: var(--board); color: var(--board-ink); border-radius: 12px; padding: 14px 16px 16px; margin: 12px 0; }
+.scoreline { display: flex; align-items: baseline; justify-content: center; gap: 14px; font-variant-numeric: tabular-nums; }
+.scoreline .team { font-size: .875rem; color: var(--board-soft); }
+.scoreline .num { font-size: 2.75rem; line-height: 1.15; font-weight: 700; letter-spacing: 0; }
+.stateline { text-align: center; font-size: 1rem; margin-top: 2px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.boardrow { display: flex; align-items: center; justify-content: center; gap: 24px; margin-top: 10px; }
 .diamond { position: relative; width: 84px; height: 66px; flex: none; }
-.diamond .base { position: absolute; width: 22px; height: 22px; transform: rotate(45deg); background: var(--card); border: 2px solid var(--ink-soft); border-radius: 4px; }
+.diamond .base { position: absolute; width: 22px; height: 22px; transform: rotate(45deg);
+  background: transparent; border: 2px solid var(--board-line); border-radius: 3px; }
 .diamond .b2 { top: 0; left: 31px; }
 .diamond .b3 { top: 30px; left: 2px; }
 .diamond .b1 { top: 30px; left: 60px; }
-.diamond .base.on { background: var(--accent); border-color: var(--accent); }
-.outsbox { text-align: center; font-size: .78rem; color: var(--ink-soft); }
+.diamond .base.on { background: var(--base-on); border-color: var(--base-on); }
+.outsbox { text-align: center; font-size: .875rem; color: var(--board-soft); }
 .outsbox .dots { display: flex; gap: 6px; justify-content: center; margin-top: 3px; }
-.outsbox .dot { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--ink-soft); }
-.outsbox .dot.on { background: var(--accent); border-color: var(--accent); }
-.countbox { text-align: center; font-size: .78rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-.countbox b { font-size: 1.05rem; color: var(--ink); }
-.extras { margin: 10px 4px 0; padding-left: 1.2em; font-size: .82rem; color: var(--ink-soft); }
-.narrative { margin: 10px 2px; font-size: .95rem; }
+.outsbox .dot { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--board-line); }
+.outsbox .dot.on { background: var(--base-on); border-color: var(--base-on); }
+.countbox { text-align: center; font-size: .875rem; color: var(--board-soft); font-variant-numeric: tabular-nums; }
+.countbox b { font-size: 1.25rem; color: var(--board-ink); }
+.extras { margin: 10px 4px 0; padding-left: 1.2em; font-size: .875rem; line-height: 1.6; color: var(--ink-soft); }
+.narrative { margin: 12px 2px; }
 
-/* 選択肢 */
-.opt { display: block; width: 100%; text-align: left; margin-bottom: 9px; padding: 11px 13px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--card); }
-.opt.sel { border-color: var(--green); background: var(--green-soft); }
-.opt .olabel { font-weight: 700; }
+/* ---------- 選択肢（かちり、と選ぶ） ---------- */
+.opt { display: block; width: 100%; text-align: left; margin-bottom: 10px; padding: 12px 14px;
+  border-radius: 8px; border: 1px solid var(--line-strong); background: var(--card); }
+.opt .olabel { font-weight: 700; display: flex; align-items: baseline; gap: 10px; }
+.opt .olabel::before { content: ""; flex: none; width: 9px; height: 9px;
+  transform: rotate(45deg); border: 1.5px solid var(--line-strong); border-radius: 1px; }
+.opt.sel { border-color: var(--seal); box-shadow: inset 0 0 0 1px var(--seal); }
+.opt.sel .olabel::before { background: var(--seal); border-color: var(--seal); }
 .conf { display: flex; gap: 8px; margin-top: 6px; }
-.conf button { flex: 1; font-size: .82rem; padding: 11px 4px; border-radius: 10px; min-height: 44px; }
-.conf button.on { background: var(--green); color: #fff; border-color: var(--green); }
-.stepper { display: flex; align-items: center; gap: 8px; font-size: .74rem; color: var(--ink-soft); margin-bottom: 10px; letter-spacing: .06em; }
-.stepper b { color: var(--ink); }
+.conf button { flex: 1; font-size: .875rem; padding: 11px 4px; }
+.conf button.on { background: var(--seal); color: var(--seal-ink); border-color: var(--seal); font-weight: 700; }
+.stepper { display: flex; align-items: center; gap: 8px; margin: 2px 2px 12px; }
+.stepper .dia { width: 10px; height: 10px; transform: rotate(45deg);
+  border: 1.5px solid var(--line-strong); border-radius: 1px; background: transparent; }
+.stepper .dia.done { background: var(--ink-soft); border-color: var(--ink-soft); }
+.stepper .dia.now { background: var(--seal); border-color: var(--seal); }
+.stepper .stext { font-size: .875rem; color: var(--ink-soft); margin-left: 4px; font-variant-numeric: tabular-nums; }
 
-/* 検討室 */
-.safety { background: var(--safety-bg); border: 1.5px solid var(--safety-line); border-radius: 12px; padding: 11px 13px; margin-bottom: 12px; font-size: .88rem; }
-.safety .shead { font-weight: 800; font-size: .8rem; letter-spacing: .06em; margin-bottom: 4px; }
-.cols { display: grid; grid-template-columns: 1fr; gap: 10px; }
+/* ---------- 検討室（見出し＋余白＋罫線で組む。箱は意味のあるものだけ） ---------- */
+.safety { background: var(--safety-bg); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+.safety .shead { font-weight: 700; font-size: .875rem; color: var(--safety-ink); margin-bottom: 4px; }
+.cols { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 14px; }
 @media (min-width: 560px) { .cols { grid-template-columns: 1fr 1fr; } }
-.col { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; }
-.col.wakare { border-left: 3px solid var(--accent); }
-.col.camp { background: var(--chip); }
-.col.camp b { font-size: .88rem; }
-.col .chead { font-size: .78rem; font-weight: 800; letter-spacing: .08em; color: var(--ink-soft); margin-bottom: 6px; }
-.col ul, .optreview ul { padding-left: 1.15em; font-size: .87rem; }
+.col .chead { font-size: .875rem; font-weight: 700; color: var(--ink-soft);
+  padding-bottom: 5px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+.col ul, .optreview ul { padding-left: 1.15em; }
 .col li { margin-bottom: 7px; }
-.optreview { margin-top: 12px; }
-.optreview .oitem { border: 1px solid var(--line); border-radius: 12px; padding: 10px 13px; margin-bottom: 9px; background: var(--card); font-size: .87rem; }
-.optreview .oitem.chosen { border-color: var(--green); box-shadow: 0 0 0 2px var(--green-soft); }
-.optreview .yours { color: var(--green); font-size: .72rem; font-weight: 800; letter-spacing: .06em; }
+.col.camp { background: var(--chip); border-radius: 8px; padding: 11px 13px; }
+.col.wakare { margin-top: 14px; }
+.col.wakare > .chead { color: var(--magnet); }
+.optreview { margin-top: 16px; }
+.optreview .oitem { border-top: 1px solid var(--line); padding: 12px 2px; }
+.optreview .oitem.chosen { background: var(--seal-soft); border-top-color: transparent; border-radius: 8px; padding: 12px 12px; }
+.optreview .yours { color: var(--seal); font-size: .875rem; font-weight: 700; }
 .optreview .aim { margin-top: 3px; }
 .optreview .ura { color: var(--ink-soft); margin-top: 2px; }
-.teigen { border-left: 4px solid var(--green); background: var(--card); border-radius: 0 12px 12px 0; padding: 10px 13px; margin: 10px 0; font-size: .88rem; border-top: 1px solid var(--line); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.teigen .lnote { margin-top: 6px; font-size: .82rem; color: var(--ink-soft); }
-.banner { background: var(--accent-soft); border: 1.5px solid var(--accent); color: var(--ink); border-radius: 12px; padding: 10px 13px; margin: 12px 0; font-weight: 700; font-size: .9rem; text-align: center; }
-.actualbox { border: 1.5px solid var(--green); border-radius: 12px; padding: 12px 14px; margin: 12px 0; background: var(--card); }
-.actualbox .ahead { font-size: .76rem; font-weight: 800; color: var(--green); letter-spacing: .08em; margin-bottom: 4px; }
-.sources { font-size: .76rem; color: var(--ink-soft); margin-top: 8px; padding-left: 1.1em; }
-.reasonbox { background: var(--chip); border-radius: 10px; padding: 8px 12px; font-size: .85rem; margin: 10px 0; }
-.refs { margin-top: 10px; }
-.refs .tag { background: transparent; border: 1px dashed var(--line); }
+.teigen { border-top: 1px solid var(--line); padding: 12px 2px 10px; }
+.teigen .lnote { margin-top: 6px; font-size: .875rem; line-height: 1.6; color: var(--ink-soft); }
+.banner { background: var(--chip); border-radius: 12px; padding: 12px 14px; margin: 14px 0;
+  font-size: .875rem; line-height: 1.6; color: var(--ink-soft); }
+.actualbox { background: var(--seal-soft); border-radius: 12px; padding: 14px 16px; margin: 14px 0; }
+.actualbox .ahead { font-size: .875rem; font-weight: 700; color: var(--seal); margin-bottom: 4px; }
+.sources { font-size: .875rem; line-height: 1.6; color: var(--ink-soft); margin-top: 8px; padding-left: 1.1em; }
+.reasonbox { background: var(--chip); border-radius: 8px; padding: 10px 12px; margin: 12px 0; }
+.refs { margin-top: 12px; }
+.refs .tag { background: transparent; border: 1px solid var(--line); }
 
-/* タブバー */
+/* ---------- タブバー（文字タブ・現在地は上端の線＋色＋太字） ---------- */
 .tabbar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
   display: flex; background: var(--card); border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
 }
-.tabbar button {
-  flex: 1; border: none; background: none; border-radius: 0;
-  padding: 7px 0 8px; font-size: .72rem; color: var(--ink-soft); line-height: 1.35;
-}
-.tabbar button .ico { display: block; font-size: 1.2rem; }
-.tabbar button.on { color: var(--green); font-weight: 700; }
+.tabbar button { position: relative; flex: 1; border: none; border-radius: 0; background: none;
+  min-height: 52px; padding: 8px 0; font-size: .875rem; color: var(--ink-soft); transition: none; }
+.tabbar button:active { transform: none; }
+.tabbar button.on { color: var(--seal); font-weight: 700; }
+.tabbar button.on::before { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 26px; height: 2px; background: var(--seal); }
 
-/* モーダル */
-.modalwrap { position: fixed; inset: 0; z-index: 50; background: rgba(20,26,31,.55); display: flex; align-items: flex-end; justify-content: center; }
+/* ---------- モーダル（浮くものなので影を使う） ---------- */
+.modalwrap { position: fixed; inset: 0; z-index: 50; background: rgba(18, 26, 20, .55);
+  display: flex; align-items: flex-end; justify-content: center; }
 @media (min-width: 560px) { .modalwrap { align-items: center; } }
-.modal { background: var(--card); border-radius: 18px 18px 0 0; width: 100%; max-width: 560px; max-height: 86vh; overflow-y: auto; padding: 18px 18px 24px; }
-@media (min-width: 560px) { .modal { border-radius: 18px; } }
+.modal { background: var(--card); border-radius: 16px 16px 0 0; width: 100%; max-width: 560px;
+  max-height: 86vh; overflow-y: auto; overscroll-behavior: contain;
+  padding: 20px 18px 24px; box-shadow: var(--shadow-float); }
+@media (min-width: 560px) { .modal { border-radius: 16px; } }
 .modal h3 { margin-top: 2px; }
-button.dangerbtn { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 700; }
 
-/* 画面内のお知らせ（window.alert の代替 — 端末により alert/confirm は黙って無視されるため使わない） */
-#notice-root { position: fixed; left: 0; right: 0; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 60; display: flex; justify-content: center; pointer-events: none; padding: 0 12px; }
-#notice-root .notice { pointer-events: auto; background: var(--ink); color: var(--paper); border-radius: 12px; padding: 11px 16px; font-size: .88rem; box-shadow: 0 4px 16px rgba(0,0,0,.22); max-width: 560px; }
-#notice-root .nclose { margin-left: 10px; background: none; border: 1px solid currentColor; color: inherit; border-radius: 8px; padding: 2px 10px; font-size: .8rem; min-height: 0; }
+/* ---------- 画面内のお知らせ（window.alert の代替。浮くものなので影を使う） ---------- */
+#notice-root { position: fixed; left: 0; right: 0; bottom: calc(70px + env(safe-area-inset-bottom));
+  z-index: 60; display: flex; justify-content: center; pointer-events: none; padding: 0 12px; }
+#notice-root .notice { pointer-events: auto; background: var(--ink); color: var(--paper);
+  border-radius: 10px; padding: 12px 16px; line-height: 1.6; box-shadow: var(--shadow-float);
+  max-width: 560px; animation: rise .16s var(--ease-out); }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+#notice-root .nclose { margin-left: 10px; background: none; border: 1px solid currentColor; color: inherit;
+  border-radius: 6px; padding: 2px 10px; font-size: .875rem; min-height: 0; }
 
-/* 一覧 */
-.listitem { border-bottom: 1px solid var(--line); padding: 10px 2px; }
+/* ---------- 一覧・記録 ---------- */
+.listitem { border-bottom: 1px solid var(--line); padding: 12px 2px; }
 .listitem:last-child { border-bottom: none; }
-.notecard { border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: 0 12px 12px 0; background: var(--card); padding: 11px 14px; margin-bottom: 10px; }
-.notecard .ntext { font-weight: 700; font-size: .93rem; white-space: pre-wrap; }
-.notecard .nmeta { margin-top: 6px; font-size: .72rem; color: var(--ink-soft); }
-.covtable { width: 100%; border-collapse: collapse; font-size: .8rem; font-variant-numeric: tabular-nums; }
-.covtable th, .covtable td { border-bottom: 1px solid var(--line); padding: 6px 6px; text-align: left; }
+.notecard { background: var(--card); border-radius: 12px; padding: 13px 15px; margin-bottom: 10px; }
+.notecard .ntext { font-weight: 700; white-space: pre-wrap; }
+.notecard .nmeta { margin-top: 6px; font-size: .875rem; line-height: 1.6; color: var(--ink-soft); }
+.covtable { width: 100%; border-collapse: collapse; font-size: .875rem; line-height: 1.35; font-variant-numeric: tabular-nums; }
+.covtable th, .covtable td { border-bottom: 1px solid var(--line); padding: 11px 8px; text-align: left; }
 .covtable td.n { text-align: right; }
-.done { color: var(--green); font-weight: 700; }
-.flag { color: var(--accent); }
-.timer { text-align: center; font-variant-numeric: tabular-nums; color: var(--ink-soft); font-size: .8rem; margin-bottom: 8px; }
-.timer.over { color: var(--accent); }
-.homehero { text-align: center; padding: 8px 0 4px; }
-.homehero .date { font-size: .78rem; color: var(--ink-soft); letter-spacing: .08em; }
-.reunion { border: 1.5px dashed var(--green); background: var(--green-soft); border-radius: 14px; padding: 12px 15px; margin: 12px 0; }
-.reunion .rhead { font-size: .74rem; font-weight: 800; color: var(--green); letter-spacing: .1em; margin-bottom: 4px; }
-.warnbox { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 12px; padding: 10px 13px; font-size: .85rem; margin: 10px 0; }
-.gamehead { font-size: .8rem; color: var(--ink-soft); border-bottom: 1px dashed var(--line); padding-bottom: 8px; margin-bottom: 8px; }
-.gamehead b { color: var(--ink); font-size: .92rem; display: block; }
+.done { color: var(--seal); font-weight: 700; }
+.flag { color: var(--magnet); border: 1px solid currentColor; border-radius: 9999px; padding: 0 8px; font-size: .875rem; }
+.timer { text-align: center; font-variant-numeric: tabular-nums; color: var(--ink-soft); font-size: .875rem; margin-bottom: 8px; }
+.timer.over { color: var(--magnet); }
+.homehero { text-align: center; padding: 10px 0 6px; }
+.homehero .date { font-size: .875rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.reunion { background: var(--seal-soft); border-radius: 12px; padding: 13px 15px; margin: 12px 0; }
+.reunion .rhead { font-size: .875rem; font-weight: 700; color: var(--seal); margin-bottom: 4px; }
+.warnbox { background: var(--magnet-soft); border-radius: 12px; padding: 11px 14px; margin: 10px 0; }
+.gamehead { font-size: .875rem; line-height: 1.6; color: var(--ink-soft);
+  border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 10px; }
+.gamehead b { color: var(--ink); font-size: 1rem; display: block; }
+button.dangerbtn { background: var(--magnet); border-color: var(--magnet); }
+
+/* ---------- 達成（土の色は、ここでしか出ない） ---------- */
+.setdone h2::before { background: var(--clay); width: 12px; height: 12px; animation: setpop .5s var(--ease-out); }
+@keyframes setpop { from { transform: rotate(45deg) scale(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+  html { scroll-behavior: auto; }
+}
 
 @media print {
-  .tabbar, .appbar, .noprint { display: none !important; }
+  .tabbar, .appbar, .noprint, button, #notice-root, #modal-root { display: none !important; }
   body { background: #fff; color: #000; padding: 0; }
-  .card, .notecard { box-shadow: none; break-inside: avoid; }
+  * { box-shadow: none !important; }
+  .card, .notecard, .reunion { background: #fff; border: 1px solid #999; break-inside: avoid; }
+  h2::before { display: none; }
+  h2, h3 { break-after: avoid; }
+  p { orphans: 3; widows: 3; }
   main { max-width: none; }
 }
 </style>
@@ -220,7 +325,7 @@ button.dangerbtn { background: var(--danger); border-color: var(--danger); color
 <header class="appbar">
   <h1>Tact</h1>
   <span class="sub">采配の千本ノック</span>
-  <span class="lock">🔒 データは端末内のみ</span>
+  <span class="lock">データは端末内のみ</span>
 </header>
 <main id="view"></main>
 <nav class="tabbar" id="tabbar"></nav>
@@ -337,7 +442,7 @@ function buildDailySet() {
     lastServed[r.cardId] = Math.max(lastServed[r.cardId] || 0, r.ts);
     for (const t of r.tags || []) tagLast[t] = Math.max(tagLast[t] || 0, r.ts);
   }
-  // 再ノック待ち: 自信度1 or 🚩 のカードで、14日以上経過し、その後出題されていないもの
+  // 再ノック待ち: 自信度1 or「異議あり」のカードで、14日以上経過し、その後出題されていないもの
   const due = new Set();
   for (const r of reps) {
     if ((r.conf === 1 || r.flag) && now - r.ts > 14 * DAY && lastServed[r.cardId] === r.ts) due.add(r.cardId);
@@ -400,6 +505,7 @@ function submitDecision() {
     conf: knock.conf, flag: false, followup: null, ruleIds: [],
   };
   reps.push(rep); saveReps(reps); knock.repId = rep.id;
+  markDailyConsumed(); // 決断を出した時点で消化済み。タブバーで離脱しても「続きから」が同じカードを返さない
   const fu = (card.followups || []).find((f) => f.when.includes(choice));
   knock.phase = fu ? "followup" : "discuss";
   render(); window.scrollTo(0, 0);
@@ -419,15 +525,29 @@ function toggleFlag() {
   const reps = getReps(); const rep = reps.find((r) => r.id === knock.repId);
   if (!rep) return; rep.flag = !rep.flag; saveReps(reps); render();
 }
+function hasNextDaily() { return !!knock && knock.mode === "daily" && knock.idx + 1 < knock.ids.length; }
+/* 今日のセットの進捗を「このカードは終わった」状態にする（何度呼んでも同じ） */
+function markDailyConsumed() {
+  if (!knock || knock.mode !== "daily") return;
+  const nextIdx = knock.idx + 1;
+  if (nextIdx < knock.ids.length) store.set("pendingSet", { ids: knock.ids, idx: nextIdx });
+  else store.del("pendingSet");
+}
+/* 検討室の「今日はここまで」— 途中で気持ちよく終われるように */
+function pauseSet() {
+  markDailyConsumed();
+  knock = null;
+  go({ name: "home" });
+  notice("ここまでを保存しました。続きはホームの「続きから」で。");
+}
 function finishCard() {
   if (knock.mode === "daily") {
     const nextIdx = knock.idx + 1;
+    markDailyConsumed();
     if (nextIdx < knock.ids.length) {
-      store.set("pendingSet", { ids: knock.ids, idx: nextIdx });
       knock = Object.assign(knock, { idx: nextIdx, phase: "present", chosen: null, free: "", reason: "", conf: 0, fuChosen: null, fuReason: "", repId: null, timerEnd: null });
       render(); window.scrollTo(0, 0);
     } else {
-      store.del("pendingSet");
       knock.phase = "setdone"; render(); window.scrollTo(0, 0);
     }
   } else {
@@ -492,7 +612,9 @@ function renderKnock() {
   const card = currentCard();
   if (!card) { knock = null; return renderHome(); }
   const isMei = knock.mode === "meikyusen";
-  const step = knock.mode === "daily" ? `<div class="stepper"><b>${knock.idx + 1}</b> / ${knock.ids.length} 本目</div>` : "";
+  const step = knock.mode === "daily"
+    ? `<div class="stepper">${knock.ids.map((_, i) => `<span class="dia${i < knock.idx ? " done" : i === knock.idx ? " now" : ""}"></span>`).join("")}<span class="stext">${knock.idx + 1}本目 / 全${knock.ids.length}本</span></div>`
+    : "";
   const tags = card.phaseTags.map((t) => `<span class="tag">${esc(t)}</span>`).join("") + ` <span class="lvchip">解像度 Lv${card.resolution}</span>`;
   const gamehead = isMei ? `<div class="gamehead"><b>${esc(card.game.name)}</b>${esc(card.game.date)}・${esc(card.game.place)}／視点: ${esc(card.game.viewpoint)}</div>` : "";
 
@@ -558,11 +680,11 @@ function renderKnock() {
   if (knock.phase === "setdone") {
     const reps = getReps().slice(-3);
     return `
-      <div class="card center">
+      <div class="card center setdone">
         <h2>今日の3本、捕りました</h2>
         <p class="muted small">ノックの本数は誇るための数字ではありません。残ったルールと、次の試合の現場ログだけが本物の成果です。</p>
       </div>
-      ${reps.map((r) => `<div class="listitem"><b>${esc(r.title)}</b><br><span class="muted small">→ ${esc(r.choice)}（自信度${r.conf}${r.flag ? "・🚩" : ""}）</span></div>`).join("")}
+      ${reps.map((r) => `<div class="listitem"><b>${esc(r.title)}</b><br><span class="muted small">→ ${esc(r.choice)}（自信度${r.conf}${r.flag ? "・異議あり" : ""}）</span></div>`).join("")}
       <div class="btnrow">
         <button class="big" onclick="go({name:'notes'})">ノートを見る</button>
         <button class="primary big" onclick="knock=null;go({name:'home'})">ホームへ</button>
@@ -577,14 +699,14 @@ function renderDiscussion(card, isMei, step, gamehead) {
   const rep = getRep(knock.repId);
   const d = card.discussion || {};
   const safety = d.safety ? `
-    <div class="safety"><div class="shead">⚠ 安全がからむ局面 <span class="badge guideline">guideline</span></div>
+    <div class="safety"><div class="shead">安全がからむ局面 <span class="badge guideline">guideline</span></div>
       ${esc(d.safety.text)}
       ${settings.kyusuMemo ? `<div class="muted small" style="margin-top:6px">うちの規定メモ: ${esc(settings.kyusuMemo)}</div>` : `<div class="muted small" style="margin-top:6px">（設定画面に、所属連盟の球数規定メモを書いておけます）</div>`}
     </div>` : "";
   const yourEcho = `<div class="reasonbox">あなたの決断: <b>${esc(rep.choice)}</b>（自信度${rep.conf}・${CONF_LABEL[rep.conf]}）<br>理由: ${esc(rep.reason)}${rep.followup ? `<br>二の手: <b>${esc(rep.followup.choice)}</b>${rep.followup.reason ? " — " + esc(rep.followup.reason) : ""}` : ""}</div>`;
   const wakare = card.divisive && d.camps && d.camps.length === 2 ? `
     <div class="col wakare">
-      <div class="chead">⚖ 監督でも分かれる論点 — どちらの側にも実績ある監督がいます</div>
+      <div class="chead">監督でも分かれる論点 — どちらの側にも実績ある監督がいます</div>
       <div class="cols" style="margin-top:6px">
         ${d.camps.map((c) => `<div class="col camp"><b>${esc(c.stance)}</b><div style="margin-top:4px">${esc(c.gist)}</div></div>`).join("")}
       </div>
@@ -613,14 +735,14 @@ function renderDiscussion(card, isMei, step, gamehead) {
     <div class="teigen">
       <span class="badge ${esc(t.evidence)}">${esc(t.evidence)}</span> <span class="muted small">${EVIDENCE_LABEL[t.evidence] || ""}</span>
       <div style="margin-top:4px">${esc(t.text)}</div>
-      <div class="lnote">📍 うちのレベルでは: ${esc(t.levelNote)}</div>
+      <div class="lnote">うちのレベルでは: ${esc(t.levelNote)}</div>
     </div>`).join("");
   const voice = d.voice ? `
     <div id="voicewrap">
-      <button class="chipbtn" onclick="$('#voicebody').style.display='block';this.style.display='none'">🗣 その指示、選手にどう伝える？（例を見る）</button>
+      <button class="chipbtn" onclick="$('#voicebody').style.display='block';this.style.display='none'">その指示、選手にどう伝える？（例を見る）</button>
       <div id="voicebody" style="display:none" class="col" >${esc(d.voice)}</div>
     </div>` : "";
-  const refs = d.refs && d.refs.length ? `<div class="refs muted small">📖 リポジトリの関連ページ: ${d.refs.map((r) => `<span class="tag">${esc(r)}</span>`).join("")}</div>` : "";
+  const refs = d.refs && d.refs.length ? `<div class="refs muted small">リポジトリの関連ページ:${d.refs.map((r) => `<span class="tag">${esc(r)}</span>`).join("")}</div>` : "";
 
   const actual = isMei ? `
     <div class="actualbox"><div class="ahead">実際の采配とその後</div>
@@ -630,7 +752,7 @@ function renderDiscussion(card, isMei, step, gamehead) {
       <ul class="sources">${card.actual.sources.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>
       <p class="muted small">事実関係は収録時（2026-07）に上記出典で確認したものです。</p>
     </div>
-    <div class="banner">⚖ ${esc(BANNER_TEXT)}</div>
+    <div class="banner">${esc(BANNER_TEXT)}</div>
     <div class="col"><div class="chead">比較の問い</div>${esc(card.compareQuestion)}</div>` : "";
 
   return `
@@ -650,13 +772,16 @@ function renderDiscussion(card, isMei, step, gamehead) {
       ${voice}
       ${refs}
       <div class="btnrow">
-        <button class="${getRep(knock.repId).flag ? "chipbtn on" : "chipbtn"}" onclick="toggleFlag()">🚩 この検討室に異議あり</button>
+        <button class="${getRep(knock.repId).flag ? "chipbtn on" : "chipbtn"}" onclick="toggleFlag()">この検討室に異議あり</button>
       </div>
-      <p class="muted small">🚩は「この定石はうちに合わない・局面が不自然」の印。責める道具ではなく、デッキを育てる材料です（記録画面で見返せます）。</p>
+      <p class="muted small">「異議あり」は「この定石はうちに合わない・局面が不自然」の印。責める道具ではなく、デッキを育てる材料です（記録画面で見返せます）。</p>
       <div class="btnrow">
-        <button class="big" onclick="openRuleModal(${esc(JSON.stringify(card.phaseTags)).replace(/"/g, "&quot;")}, ['${esc(card.id)}'])">✍ ルールにする</button>
-        <button class="primary big" id="nextbtn" onclick="finishCard()">${knock.mode === "daily" && knock.idx + 1 < knock.ids.length ? "次の1本へ" : "終える"}</button>
+        <button class="big" onclick="openRuleModal(${esc(JSON.stringify(card.phaseTags)).replace(/"/g, "&quot;")}, ['${esc(card.id)}'])">ルールにする</button>
+        <button class="primary big" id="nextbtn" onclick="finishCard()">${hasNextDaily() ? "次の1本へ" : "終える"}</button>
       </div>
+      ${hasNextDaily() ? `
+      <div class="btnrow"><button class="ghost big" onclick="pauseSet()">今日はここまで</button></div>
+      <p class="muted small">ここまでの${knock.idx + 1}本は記録に残ります。続きはホームの「続きから」で、次の1本から始まります。</p>` : ""}
     </div>`;
 }
 
@@ -698,7 +823,7 @@ function renderReplay() {
         <label class="fld">③ 勝敗の列と育成の列、それぞれで見るとどう見える？</label>
         <textarea rows="2" id="self3">${esc(s.winGrow || "")}</textarea>
         <div class="btnrow">
-          <button class="big" onclick="saveReplaySelf();openRuleModal(['持ち帰り'], ['${esc(item.id)}'])">✍ ルールにする</button>
+          <button class="big" onclick="saveReplaySelf();openRuleModal(['持ち帰り'], ['${esc(item.id)}'])">ルールにする</button>
           <button class="primary big" onclick="saveReplaySelf();knock=null;go({name:'mochikaeri'})">保存して終える</button>
         </div>
       </div>`;
@@ -735,10 +860,10 @@ function renderHome() {
       <div class="date">${todayStr()}　これまで ${reps.length} 本</div>
     </div>
     ${empty ? `<div class="card center"><h2>まず1本、捕ってみましょう</h2><p class="muted small">試合で困る場面をツールが打ち込みます。あなたは決めて、理由を一行。それだけです。<br>採点はありません — 決めるのは、いつもあなたです。</p></div>` : ""}
-    ${resume ? `<button class="primary big" onclick="startDaily()">続きから（${pending.idx + 1}/${pending.ids.length}本目）</button>` : `<button class="primary big" onclick="startDaily()">▶ 今日のノック（3本・5〜10分）</button>`}
+    ${resume ? `<button class="primary big" onclick="startDaily()">続きから（${pending.idx + 1}/${pending.ids.length}本目）</button>` : `<button class="primary big" onclick="startDaily()">今日のノック（3本・5〜10分）</button>`}
     <div class="btnrow">
-      <button class="big" onclick="go({name:'meikyusenList'})">🏟 名勝負ノック</button>
-      <button class="big" onclick="go({name:'mochiForm'})">✍ 試合の場面を持ち帰る</button>
+      <button class="big" onclick="go({name:'meikyusenList'})">名勝負ノック</button>
+      <button class="big" onclick="go({name:'mochiForm'})">試合の場面を持ち帰る</button>
     </div>
     ${reunion && !empty ? `<div class="reunion"><div class="rhead">最近のルール</div><div style="white-space:pre-wrap">${esc(reunion.text)}</div><div class="muted small" style="margin-top:4px">${fmtDate(reunion.ts)}</div></div>` : ""}
     <p class="muted small">毎日でなくていい。使わない日があっていい設計です（連続記録は数えていません）。<br>試合が近いなら → <a href="#" onclick="go({name:'brief'});return false">試合前ブリーフ</a></p>`;
@@ -750,7 +875,7 @@ function renderMeikyusenList() {
   return `
     <h2>名勝負ノック</h2>
     <p class="lead">実在の試合の局面を、実際の采配を伏せて出題します。決断のあとに「あの日の答え」と出典が開きます。</p>
-    <div class="banner">⚖ ${esc(BANNER_TEXT)}</div>
+    <div class="banner">${esc(BANNER_TEXT)}</div>
     ${MEIKYUSEN.map((c) => `
       <div class="card plain" style="cursor:pointer" onclick="startMeikyusen('${c.id}')">
         <div class="muted small">${esc(c.game.name)}${played.has(c.id) ? '　<span class="done">✓ 体験済み（もう一度でも）</span>' : ""}</div>
@@ -784,11 +909,11 @@ function renderNotes() {
           </div>
         </div>`).join("")}
       <div class="btnrow noprint">
-        <button class="big" onclick="go({name:'brief'})">🗒 試合前ブリーフを作る</button>
-        <button class="big" onclick="exportNotesMd()">⬇ Markdownで書き出す</button>
+        <button class="big" onclick="go({name:'brief'})">試合前ブリーフを作る</button>
+        <button class="big" onclick="exportNotesMd()">Markdownで書き出す</button>
       </div>
       <p class="muted small">タグで絞って見比べると、矛盾していそうなルールの組に自分で気づけます。統合するかどうかも、あなたが決めることです。</p>
-    ` : `<div class="card center"><p class="muted">まだルールはありません。<br>ノックの検討室で「✍ ルールにする」を押すと、ここに貯まっていきます。</p></div>`}`;
+    ` : `<div class="card center"><p class="muted">まだルールはありません。<br>ノックの検討室で「ルールにする」を押すと、ここに貯まっていきます。</p></div>`}`;
 }
 function editNote(id) {
   const notes = getNotes(); const n = notes.find((x) => x.id === id); if (!n) return;
@@ -847,7 +972,7 @@ function renderBrief() {
     ${strong.length ? `<h3>迷いなく捕れてきた球</h3>${strong.map((r) => `<div class="listitem"><b>${esc(r.title)}</b><br><span class="muted small">→ ${esc(r.choice)}</span></div>`).join("")}` : ""}
     <div class="card plain center" style="margin-top:14px"><b>準備はできています。あとはいつもの野球を。</b></div>
     <div class="btnrow noprint">
-      <button class="big" onclick="window.print()">🖨 印刷する</button>
+      <button class="big" onclick="window.print()">印刷する</button>
       <button class="primary big" onclick="go({name:'notes'})">← ノートへ</button>
     </div>`;
 }
@@ -866,7 +991,7 @@ function renderMochiList() {
         <b>${esc(m.scene)}</b>
         <div class="muted small">あの日の采配: ${esc(m.myCall)}</div>
         <div class="btnrow">
-          <button class="chipbtn" onclick="startReplay('${m.id}')">${m.replay ? "もう一度再ノック" : "▶ 再ノックする"}</button>
+          <button class="chipbtn" onclick="startReplay('${m.id}')">${m.replay ? "もう一度再ノック" : "再ノックする"}</button>
           <button class="chipbtn" onclick="deleteMochi('${m.id}')">削除</button>
         </div>
       </div>`).join("") : `<p class="muted small">まだありません。試合のあと、モヤモヤが新しいうちに3行だけ。</p>`}
@@ -876,7 +1001,7 @@ function renderMochiList() {
 function renderMochiForm() {
   return `
     <h2>試合の場面を持ち帰る</h2>
-    <div class="warnbox">🔒 選手の実名・相手校名は書かないでください。<b>背番号・ポジション・学年</b>で書きます（例:「6番の2年」「相手の4番」）。</div>
+    <div class="warnbox">選手の実名・相手校名は書かないでください。<b>背番号・ポジション・学年</b>で書きます（例:「6番の2年」「相手の4番」）。</div>
     <div class="card">
       <label class="fld">試合の日付</label>
       <input type="date" id="mdate" value="${todayStr()}">
@@ -976,8 +1101,8 @@ function renderRecords() {
     ${logs.map((l) => `<div class="listitem"><span class="muted small">${esc(l.date)}</span><br>${l.confident ? "○ " + esc(l.confident) + "<br>" : ""}${l.hesitated ? '<span class="muted">△ ' + esc(l.hesitated) + "</span>" : ""}</div>`).join("")}
     <h2>ノックの記録</h2>
     <p class="muted small">これまで ${reps.length} 本。本数は目標ではありません。</p>
-    ${recent.map((r) => `<div class="listitem"><b>${esc(r.title)}</b> <span class="lvchip">${esc(r.deck)}</span><br><span class="muted small">${fmtDate(r.ts)}　→ ${esc(r.choice)}（自信度${r.conf}）${r.flag ? ' <span class="flag">🚩</span>' : ""}${r.ruleIds && r.ruleIds.length ? "　✍ルール化済み" : ""}</span></div>`).join("") || '<p class="muted small">まだありません。</p>'}
-    ${flagged.length ? `<h3>🚩 異議ありの局面（デッキを育てる材料）</h3><p class="muted small">次にシチュエーションを追加・改訂するとき（Claudeセッションで）に、この一覧を伝えてください。</p>${flagged.map((r) => `<div class="listitem small">${esc(r.cardId)} — ${esc(r.title)}</div>`).join("")}` : ""}
+    ${recent.map((r) => `<div class="listitem"><b>${esc(r.title)}</b> <span class="lvchip">${esc(r.deck)}</span><br><span class="muted small">${fmtDate(r.ts)}　→ ${esc(r.choice)}（自信度${r.conf}）${r.flag ? ' <span class="flag">異議あり</span>' : ""}${r.ruleIds && r.ruleIds.length ? "　ルール化済み" : ""}</span></div>`).join("") || '<p class="muted small">まだありません。</p>'}
+    ${flagged.length ? `<h3>異議ありの局面（デッキを育てる材料）</h3><p class="muted small">次にシチュエーションを追加・改訂するとき（Claudeセッションで）に、この一覧を伝えてください。</p>${flagged.map((r) => `<div class="listitem small">${esc(r.cardId)} — ${esc(r.title)}</div>`).join("")}` : ""}
     <h2>局面タグのカバレッジ</h2>
     <p class="muted small">直近4週間で出ていないタグは、次のセットで優先的に出題されます。</p>
     <table class="covtable"><tr><th>タグ</th><th class="n">4週</th><th class="n">通算</th><th>最後に捕った日</th></tr>
@@ -1021,8 +1146,8 @@ function renderSettings() {
       <h3>データ（端末内のみ）</h3>
       <p class="muted small">この端末のブラウザにだけ保存されています。機種変更・ブラウザの掃除で消えるので、ときどき書き出しを。学校の共有端末では使わないでください。</p>
       <div class="btnrow">
-        <button onclick="exportAll()">⬇ すべて書き出す（JSON）</button>
-        <button onclick="$('#importfile').click()">⬆ 読み込む</button>
+        <button onclick="exportAll()">すべて書き出す（JSON）</button>
+        <button onclick="$('#importfile').click()">読み込む</button>
       </div>
       <input type="file" id="importfile" accept=".json" style="display:none" onchange="importAll(this)">
       <div class="btnrow"><button class="ghost" style="color:var(--danger)" onclick="resetAll()">全データを消去する</button></div>
@@ -1071,20 +1196,26 @@ function resetAll() {
 
 /* ---------- 描画ループ ---------- */
 const TABS = [
-  { key: "home", label: "ホーム", ico: "⚾" },
-  { key: "notes", label: "ノート", ico: "📓" },
-  { key: "mochikaeri", label: "持ち帰り", ico: "🎒" },
-  { key: "records", label: "記録", ico: "📈" },
-  { key: "settings", label: "設定", ico: "⚙" },
+  { key: "home", label: "ホーム" },
+  { key: "notes", label: "ノート" },
+  { key: "mochikaeri", label: "持ち帰り" },
+  { key: "records", label: "記録" },
+  { key: "settings", label: "設定" },
 ];
 function renderTabbar() {
   const active = screen.name === "knock" ? "" : (["meikyusenList", "brief"].includes(screen.name) ? "home" : (["mochiForm"].includes(screen.name) ? "mochikaeri" : screen.name));
-  $("#tabbar").innerHTML = TABS.map((t) => `<button class="${active === t.key ? "on" : ""}" onclick="leaveKnockAnd('${t.key}')"><span class="ico">${t.ico}</span>${t.label}</button>`).join("");
+  $("#tabbar").innerHTML = TABS.map((t) => `<button class="${active === t.key ? "on" : ""}" onclick="leaveKnockAnd('${t.key}')">${t.label}</button>`).join("");
 }
 function leaveKnockAnd(tab) {
   const doLeave = () => { if (screen.name === "knock") knock = null; go({ name: tab === "home" ? "home" : tab }); };
   if (screen.name === "knock" && knock && ["present", "followup"].includes(knock.phase)) {
-    askConfirm({ title: "ノックの途中です", body: "離れると、このカードの選択と理由は消えます。（今日のセットはホームの「続きから」で再開できます）", okLabel: "離れる", onOk: doLeave });
+    askConfirm({
+      title: "ノックの途中です",
+      body: knock.phase === "present"
+        ? "離れると、このカードの選択と理由は消えます。（今日のセットはホームの「続きから」で再開できます）"
+        : "決断はもう記録されています。離れると、二の手だけが未記入のまま残ります。（続きはホームの「続きから」で、次の1本から）",
+      okLabel: "離れる", onOk: doLeave,
+    });
     return;
   }
   doLeave();
