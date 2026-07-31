@@ -140,6 +140,11 @@ svg.cell.small{width:min(46vw, 180px)}
 
 /* ---- 設問 ---- */
 .qtext{font-size:18px; font-weight:600; line-height:1.7; margin:0 0 14px}
+/* テスト開始前の1枚は、カードの中の小見出しではなく「その画面の題」。
+   カード見出しの16pxだと問題文（18px）より小さく、題に見えなかった
+   （2026-07-30 本人指摘）。結果画面のレベル名26pxとは競らせない */
+#q-intro h2{font-size:22px; line-height:1.5; letter-spacing:.01em; margin:0 0 12px}
+#q-intro p{line-height:1.8}
 .choices{display:flex; flex-direction:column; gap:9px}
 .choices button{display:flex; gap:11px; align-items:flex-start}
 .choices .mark{
@@ -609,7 +614,7 @@ pre.diag{
     <div class="card hidden" id="q-intro">
       <h2>まず、いまの自分を知ろう</h2>
       <p>出るのは成績ではなく、スタート地点です。ここが分かると、次にやることがはっきりします。</p>
-      <p style="margin-top:10px"><b>わからない問題は「わからない」でだいじょうぶ。</b>まぐれで当たると、スタート地点がずれてしまいます。減点はありません。</p>
+      <p style="margin-top:10px"><b>わからない問題は「わからない」で大丈夫。</b>まぐれで当たると、スタート地点がずれてしまいます。減点はありません。</p>
       <p class="mini" style="margin-top:10px">30問・12分ほど。途中でやめても、そこまでの結果が出ます。</p>
       <button type="button" id="q-intro-go" class="btn-main" style="margin-top:14px">はじめる</button>
     </div>
