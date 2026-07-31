@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <!-- Tact — 采配の千本ノック。深緑の地にダイヤモンド（内野）とマウンド。 -->
+  <rect width="180" height="180" rx="40" fill="#2f6b4f"/>
+  <g transform="rotate(45 90 96)">
+    <rect x="50" y="56" width="80" height="80" rx="8" fill="none" stroke="#ffffff" stroke-width="10"/>
+  </g>
+  <circle cx="90" cy="96" r="11" fill="#f2c14e"/>
+</svg>

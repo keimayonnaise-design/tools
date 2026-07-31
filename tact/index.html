@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f6b4f">
+<meta name="apple-mobile-web-app-title" content="Tact">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Tact — 采配の千本ノック</title>
+<style>
+:root {
+  --paper: #f6f4ee;
+  --card: #ffffff;
+  --ink: #21313d;
+  --ink-soft: #5b6b76;
+  --line: #e2ddd2;
+  --green: #2f6b4f;
+  --green-soft: #e7f0eb;
+  --accent: #b4541e;
+  --accent-soft: #fbeee4;
+  --safety-bg: #fdf3e0;
+  --safety-line: #d9962e;
+  --danger: #b3261e;
+  --chip: #eee9dd;
+  --shadow: 0 1px 3px rgba(33,49,61,.08), 0 4px 14px rgba(33,49,61,.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #161c21;
+    --card: #1f272e;
+    --ink: #e6e2d8;
+    --ink-soft: #9aa7b0;
+    --line: #333e47;
+    --green: #6fae90;
+    --green-soft: #24352d;
+    --accent: #e0854f;
+    --accent-soft: #3a2a1f;
+    --safety-bg: #382c17;
+    --safety-line: #d9962e;
+    --danger: #e28680;
+    --chip: #2b333b;
+    --shadow: 0 1px 3px rgba(0,0,0,.4);
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { font-size: 16px; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body {
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic Medium", "Yu Gothic", Meiryo, system-ui, sans-serif;
+  background: var(--paper); color: var(--ink);
+  line-height: 1.75;
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+}
+.appbar {
+  position: sticky; top: 0; z-index: 20;
+  background: var(--green); color: #fff;
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  display: flex; align-items: baseline; gap: 10px;
+  box-shadow: var(--shadow);
+}
+.appbar h1 { font-size: 1.05rem; letter-spacing: .12em; font-weight: 700; white-space: nowrap; }
+.appbar .sub { font-size: .68rem; opacity: .85; letter-spacing: .05em; white-space: nowrap; }
+@media (max-width: 480px) { .appbar .sub { display: none; } }
+.appbar .lock { margin-left: auto; font-size: .66rem; background: rgba(255,255,255,.16); border-radius: 99px; padding: 2px 9px; white-space: nowrap; }
+main { max-width: 640px; margin: 0 auto; padding: 16px 14px 32px; }
+h2 { font-size: 1.02rem; margin: 20px 0 10px; letter-spacing: .04em; }
+h2:first-child { margin-top: 4px; }
+h3 { font-size: .92rem; margin: 14px 0 6px; }
+p.lead { color: var(--ink-soft); font-size: .86rem; margin-bottom: 12px; }
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px 16px; margin-bottom: 12px; box-shadow: var(--shadow);
+}
+.card.plain { box-shadow: none; }
+.muted { color: var(--ink-soft); font-size: .82rem; }
+.small { font-size: .8rem; }
+.center { text-align: center; }
+button {
+  font: inherit; cursor: pointer; border: 1px solid var(--line);
+  background: var(--card); color: var(--ink); border-radius: 11px; padding: 9px 14px;
+}
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.primary { background: var(--green); border-color: var(--green); color: #fff; font-weight: 700; letter-spacing: .04em; }
+button.big { width: 100%; padding: 13px; font-size: 1rem; border-radius: 13px; }
+button.ghost { background: transparent; }
+button.chipbtn { border-radius: 99px; padding: 10px 14px; font-size: .82rem; min-height: 44px; }
+button.chipbtn.on { background: var(--green); color: #fff; border-color: var(--green); }
+.btnrow { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.btnrow button { flex: 1 1 auto; }
+textarea, input[type=text], input[type=date], input[type=number], select {
+  font: inherit; width: 100%; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--card); color: var(--ink); padding: 9px 11px;
+}
+textarea { min-height: 72px; resize: vertical; }
+label.fld { display: block; margin: 10px 0 4px; font-size: .82rem; color: var(--ink-soft); }
+.tag { display: inline-block; background: var(--chip); border-radius: 99px; padding: 1px 10px; font-size: .72rem; margin: 0 4px 4px 0; color: var(--ink-soft); }
+.badge { display: inline-block; border-radius: 6px; padding: 0 7px; font-size: .72rem; font-weight: 700; letter-spacing: .03em; color: #fff; vertical-align: middle; }
+.badge.guideline { background: var(--danger); }
+.badge.research-based { background: #1f5da0; }
+.badge.coach-consensus { background: var(--green); }
+.badge.experimental { background: #8a6d1f; }
+.lvchip { font-size: .72rem; color: var(--ink-soft); border: 1px solid var(--line); border-radius: 99px; padding: 0 8px; }
+
+/* 盤面 */
+.board { background: var(--green-soft); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin: 10px 0; }
+.scoreline { display: flex; align-items: baseline; justify-content: center; gap: 12px; font-variant-numeric: tabular-nums; }
+.scoreline .team { font-size: .78rem; color: var(--ink-soft); }
+.scoreline .num { font-size: 1.7rem; font-weight: 800; }
+.stateline { text-align: center; font-size: .92rem; margin-top: 2px; font-weight: 700; letter-spacing: .05em; font-variant-numeric: tabular-nums; }
+.boardrow { display: flex; align-items: center; justify-content: center; gap: 22px; margin-top: 8px; }
+.diamond { position: relative; width: 84px; height: 66px; flex: none; }
+.diamond .base { position: absolute; width: 22px; height: 22px; transform: rotate(45deg); background: var(--card); border: 2px solid var(--ink-soft); border-radius: 4px; }
+.diamond .b2 { top: 0; left: 31px; }
+.diamond .b3 { top: 30px; left: 2px; }
+.diamond .b1 { top: 30px; left: 60px; }
+.diamond .base.on { background: var(--accent); border-color: var(--accent); }
+.outsbox { text-align: center; font-size: .78rem; color: var(--ink-soft); }
+.outsbox .dots { display: flex; gap: 6px; justify-content: center; margin-top: 3px; }
+.outsbox .dot { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--ink-soft); }
+.outsbox .dot.on { background: var(--accent); border-color: var(--accent); }
+.countbox { text-align: center; font-size: .78rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.countbox b { font-size: 1.05rem; color: var(--ink); }
+.extras { margin: 10px 4px 0; padding-left: 1.2em; font-size: .82rem; color: var(--ink-soft); }
+.narrative { margin: 10px 2px; font-size: .95rem; }
+
+/* 選択肢 */
+.opt { display: block; width: 100%; text-align: left; margin-bottom: 9px; padding: 11px 13px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--card); }
+.opt.sel { border-color: var(--green); background: var(--green-soft); }
+.opt .olabel { font-weight: 700; }
+.conf { display: flex; gap: 8px; margin-top: 6px; }
+.conf button { flex: 1; font-size: .82rem; padding: 11px 4px; border-radius: 10px; min-height: 44px; }
+.conf button.on { background: var(--green); color: #fff; border-color: var(--green); }
+.stepper { display: flex; align-items: center; gap: 8px; font-size: .74rem; color: var(--ink-soft); margin-bottom: 10px; letter-spacing: .06em; }
+.stepper b { color: var(--ink); }
+
+/* 検討室 */
+.safety { background: var(--safety-bg); border: 1.5px solid var(--safety-line); border-radius: 12px; padding: 11px 13px; margin-bottom: 12px; font-size: .88rem; }
+.safety .shead { font-weight: 800; font-size: .8rem; letter-spacing: .06em; margin-bottom: 4px; }
+.cols { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 560px) { .cols { grid-template-columns: 1fr 1fr; } }
+.col { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; }
+.col.wakare { border-left: 3px solid var(--accent); }
+.col.camp { background: var(--chip); }
+.col.camp b { font-size: .88rem; }
+.col .chead { font-size: .78rem; font-weight: 800; letter-spacing: .08em; color: var(--ink-soft); margin-bottom: 6px; }
+.col ul, .optreview ul { padding-left: 1.15em; font-size: .87rem; }
+.col li { margin-bottom: 7px; }
+.optreview { margin-top: 12px; }
+.optreview .oitem { border: 1px solid var(--line); border-radius: 12px; padding: 10px 13px; margin-bottom: 9px; background: var(--card); font-size: .87rem; }
+.optreview .oitem.chosen { border-color: var(--green); box-shadow: 0 0 0 2px var(--green-soft); }
+.optreview .yours { color: var(--green); font-size: .72rem; font-weight: 800; letter-spacing: .06em; }
+.optreview .aim { margin-top: 3px; }
+.optreview .ura { color: var(--ink-soft); margin-top: 2px; }
+.teigen { border-left: 4px solid var(--green); background: var(--card); border-radius: 0 12px 12px 0; padding: 10px 13px; margin: 10px 0; font-size: .88rem; border-top: 1px solid var(--line); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.teigen .lnote { margin-top: 6px; font-size: .82rem; color: var(--ink-soft); }
+.banner { background: var(--accent-soft); border: 1.5px solid var(--accent); color: var(--ink); border-radius: 12px; padding: 10px 13px; margin: 12px 0; font-weight: 700; font-size: .9rem; text-align: center; }
+.actualbox { border: 1.5px solid var(--green); border-radius: 12px; padding: 12px 14px; margin: 12px 0; background: var(--card); }
+.actualbox .ahead { font-size: .76rem; font-weight: 800; color: var(--green); letter-spacing: .08em; margin-bottom: 4px; }
+.sources { font-size: .76rem; color: var(--ink-soft); margin-top: 8px; padding-left: 1.1em; }
+.reasonbox { background: var(--chip); border-radius: 10px; padding: 8px 12px; font-size: .85rem; margin: 10px 0; }
+.refs { margin-top: 10px; }
+.refs .tag { background: transparent; border: 1px dashed var(--line); }
+
+/* タブバー */
+.tabbar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+  display: flex; background: var(--card); border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tabbar button {
+  flex: 1; border: none; background: none; border-radius: 0;
+  padding: 7px 0 8px; font-size: .72rem; color: var(--ink-soft); line-height: 1.35;
+}
+.tabbar button .ico { display: block; font-size: 1.2rem; }
+.tabbar button.on { color: var(--green); font-weight: 700; }
+
+/* モーダル */
+.modalwrap { position: fixed; inset: 0; z-index: 50; background: rgba(20,26,31,.55); display: flex; align-items: flex-end; justify-content: center; }
+@media (min-width: 560px) { .modalwrap { align-items: center; } }
+.modal { background: var(--card); border-radius: 18px 18px 0 0; width: 100%; max-width: 560px; max-height: 86vh; overflow-y: auto; padding: 18px 18px 24px; }
+@media (min-width: 560px) { .modal { border-radius: 18px; } }
+.modal h3 { margin-top: 2px; }
+button.dangerbtn { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 700; }
+
+/* 画面内のお知らせ（window.alert の代替 — 端末により alert/confirm は黙って無視されるため使わない） */
+#notice-root { position: fixed; left: 0; right: 0; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 60; display: flex; justify-content: center; pointer-events: none; padding: 0 12px; }
+#notice-root .notice { pointer-events: auto; background: var(--ink); color: var(--paper); border-radius: 12px; padding: 11px 16px; font-size: .88rem; box-shadow: 0 4px 16px rgba(0,0,0,.22); max-width: 560px; }
+#notice-root .nclose { margin-left: 10px; background: none; border: 1px solid currentColor; color: inherit; border-radius: 8px; padding: 2px 10px; font-size: .8rem; min-height: 0; }
+
+/* 一覧 */
+.listitem { border-bottom: 1px solid var(--line); padding: 10px 2px; }
+.listitem:last-child { border-bottom: none; }
+.notecard { border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: 0 12px 12px 0; background: var(--card); padding: 11px 14px; margin-bottom: 10px; }
+.notecard .ntext { font-weight: 700; font-size: .93rem; white-space: pre-wrap; }
+.notecard .nmeta { margin-top: 6px; font-size: .72rem; color: var(--ink-soft); }
+.covtable { width: 100%; border-collapse: collapse; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.covtable th, .covtable td { border-bottom: 1px solid var(--line); padding: 6px 6px; text-align: left; }
+.covtable td.n { text-align: right; }
+.done { color: var(--green); font-weight: 700; }
+.flag { color: var(--accent); }
+.timer { text-align: center; font-variant-numeric: tabular-nums; color: var(--ink-soft); font-size: .8rem; margin-bottom: 8px; }
+.timer.over { color: var(--accent); }
+.homehero { text-align: center; padding: 8px 0 4px; }
+.homehero .date { font-size: .78rem; color: var(--ink-soft); letter-spacing: .08em; }
+.reunion { border: 1.5px dashed var(--green); background: var(--green-soft); border-radius: 14px; padding: 12px 15px; margin: 12px 0; }
+.reunion .rhead { font-size: .74rem; font-weight: 800; color: var(--green); letter-spacing: .1em; margin-bottom: 4px; }
+.warnbox { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 12px; padding: 10px 13px; font-size: .85rem; margin: 10px 0; }
+.gamehead { font-size: .8rem; color: var(--ink-soft); border-bottom: 1px dashed var(--line); padding-bottom: 8px; margin-bottom: 8px; }
+.gamehead b { color: var(--ink); font-size: .92rem; display: block; }
+
+@media print {
+  .tabbar, .appbar, .noprint { display: none !important; }
+  body { background: #fff; color: #000; padding: 0; }
+  .card, .notecard { box-shadow: none; break-inside: avoid; }
+  main { max-width: none; }
+}
+</style>
+</head>
+<body>
+<header class="appbar">
+  <h1>Tact</h1>
+  <span class="sub">采配の千本ノック</span>
+  <span class="lock">🔒 データは端末内のみ</span>
+</header>
+<main id="view"></main>
+<nav class="tabbar" id="tabbar"></nav>
+<div id="modal-root"></div>
+<div id="notice-root"></div>
+<script src="decks/starter.deck.js"></script>
+<script src="decks/meikyusen.deck.js"></script>
+<script>
+"use strict";
+/* =========================================================================
+   Tact（タクト） — 采配トレーニング。AI不使用・オフライン完結の単一アプリ
+   仕様書: ../Tact 開発指示書.md（本実装はAI機能を持たない静的デッキ版。旧名: 采配ノック）
+   設計上の約束:
+     - 検討室は決断の提出後にしか描画されない（②の前に④は開かない — 順序はコードで強制）
+     - 「正解/不正解」を宣言するUI・語彙は存在しない（無裁定原則）
+     - データはすべて localStorage（端末内のみ）。エクスポートでバックアップ可能
+   ========================================================================= */
+
+/* ---------- 基盤 ---------- */
+const $ = (sel) => document.querySelector(sel);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const todayStr = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+const fmtDate = (ts) => { const d = new Date(ts); return d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate(); };
+const DAY = 86400000;
+
+// 旧名「采配ノック」時代の saihai.* キーからの一回きり移行（キー単位・元データは消さない）
+(function migrateFromSaihai() {
+  const KEYS = ["settings", "reps", "notes", "mochikaeri", "fieldlog", "pendingSet"];
+  for (const k of KEYS) {
+    try {
+      if (localStorage.getItem("tact." + k) === null) {
+        const old = localStorage.getItem("saihai." + k);
+        if (old !== null) localStorage.setItem("tact." + k, old);
+      }
+    } catch (e) { /* 意図的に無視: 移行失敗でも旧キーは無傷のまま残り、新規状態で起動できる */ }
+  }
+})();
+
+const store = {
+  get(key, fallback) { try { const v = localStorage.getItem("tact." + key); return v ? JSON.parse(v) : fallback; } catch (e) { return fallback; } },
+  set(key, val) {
+    try { localStorage.setItem("tact." + key, JSON.stringify(val)); }
+    catch (e) {
+      // 容量超過などで保存に失敗しても、入力を画面に残したまま知らせる（黙って失うのが最悪）
+      if (typeof notice === "function") notice("保存できませんでした（" + e.name + "）。設定画面から書き出しでバックアップを取り、不要なデータを整理してください。", true);
+    }
+  },
+  del(key) { localStorage.removeItem("tact." + key); },
+};
+
+const DEFAULT_SETTINGS = { resolutionMax: 1, tempo: false, renmei: "", kyusuMemo: "", denreiMemo: "", kimegoto: "" };
+let settings = Object.assign({}, DEFAULT_SETTINGS, store.get("settings", {}));
+const saveSettings = () => store.set("settings", settings);
+
+const getReps = () => store.get("reps", []);
+const saveReps = (r) => store.set("reps", r);
+const getNotes = () => store.get("notes", []);
+const saveNotes = (n) => store.set("notes", n);
+const getMochi = () => store.get("mochikaeri", []);
+const saveMochi = (m) => store.set("mochikaeri", m);
+const getFieldlog = () => store.get("fieldlog", []);
+const saveFieldlog = (f) => store.set("fieldlog", f);
+
+const DECKS = window.TACT_DECKS || {};
+const STARTER = DECKS.starter || [];
+const MEIKYUSEN = DECKS.meikyusen || [];
+const cardById = (id) => STARTER.find((c) => c.id === id) || MEIKYUSEN.find((c) => c.id === id) || null;
+
+const TAGS = ["終盤僅差・攻撃", "序盤の先制機", "送りバントの是非", "盗塁・エンドラン", "スクイズ判断", "代打・代走", "ビハインドの反撃",
+  "終盤僅差・守備（前進守備）", "継投・球数", "敬遠・勝負", "ピンチの伝令", "守備位置・シフト",
+  "初回の入り", "ビッグイニング阻止", "流れが悪い時の一手", "大会形式・消耗管理",
+  "打者への指示", "走塁・本塁突入", "少人数の現実"];
+const EVIDENCE_LABEL = { "guideline": "公的ガイドライン", "research-based": "データの裏付け（外挿注意）", "coach-consensus": "広く行われる定石", "experimental": "試す価値（確度低）" };
+const CONF_LABEL = { 1: "迷った", 2: "まあ決めた", 3: "迷いなし" };
+const BANNER_TEXT = "結果は正解の証明ではない — 名勝負として残った采配は、成功したから残った（生存バイアス）。良い判断でも裏目は出るし、その逆もある。";
+
+/* ---------- 画面状態 ---------- */
+let screen = { name: "home" };
+let knock = null; // { mode, ids, idx, phase, chosen, free, reason, conf, fuChosen, fuReason, repId, reunionDone, mochiId }
+let timerHandle = null;
+
+function go(next) { screen = next; render(); window.scrollTo(0, 0); }
+
+/* ---------- 盤面描画 ---------- */
+function boardHtml(board, rules) {
+  if (!board) return "";
+  const innings = (rules && rules.innings) || 9;
+  const r = board.runners || [];
+  const on = (b) => (r.includes(b) ? " on" : "");
+  const outsDots = [0, 1, 2].map((i) => `<span class="dot${i < board.outs ? " on" : ""}"></span>`).join("");
+  const batter = board.batterOrder ? `打者 ${board.batterOrder}番` : "";
+  const count = board.count ? `<div class="countbox">カウント<br><b>${board.count.b}-${board.count.s}</b></div>` : "";
+  const extras = (board.extras && board.extras.length) ? `<ul class="extras">${board.extras.map((e) => `<li>${esc(e)}</li>`).join("")}</ul>` : "";
+  return `
+  <div class="board">
+    <div class="scoreline"><span class="team">うち</span><span class="num">${board.score.us}</span><span class="team">—</span><span class="num">${board.score.opp}</span><span class="team">相手</span></div>
+    <div class="stateline">${board.inning}回${esc(board.topBottom)}（${innings}回制${rules && rules.extra ? "・延長" : ""}）　${batter ? esc(batter) : ""}</div>
+    <div class="boardrow">
+      <div class="outsbox">アウト<div class="dots">${outsDots}</div></div>
+      <div class="diamond"><span class="base b2${on("二塁")}"></span><span class="base b3${on("三塁")}"></span><span class="base b1${on("一塁")}"></span></div>
+      ${count || `<div class="countbox" style="visibility:hidden">カウント<br><b>0-0</b></div>`}
+    </div>
+    ${extras}
+  </div>`;
+}
+
+/* ---------- セット構築（タグカバレッジ・再ノック待ち行列を考慮 / 決定的ロジック＋少しの乱数） ---------- */
+function buildDailySet() {
+  const reps = getReps();
+  const now = Date.now();
+  const lastServed = {}; const tagLast = {};
+  for (const r of reps) {
+    lastServed[r.cardId] = Math.max(lastServed[r.cardId] || 0, r.ts);
+    for (const t of r.tags || []) tagLast[t] = Math.max(tagLast[t] || 0, r.ts);
+  }
+  // 再ノック待ち: 自信度1 or 🚩 のカードで、14日以上経過し、その後出題されていないもの
+  const due = new Set();
+  for (const r of reps) {
+    if ((r.conf === 1 || r.flag) && now - r.ts > 14 * DAY && lastServed[r.cardId] === r.ts) due.add(r.cardId);
+  }
+  const pool = STARTER.filter((c) => c.resolution <= settings.resolutionMax);
+  const scored = pool.map((c) => {
+    let s = Math.random();
+    const ls = lastServed[c.id];
+    if (!ls) s += 3; else { s += Math.min((now - ls) / DAY / 10, 2); if (now - ls < 10 * DAY) s -= 5; }
+    let tagBonus = 0;
+    for (const t of c.phaseTags) if (!tagLast[t] || now - tagLast[t] > 28 * DAY) tagBonus += 1.5;
+    s += Math.min(tagBonus, 3);
+    if (due.has(c.id)) s += 4;
+    return { c, s };
+  }).sort((a, b) => b.s - a.s);
+  const picked = []; const usedTags = new Set();
+  for (const { c } of scored) {
+    if (picked.length >= 3) break;
+    const primary = c.phaseTags[0];
+    if (usedTags.has(primary) && scored.length - picked.length > 3) continue;
+    picked.push(c.id); usedTags.add(primary);
+  }
+  for (const { c } of scored) { if (picked.length >= 3) break; if (!picked.includes(c.id)) picked.push(c.id); }
+  return picked;
+}
+
+/* ---------- ノック開始 ---------- */
+function startDaily() {
+  const pending = store.get("pendingSet", null);
+  let ids, idx;
+  if (pending && pending.ids && pending.idx > 0 && pending.idx < pending.ids.length) { ids = pending.ids; idx = pending.idx; }
+  else { ids = buildDailySet(); idx = 0; }
+  if (!ids.length) { notice("出題できるカードがありません。設定で解像度を確認してください。", true); return; }
+  store.set("pendingSet", { ids, idx });
+  knock = { mode: "daily", ids, idx, phase: "reunion", chosen: null, free: "", reason: "", conf: 0, fuChosen: null, fuReason: "", repId: null, timerEnd: null };
+  if (!getNotes().length || idx > 0) knock.phase = "present";
+  go({ name: "knock" });
+}
+function startMeikyusen(id) {
+  knock = { mode: "meikyusen", ids: [id], idx: 0, phase: "present", chosen: null, free: "", reason: "", conf: 0, fuChosen: null, fuReason: "", repId: null };
+  go({ name: "knock" });
+}
+function startReplay(mochiId) {
+  knock = { mode: "replay", ids: [], idx: 0, phase: "present", chosen: null, free: "", reason: "", conf: 0, repId: null, mochiId };
+  go({ name: "knock" });
+}
+
+/* ---------- 決断の提出（ここで初めて記録され、検討室が開く） ---------- */
+function currentCard() { return knock ? cardById(knock.ids[knock.idx]) : null; }
+
+function submitDecision() {
+  const card = currentCard();
+  if (!card || knock.phase !== "present") return;
+  const choice = knock.chosen != null ? card.options[knock.chosen].label : (knock.free.trim() || null);
+  if (!choice || knock.reason.trim().length < 2 || !knock.conf) return;
+  const reps = getReps();
+  const rep = {
+    id: uid(), ts: Date.now(), cardId: card.id, deck: card.source, title: card.title,
+    tags: card.phaseTags, choice, free: knock.chosen == null, reason: knock.reason.trim(),
+    conf: knock.conf, flag: false, followup: null, ruleIds: [],
+  };
+  reps.push(rep); saveReps(reps); knock.repId = rep.id;
+  const fu = (card.followups || []).find((f) => f.when.includes(choice));
+  knock.phase = fu ? "followup" : "discuss";
+  render(); window.scrollTo(0, 0);
+}
+function submitFollowup() {
+  const card = currentCard();
+  const fu = (card.followups || []).find((f) => f.when.includes(getRep(knock.repId).choice));
+  if (!fu || knock.fuChosen == null) return;
+  const reps = getReps(); const rep = reps.find((r) => r.id === knock.repId);
+  rep.followup = { choice: fu.options[knock.fuChosen].label, reason: knock.fuReason.trim() };
+  saveReps(reps);
+  knock.phase = "discuss";
+  render(); window.scrollTo(0, 0);
+}
+function getRep(id) { return getReps().find((r) => r.id === id) || {}; }
+function toggleFlag() {
+  const reps = getReps(); const rep = reps.find((r) => r.id === knock.repId);
+  if (!rep) return; rep.flag = !rep.flag; saveReps(reps); render();
+}
+function finishCard() {
+  if (knock.mode === "daily") {
+    const nextIdx = knock.idx + 1;
+    if (nextIdx < knock.ids.length) {
+      store.set("pendingSet", { ids: knock.ids, idx: nextIdx });
+      knock = Object.assign(knock, { idx: nextIdx, phase: "present", chosen: null, free: "", reason: "", conf: 0, fuChosen: null, fuReason: "", repId: null, timerEnd: null });
+      render(); window.scrollTo(0, 0);
+    } else {
+      store.del("pendingSet");
+      knock.phase = "setdone"; render(); window.scrollTo(0, 0);
+    }
+  } else {
+    knock = null; go({ name: "home" });
+  }
+}
+
+/* ---------- ルール蒸留（AI下書きなし・本人の言葉で） ---------- */
+function openRuleModal(presetTags, sourceIds, afterSave) {
+  const tpl = "【いつ】\n【どうする】\n【なぜ】";
+  showModal(`
+    <h3>采配ノートにルールを書く</h3>
+    <p class="muted small">この一本から残したい「if-then」を、自分の言葉で。あとから編集できます。</p>
+    <textarea id="ruletext" rows="5" placeholder="例: 三塁に走者を置いたら、サインを出す前に「外された時どうするか」まで決めておく">${esc(tpl)}</textarea>
+    <label class="fld">タグ（この局面のタグが入っています）</label>
+    <div>${presetTags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+    <p id="rulewarn" class="small" style="display:none;color:var(--danger);margin-top:8px"></p>
+    <div class="btnrow">
+      <button class="ghost" onclick="closeModal()">やめる</button>
+      <button class="primary" id="rulesave">ノートに残す</button>
+    </div>
+  `);
+  $("#rulesave").onclick = () => {
+    const text = $("#ruletext").value.trim();
+    if (text.length < 8 || text === "【いつ】\n【どうする】\n【なぜ】") { const w = $("#rulewarn"); w.textContent = "自分の言葉で書けてから保存しましょう（テンプレのままは保存できません）"; w.style.display = "block"; return; }
+    const notes = getNotes();
+    const note = { id: uid(), ts: Date.now(), text, tags: presetTags, sources: sourceIds };
+    notes.push(note); saveNotes(notes);
+    if (knock && knock.repId) { const reps = getReps(); const rep = reps.find((r) => r.id === knock.repId); if (rep) { rep.ruleIds.push(note.id); saveReps(reps); } }
+    closeModal(); if (afterSave) afterSave(); render();
+  };
+}
+
+/* ---------- モーダル ---------- */
+function showModal(html) { $("#modal-root").innerHTML = `<div class="modalwrap" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`; }
+function closeModal() { $("#modal-root").innerHTML = ""; }
+
+/* ---------- 画面内の確認・お知らせ（window.confirm / alert は端末により黙って無視されるため使わない） ---------- */
+let confirmAction = null;
+function askConfirm(opts) {
+  confirmAction = opts.onOk;
+  showModal(`
+    <h3>${esc(opts.title)}</h3>
+    ${opts.body ? `<p class="small" style="white-space:pre-wrap">${esc(opts.body)}</p>` : ""}
+    ${opts.items && opts.items.length ? `<ul class="small">${opts.items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>` : ""}
+    <div class="btnrow">
+      <button class="ghost" onclick="confirmAction=null;closeModal()">やめる</button>
+      <button class="${opts.danger ? "dangerbtn" : "primary"}" onclick="runConfirmAction()">${esc(opts.okLabel || "実行する")}</button>
+    </div>`);
+}
+function runConfirmAction() { const fn = confirmAction; confirmAction = null; closeModal(); if (fn) fn(); }
+function notice(msg, sticky) {
+  const root = $("#notice-root");
+  root.innerHTML = `<div class="notice" role="status">${esc(msg)}${sticky ? ` <button class="nclose" onclick="this.closest('.notice').remove()">閉じる</button>` : ""}</div>`;
+  clearTimeout(notice._t);
+  if (!sticky) notice._t = setTimeout(() => { root.innerHTML = ""; }, 4000);
+}
+
+/* ---------- ノック画面 ---------- */
+function renderKnock() {
+  if (knock.mode === "replay") return renderReplay();
+  const card = currentCard();
+  if (!card) { knock = null; return renderHome(); }
+  const isMei = knock.mode === "meikyusen";
+  const step = knock.mode === "daily" ? `<div class="stepper"><b>${knock.idx + 1}</b> / ${knock.ids.length} 本目</div>` : "";
+  const tags = card.phaseTags.map((t) => `<span class="tag">${esc(t)}</span>`).join("") + ` <span class="lvchip">解像度 Lv${card.resolution}</span>`;
+  const gamehead = isMei ? `<div class="gamehead"><b>${esc(card.game.name)}</b>${esc(card.game.date)}・${esc(card.game.place)}／視点: ${esc(card.game.viewpoint)}</div>` : "";
+
+  if (knock.phase === "reunion") {
+    const notes = getNotes(); const last = notes[notes.length - 1];
+    return `
+      <div class="reunion"><div class="rhead">前回のルールと再会</div>
+        <div style="white-space:pre-wrap">${esc(last.text)}</div>
+        <div class="muted small" style="margin-top:6px">${last.tags.map(esc).join(" / ")}　${fmtDate(last.ts)}</div>
+      </div>
+      <p class="muted small">復習であって宿題ではありません。眺めたら、今日の1本目へ。</p>
+      <button class="primary big" onclick="knock.phase='present';render()">今日のノックを始める</button>`;
+  }
+
+  if (knock.phase === "present") {
+    const canSubmit = (knock.chosen != null || knock.free.trim().length >= 2) && knock.reason.trim().length >= 2 && knock.conf;
+    const timer = settings.tempo ? `<div class="timer" id="timer">30</div>` : "";
+    return `
+      ${step}
+      <div class="card">
+        ${gamehead}
+        <div>${tags}</div>
+        <h2>${esc(card.title)}</h2>
+        ${boardHtml(card.board, card.rules)}
+        <p class="narrative">${esc(card.narrative)}</p>
+        ${timer}
+        <h3>あなたの決断は？</h3>
+        ${card.options.map((o, i) => `<button class="opt${knock.chosen === i ? " sel" : ""}" onclick="knock.chosen=${i};knock.free='';render()"><span class="olabel">${esc(o.label)}</span></button>`).join("")}
+        <label class="fld">または自由記述（上の選択肢の代わりに）</label>
+        <input type="text" id="freein" value="${esc(knock.free)}" placeholder="自分ならこうする…" oninput="freeInput(this)">
+        <label class="fld">理由を一行（必須 — 言語化こそ稽古）</label>
+        <textarea id="reasonin" rows="2" placeholder="なぜその手か。一行でいい" oninput="knock.reason=this.value;refreshSubmit()">${esc(knock.reason)}</textarea>
+        <label class="fld">自信度</label>
+        <div class="conf">
+          ${[1, 2, 3].map((n) => `<button class="${knock.conf === n ? "on" : ""}" onclick="knock.conf=${n};render()">${n}・${CONF_LABEL[n]}</button>`).join("")}
+        </div>
+        <div class="btnrow"><button class="primary big" id="submitbtn" ${canSubmit ? "" : "disabled"} onclick="submitDecision()">この手でいく（検討室が開く）</button></div>
+        <p class="muted small center">検討室は決断を出すまで開きません。</p>
+      </div>`;
+  }
+
+  if (knock.phase === "followup") {
+    const rep = getRep(knock.repId);
+    const fu = (card.followups || []).find((f) => f.when.includes(rep.choice));
+    const can = knock.fuChosen != null;
+    return `
+      ${step}
+      <div class="card">
+        <div class="muted small">あなたの決断: <b>${esc(rep.choice)}</b> → その手が、こう転がった。</div>
+        <h2>二の手 — 裏目からの一手</h2>
+        <p class="narrative">${esc(fu.narrative)}</p>
+        ${boardHtml(fu.board, card.rules)}
+        <h3>もう一手だけ、決める</h3>
+        ${fu.options.map((o, i) => `<button class="opt${knock.fuChosen === i ? " sel" : ""}" onclick="knock.fuChosen=${i};render()"><span class="olabel">${esc(o.label)}</span></button>`).join("")}
+        <label class="fld">理由（任意・一言）</label>
+        <input type="text" value="${esc(knock.fuReason)}" oninput="knock.fuReason=this.value">
+        <div class="btnrow"><button class="primary big" ${can ? "" : "disabled"} onclick="submitFollowup()">この手でいく</button></div>
+      </div>`;
+  }
+
+  if (knock.phase === "discuss") return renderDiscussion(card, isMei, step, gamehead);
+
+  if (knock.phase === "setdone") {
+    const reps = getReps().slice(-3);
+    return `
+      <div class="card center">
+        <h2>今日の3本、捕りました</h2>
+        <p class="muted small">ノックの本数は誇るための数字ではありません。残ったルールと、次の試合の現場ログだけが本物の成果です。</p>
+      </div>
+      ${reps.map((r) => `<div class="listitem"><b>${esc(r.title)}</b><br><span class="muted small">→ ${esc(r.choice)}（自信度${r.conf}${r.flag ? "・🚩" : ""}）</span></div>`).join("")}
+      <div class="btnrow">
+        <button class="big" onclick="go({name:'notes'})">ノートを見る</button>
+        <button class="primary big" onclick="knock=null;go({name:'home'})">ホームへ</button>
+      </div>
+      <p class="muted small center" style="margin-top:10px">慣れてきたら、設定で「解像度」を上げると同じ盤面でも景色が変わります。</p>`;
+  }
+  return "";
+}
+
+/* ---------- 検討室（decision 提出後にのみ到達） ---------- */
+function renderDiscussion(card, isMei, step, gamehead) {
+  const rep = getRep(knock.repId);
+  const d = card.discussion || {};
+  const safety = d.safety ? `
+    <div class="safety"><div class="shead">⚠ 安全がからむ局面 <span class="badge guideline">guideline</span></div>
+      ${esc(d.safety.text)}
+      ${settings.kyusuMemo ? `<div class="muted small" style="margin-top:6px">うちの規定メモ: ${esc(settings.kyusuMemo)}</div>` : `<div class="muted small" style="margin-top:6px">（設定画面に、所属連盟の球数規定メモを書いておけます）</div>`}
+    </div>` : "";
+  const yourEcho = `<div class="reasonbox">あなたの決断: <b>${esc(rep.choice)}</b>（自信度${rep.conf}・${CONF_LABEL[rep.conf]}）<br>理由: ${esc(rep.reason)}${rep.followup ? `<br>二の手: <b>${esc(rep.followup.choice)}</b>${rep.followup.reason ? " — " + esc(rep.followup.reason) : ""}` : ""}</div>`;
+  const wakare = card.divisive && d.camps && d.camps.length === 2 ? `
+    <div class="col wakare">
+      <div class="chead">⚖ 監督でも分かれる論点 — どちらの側にも実績ある監督がいます</div>
+      <div class="cols" style="margin-top:6px">
+        ${d.camps.map((c) => `<div class="col camp"><b>${esc(c.stance)}</b><div style="margin-top:4px">${esc(c.gist)}</div></div>`).join("")}
+      </div>
+      <p class="muted small" style="margin:6px 0 0">どちらに立つかより、「自分はなぜそちらに立つか」を言えることがこのノックの捕り方です。</p>
+    </div>` : "";
+  const cols = `
+    ${wakare}
+    <div class="cols">
+      <div class="col"><div class="chead">勝敗の列 — 判断を分ける要素</div><ul>${(d.points.win || []).map((p) => `<li>${esc(p)}</li>`).join("")}</ul></div>
+      <div class="col"><div class="chead">育成の列 — 選手が育つ視点</div><ul>${(d.points.grow || []).map((p) => `<li>${esc(p)}</li>`).join("")}</ul></div>
+    </div>`;
+  const optreview = `
+    <div class="optreview"><h3>各選択肢の狙いと裏目（選ばなかった手も含めて）</h3>
+      ${card.options.map((o) => `
+        <div class="oitem${o.label === rep.choice ? " chosen" : ""}">
+          ${o.label === rep.choice ? '<span class="yours">あなたの選択</span><br>' : ""}
+          <b>${esc(o.label)}</b>${o.noMove ? ' <span class="lvchip">動かない系</span>' : ""}
+          <div class="aim">狙い: ${esc(o.aim)}</div>
+          <div class="ura">裏目: ${esc(o.ura)}</div>
+        </div>`).join("")}
+      ${rep.free ? `<p class="muted small">自由記述の手（${esc(rep.choice)}）を選びました。上の選択肢の構造と見比べて、自分の手の「狙いと裏目」も言葉にしてみてください。</p>` : ""}
+    </div>`;
+  const fuPlayed = rep.followup && (card.followups || []).find((f) => f.when.includes(rep.choice));
+  const fuReview = fuPlayed && fuPlayed.points ? `<div class="col" style="margin-top:10px"><div class="chead">二の手の視点</div><ul>${fuPlayed.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul></div>` : "";
+  const teigens = (d.teigen || []).map((t) => `
+    <div class="teigen">
+      <span class="badge ${esc(t.evidence)}">${esc(t.evidence)}</span> <span class="muted small">${EVIDENCE_LABEL[t.evidence] || ""}</span>
+      <div style="margin-top:4px">${esc(t.text)}</div>
+      <div class="lnote">📍 うちのレベルでは: ${esc(t.levelNote)}</div>
+    </div>`).join("");
+  const voice = d.voice ? `
+    <div id="voicewrap">
+      <button class="chipbtn" onclick="$('#voicebody').style.display='block';this.style.display='none'">🗣 その指示、選手にどう伝える？（例を見る）</button>
+      <div id="voicebody" style="display:none" class="col" >${esc(d.voice)}</div>
+    </div>` : "";
+  const refs = d.refs && d.refs.length ? `<div class="refs muted small">📖 リポジトリの関連ページ: ${d.refs.map((r) => `<span class="tag">${esc(r)}</span>`).join("")}</div>` : "";
+
+  const actual = isMei ? `
+    <div class="actualbox"><div class="ahead">実際の采配とその後</div>
+      <b>${esc(card.actual.decision)}</b>
+      <p style="margin-top:6px">${esc(card.actual.result)}</p>
+      ${card.actual.context ? `<p class="muted small" style="margin-top:6px">${esc(card.actual.context)}</p>` : ""}
+      <ul class="sources">${card.actual.sources.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>
+      <p class="muted small">事実関係は収録時（2026-07）に上記出典で確認したものです。</p>
+    </div>
+    <div class="banner">⚖ ${esc(BANNER_TEXT)}</div>
+    <div class="col"><div class="chead">比較の問い</div>${esc(card.compareQuestion)}</div>` : "";
+
+  return `
+    ${step}
+    <div class="card">
+      ${gamehead}
+      <h2>検討室 — 採点はしません</h2>
+      <p class="muted small">開くのは、論点・各選択肢の構造・定石とその由来。決めたのはあなたで、これからも毎回そうです。</p>
+      ${safety}
+      ${yourEcho}
+      ${actual}
+      ${cols}
+      ${fuReview}
+      ${optreview}
+      <h3>定石とその由来</h3>
+      ${teigens}
+      ${voice}
+      ${refs}
+      <div class="btnrow">
+        <button class="${getRep(knock.repId).flag ? "chipbtn on" : "chipbtn"}" onclick="toggleFlag()">🚩 この検討室に異議あり</button>
+      </div>
+      <p class="muted small">🚩は「この定石はうちに合わない・局面が不自然」の印。責める道具ではなく、デッキを育てる材料です（記録画面で見返せます）。</p>
+      <div class="btnrow">
+        <button class="big" onclick="openRuleModal(${esc(JSON.stringify(card.phaseTags)).replace(/"/g, "&quot;")}, ['${esc(card.id)}'])">✍ ルールにする</button>
+        <button class="primary big" id="nextbtn" onclick="finishCard()">${knock.mode === "daily" && knock.idx + 1 < knock.ids.length ? "次の1本へ" : "終える"}</button>
+      </div>
+    </div>`;
+}
+
+/* ---------- 持ち帰りノックの再ノック ---------- */
+function renderReplay() {
+  const item = getMochi().find((m) => m.id === knock.mochiId);
+  if (!item) { knock = null; return renderMochiList(); }
+  if (knock.phase === "present") {
+    const can = knock.free.trim().length >= 2 && knock.reason.trim().length >= 2 && knock.conf;
+    return `
+      <div class="card">
+        <div class="muted small">持ち帰りノック — あの場面をもう一度。今度は時間をかけて。</div>
+        <h2>${esc(item.date)} の試合から</h2>
+        ${item.board ? boardHtml(item.board, { innings: item.board.innings || 9, extra: true }) : ""}
+        <p class="narrative"><b>場面:</b> ${esc(item.scene)}</p>
+        <p class="narrative"><b>あの日の自分の采配:</b> ${esc(item.myCall)}</p>
+        <p class="narrative"><b>モヤモヤ:</b> ${esc(item.moyamoya)}</p>
+        <h3>落ち着いて、もう一度決断する</h3>
+        <label class="fld">今ならどうする？</label>
+        <textarea rows="2" oninput="knock.free=this.value;refreshSubmit()">${esc(knock.free)}</textarea>
+        <label class="fld">理由（必須）</label>
+        <textarea rows="2" id="reasonin" oninput="knock.reason=this.value;refreshSubmit()">${esc(knock.reason)}</textarea>
+        <label class="fld">自信度</label>
+        <div class="conf">${[1, 2, 3].map((n) => `<button class="${knock.conf === n ? "on" : ""}" onclick="knock.conf=${n};render()">${n}・${CONF_LABEL[n]}</button>`).join("")}</div>
+        <div class="btnrow"><button class="primary big" id="submitbtn" ${can ? "" : "disabled"} onclick="submitReplayDecision()">この手でいく（セルフ検討室へ）</button></div>
+      </div>`;
+  }
+  if (knock.phase === "discuss") {
+    const s = item.replay && item.replay.self || {};
+    return `
+      <div class="card">
+        <h2>セルフ検討室</h2>
+        <p class="muted small">AIは出てきません。自分への3つの問いに答えると、この場面は「教材」になります。</p>
+        <div class="reasonbox">今回の決断: <b>${esc(item.replay.decision)}</b>（自信度${item.replay.conf}）<br>理由: ${esc(item.replay.reason)}</div>
+        <label class="fld">① この判断を分ける要素はどれだった？（点差・アウト・走者の足・相手の癖…）</label>
+        <textarea rows="2" id="self1">${esc(s.factors || "")}</textarea>
+        <label class="fld">② 選んだ手が裏目に出たら、次の一手は？</label>
+        <textarea rows="2" id="self2">${esc(s.ura || "")}</textarea>
+        <label class="fld">③ 勝敗の列と育成の列、それぞれで見るとどう見える？</label>
+        <textarea rows="2" id="self3">${esc(s.winGrow || "")}</textarea>
+        <div class="btnrow">
+          <button class="big" onclick="saveReplaySelf();openRuleModal(['持ち帰り'], ['${esc(item.id)}'])">✍ ルールにする</button>
+          <button class="primary big" onclick="saveReplaySelf();knock=null;go({name:'mochikaeri'})">保存して終える</button>
+        </div>
+      </div>`;
+  }
+  return "";
+}
+function submitReplayDecision() {
+  const items = getMochi(); const item = items.find((m) => m.id === knock.mochiId);
+  if (!item || knock.free.trim().length < 2 || knock.reason.trim().length < 2 || !knock.conf) return;
+  item.replay = { decision: knock.free.trim(), reason: knock.reason.trim(), conf: knock.conf, self: (item.replay && item.replay.self) || {}, ts: Date.now() };
+  saveMochi(items);
+  const reps = getReps();
+  const rep = { id: uid(), ts: Date.now(), cardId: item.id, deck: "mochikaeri", title: "持ち帰り: " + item.scene.slice(0, 24), tags: ["持ち帰り"], choice: item.replay.decision, free: true, reason: item.replay.reason, conf: knock.conf, flag: false, followup: null, ruleIds: [] };
+  reps.push(rep); saveReps(reps); knock.repId = rep.id;
+  knock.phase = "discuss"; render(); window.scrollTo(0, 0);
+}
+function saveReplaySelf() {
+  const items = getMochi(); const item = items.find((m) => m.id === knock.mochiId);
+  if (!item || !item.replay) return;
+  item.replay.self = { factors: $("#self1").value.trim(), ura: $("#self2").value.trim(), winGrow: $("#self3").value.trim() };
+  saveMochi(items);
+}
+
+/* ---------- ホーム ---------- */
+function renderHome() {
+  const reps = getReps();
+  const notes = getNotes();
+  const pending = store.get("pendingSet", null);
+  const resume = pending && pending.ids && pending.idx > 0 && pending.idx < pending.ids.length;
+  const reunion = notes.length ? notes[notes.length - 1] : null;
+  const empty = !reps.length;
+  return `
+    <div class="homehero">
+      <div class="date">${todayStr()}　これまで ${reps.length} 本</div>
+    </div>
+    ${empty ? `<div class="card center"><h2>まず1本、捕ってみましょう</h2><p class="muted small">試合で困る場面をツールが打ち込みます。あなたは決めて、理由を一行。それだけです。<br>採点はありません — 決めるのは、いつもあなたです。</p></div>` : ""}
+    ${resume ? `<button class="primary big" onclick="startDaily()">続きから（${pending.idx + 1}/${pending.ids.length}本目）</button>` : `<button class="primary big" onclick="startDaily()">▶ 今日のノック（3本・5〜10分）</button>`}
+    <div class="btnrow">
+      <button class="big" onclick="go({name:'meikyusenList'})">🏟 名勝負ノック</button>
+      <button class="big" onclick="go({name:'mochiForm'})">✍ 試合の場面を持ち帰る</button>
+    </div>
+    ${reunion && !empty ? `<div class="reunion"><div class="rhead">最近のルール</div><div style="white-space:pre-wrap">${esc(reunion.text)}</div><div class="muted small" style="margin-top:4px">${fmtDate(reunion.ts)}</div></div>` : ""}
+    <p class="muted small">毎日でなくていい。使わない日があっていい設計です（連続記録は数えていません）。<br>試合が近いなら → <a href="#" onclick="go({name:'brief'});return false">試合前ブリーフ</a></p>`;
+}
+
+/* ---------- 名勝負一覧 ---------- */
+function renderMeikyusenList() {
+  const played = new Set(getReps().filter((r) => r.deck === "meikyusen").map((r) => r.cardId));
+  return `
+    <h2>名勝負ノック</h2>
+    <p class="lead">実在の試合の局面を、実際の采配を伏せて出題します。決断のあとに「あの日の答え」と出典が開きます。</p>
+    <div class="banner">⚖ ${esc(BANNER_TEXT)}</div>
+    ${MEIKYUSEN.map((c) => `
+      <div class="card plain" style="cursor:pointer" onclick="startMeikyusen('${c.id}')">
+        <div class="muted small">${esc(c.game.name)}${played.has(c.id) ? '　<span class="done">✓ 体験済み（もう一度でも）</span>' : ""}</div>
+        <b>${esc(c.title)}</b>
+        <div>${c.phaseTags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+      </div>`).join("")}
+    <button class="ghost big" onclick="go({name:'home'})">← ホームへ</button>`;
+}
+
+/* ---------- 采配ノート ---------- */
+let noteFilter = null;
+function renderNotes() {
+  const notes = getNotes().slice().reverse();
+  const tagsInUse = [...new Set(notes.flatMap((n) => n.tags))];
+  const shown = noteFilter ? notes.filter((n) => n.tags.includes(noteFilter)) : notes;
+  return `
+    <h2>僕の采配ノート</h2>
+    <p class="lead">ノックから蒸留した、自分の言葉のif-thenルール帳。試合前に見返す一枚に育てます。</p>
+    ${notes.length ? `
+      <div style="margin-bottom:10px">
+        <button class="chipbtn ${noteFilter === null ? "on" : ""}" onclick="noteFilter=null;render()">すべて</button>
+        ${tagsInUse.map((t) => `<button class="chipbtn ${noteFilter === t ? "on" : ""}" onclick="noteFilter='${esc(t)}';render()">${esc(t)}</button>`).join(" ")}
+      </div>
+      ${shown.map((n) => `
+        <div class="notecard">
+          <div class="ntext">${esc(n.text)}</div>
+          <div class="nmeta">${n.tags.map(esc).join(" / ")}　出典: ${n.sources.map(esc).join(", ")}　${fmtDate(n.ts)}</div>
+          <div class="btnrow noprint">
+            <button class="chipbtn" onclick="editNote('${n.id}')">編集</button>
+            <button class="chipbtn" onclick="deleteNote('${n.id}')">削除</button>
+          </div>
+        </div>`).join("")}
+      <div class="btnrow noprint">
+        <button class="big" onclick="go({name:'brief'})">🗒 試合前ブリーフを作る</button>
+        <button class="big" onclick="exportNotesMd()">⬇ Markdownで書き出す</button>
+      </div>
+      <p class="muted small">タグで絞って見比べると、矛盾していそうなルールの組に自分で気づけます。統合するかどうかも、あなたが決めることです。</p>
+    ` : `<div class="card center"><p class="muted">まだルールはありません。<br>ノックの検討室で「✍ ルールにする」を押すと、ここに貯まっていきます。</p></div>`}`;
+}
+function editNote(id) {
+  const notes = getNotes(); const n = notes.find((x) => x.id === id); if (!n) return;
+  showModal(`
+    <h3>ルールを編集</h3>
+    <textarea id="ruletext" rows="5">${esc(n.text)}</textarea>
+    <p id="rulewarn" class="small" style="display:none;color:var(--danger);margin-top:8px"></p>
+    <div class="btnrow"><button class="ghost" onclick="closeModal()">やめる</button><button class="primary" id="rulesave">保存</button></div>`);
+  $("#rulesave").onclick = () => {
+    const t = $("#ruletext").value.trim(); if (t.length < 8) { const w = $("#rulewarn"); w.textContent = "もう少しだけ言葉に。8文字以上で保存できます。"; w.style.display = "block"; return; }
+    n.text = t; n.updated = Date.now(); saveNotes(notes); closeModal(); render();
+  };
+}
+function deleteNote(id) {
+  askConfirm({
+    title: "このルールを削除しますか？", body: "元に戻せません。", okLabel: "削除する", danger: true,
+    onOk: () => { saveNotes(getNotes().filter((n) => n.id !== id)); render(); },
+  });
+}
+function download(filename, text, type) {
+  const blob = new Blob([text], { type: type || "text/plain;charset=utf-8" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+function exportNotesMd() {
+  const notes = getNotes(); if (!notes.length) return;
+  const byTag = {};
+  for (const n of notes) for (const t of n.tags) (byTag[t] = byTag[t] || []).push(n);
+  let md = `# 僕の采配ノート（${todayStr()} 書き出し）\n\n> Tact（采配の千本ノック）で自分の言葉にした if-then ルール集。\n`;
+  const donePut = new Set();
+  for (const t of Object.keys(byTag)) {
+    md += `\n## ${t}\n`;
+    for (const n of byTag[t]) { md += `- ${n.text.replace(/\n/g, " ／ ")}${donePut.has(n.id) ? "（再掲）" : ""}  \n  <small>出典: ${n.sources.join(", ")}・${fmtDate(n.ts)}</small>\n`; donePut.add(n.id); }
+  }
+  download(`采配ノート-${todayStr()}.md`, md, "text/markdown;charset=utf-8");
+}
+
+/* ---------- 試合前ブリーフ ---------- */
+function renderBrief() {
+  const notes = getNotes();
+  const reps = getReps();
+  const strong = [];
+  const seen = new Set();
+  for (let i = reps.length - 1; i >= 0 && strong.length < 5; i--) {
+    const r = reps[i];
+    if (r.conf === 3 && !r.flag && !seen.has(r.cardId)) { strong.push(r); seen.add(r.cardId); }
+  }
+  const byTag = {};
+  for (const n of notes) for (const t of n.tags) (byTag[t] = byTag[t] || []).push(n);
+  return `
+    <h2>試合前ブリーフ</h2>
+    <p class="lead noprint">自分のルールと、これまで「迷いなく捕れた」局面だけの一枚。<b>新しい難問はここには出ません。</b>いつも通りで。</p>
+    ${notes.length ? Object.keys(byTag).map((t) => `
+      <h3>${esc(t)}</h3>
+      ${byTag[t].map((n) => `<div class="notecard"><div class="ntext">${esc(n.text)}</div></div>`).join("")}`).join("") : `<p class="muted">まだルールがありません。ノックを重ねてから戻ってきてください。</p>`}
+    ${strong.length ? `<h3>迷いなく捕れてきた球</h3>${strong.map((r) => `<div class="listitem"><b>${esc(r.title)}</b><br><span class="muted small">→ ${esc(r.choice)}</span></div>`).join("")}` : ""}
+    <div class="card plain center" style="margin-top:14px"><b>準備はできています。あとはいつもの野球を。</b></div>
+    <div class="btnrow noprint">
+      <button class="big" onclick="window.print()">🖨 印刷する</button>
+      <button class="primary big" onclick="go({name:'notes'})">← ノートへ</button>
+    </div>`;
+}
+
+/* ---------- 持ち帰りノック ---------- */
+function renderMochiList() {
+  const items = getMochi().slice().reverse();
+  return `
+    <h2>持ち帰りノック</h2>
+    <p class="lead">試合で迷った場面を3行で持ち帰り、落ち着いてもう一度体験する場所。ここが一番の教材です。</p>
+    <button class="primary big" onclick="go({name:'mochiForm'})">＋ 試合の場面を持ち帰る</button>
+    <div style="height:10px"></div>
+    ${items.length ? items.map((m) => `
+      <div class="card plain">
+        <div class="muted small">${esc(m.date)}${m.replay ? '　<span class="done">✓ 再ノック済み</span>' : ""}</div>
+        <b>${esc(m.scene)}</b>
+        <div class="muted small">あの日の采配: ${esc(m.myCall)}</div>
+        <div class="btnrow">
+          <button class="chipbtn" onclick="startReplay('${m.id}')">${m.replay ? "もう一度再ノック" : "▶ 再ノックする"}</button>
+          <button class="chipbtn" onclick="deleteMochi('${m.id}')">削除</button>
+        </div>
+      </div>`).join("") : `<p class="muted small">まだありません。試合のあと、モヤモヤが新しいうちに3行だけ。</p>`}
+    <h3 class="noprint">現場ログ（成功指標はここ）</h3>
+    <p class="muted small">試合ごとに一行。「迷わず出せた指示」が増えていくことだけが、このツールの成功です。→ 記録画面で書けます。</p>`;
+}
+function renderMochiForm() {
+  return `
+    <h2>試合の場面を持ち帰る</h2>
+    <div class="warnbox">🔒 選手の実名・相手校名は書かないでください。<b>背番号・ポジション・学年</b>で書きます（例:「6番の2年」「相手の4番」）。</div>
+    <div class="card">
+      <label class="fld">試合の日付</label>
+      <input type="date" id="mdate" value="${todayStr()}">
+      <label class="fld">① 場面（1行）</label>
+      <input type="text" id="mscene" placeholder="例: 6回1死三塁、1点ビハインドで8番の打席">
+      <label class="fld">② 自分の采配（1行）</label>
+      <input type="text" id="mcall" placeholder="例: スクイズのサイン。外されて三走憤死">
+      <label class="fld">③ モヤモヤ（1行）</label>
+      <input type="text" id="mmoya" placeholder="例: 外される気配はあった。ベンチで頭が白くなった">
+      <details style="margin-top:10px" id="bdet"><summary class="muted small">盤面も記録する（任意 — 開いて入力すると保存されます）</summary>
+        <div class="btnrow" style="align-items:center">
+          <div style="flex:1"><label class="fld">イニング</label><input type="number" id="binning" min="1" max="15" value="7"></div>
+          <div style="flex:1"><label class="fld">表裏</label><select id="btb"><option>表</option><option>裏</option></select></div>
+          <div style="flex:1"><label class="fld">アウト</label><select id="bouts"><option>0</option><option>1</option><option>2</option></select></div>
+        </div>
+        <div class="btnrow" style="align-items:center">
+          <div style="flex:1"><label class="fld">うちの得点</label><input type="number" id="bus" min="0" max="99" value="0"></div>
+          <div style="flex:1"><label class="fld">相手の得点</label><input type="number" id="bopp" min="0" max="99" value="0"></div>
+          <div style="flex:1"><label class="fld">打者(打順)</label><input type="number" id="border" min="1" max="9" value="1"></div>
+        </div>
+        <label class="fld">走者</label>
+        <label><input type="checkbox" id="br1"> 一塁</label>　<label><input type="checkbox" id="br2"> 二塁</label>　<label><input type="checkbox" id="br3"> 三塁</label>
+      </details>
+      <div class="btnrow">
+        <button class="ghost" onclick="go({name:'mochikaeri'})">やめる</button>
+        <button class="primary" onclick="saveMochiForm()">保存する</button>
+      </div>
+    </div>`;
+}
+/* 実名らしきパターンの検知（決定的・提案のみ / §7） */
+function detectNames(text) {
+  const hits = [];
+  const push = (m) => { if (m && !/^(相手|うち|自分|同|他)/.test(m)) hits.push(m); };
+  let m;
+  const re1 = /[一-鿿々]{1,4}(?:くん|君|さん|ちゃん|先輩)/g;
+  const re2 = /[ァ-ヶー]{2,8}(?:くん|君|さん|ちゃん)/g;
+  const re3 = /[一-鿿]{2,7}(?:中学校|中学|高校|高等学校|学園|シニア|ボーイズ)/g;
+  while ((m = re1.exec(text))) push(m[0]);
+  while ((m = re2.exec(text))) push(m[0]);
+  while ((m = re3.exec(text))) push(m[0]);
+  return [...new Set(hits)];
+}
+function saveMochiForm() {
+  const scene = $("#mscene").value.trim(), call = $("#mcall").value.trim(), moya = $("#mmoya").value.trim();
+  if (!scene || !call) { notice("①場面 と ②自分の采配 は必須です"); return; }
+  const board = $("#bdet").open ? {
+    inning: +$("#binning").value || 1, topBottom: $("#btb").value, outs: +$("#bouts").value,
+    score: { us: +$("#bus").value || 0, opp: +$("#bopp").value || 0 },
+    runners: [["一塁", $("#br1").checked], ["二塁", $("#br2").checked], ["三塁", $("#br3").checked]].filter((x) => x[1]).map((x) => x[0]),
+    batterOrder: +$("#border").value || null, count: null, extras: [], innings: 9,
+  } : null;
+  const doSave = () => {
+    const items = getMochi();
+    items.push({ id: uid(), ts: Date.now(), date: $("#mdate").value || todayStr(), scene, myCall: call, moyamoya: moya, board, replay: null, ruleIds: [] });
+    saveMochi(items); closeModal(); go({ name: "mochikaeri" });
+  };
+  const hits = detectNames([scene, call, moya].join(" "));
+  if (hits.length) {
+    showModal(`
+      <h3>実名・学校名かもしれません</h3>
+      <p class="small">次の表現が含まれています:</p>
+      <p><b>${hits.map(esc).join("、 ")}</b></p>
+      <p class="small muted">このノートは端末内のみですが、記録は人に見せる日が来るかもしれません。背番号・ポジション・学年、「相手校」への書き換えをおすすめします。</p>
+      <div class="btnrow"><button class="primary" onclick="closeModal()">書き直す</button><button class="ghost" id="forcesave">このまま保存</button></div>`);
+    $("#forcesave").onclick = doSave;
+  } else doSave();
+}
+function deleteMochi(id) {
+  askConfirm({
+    title: "この持ち帰りを削除しますか？", body: "元に戻せません。", okLabel: "削除する", danger: true,
+    onOk: () => { saveMochi(getMochi().filter((m) => m.id !== id)); render(); },
+  });
+}
+
+/* ---------- 記録 ---------- */
+function renderRecords() {
+  const reps = getReps();
+  const now = Date.now();
+  const cov = TAGS.map((t) => {
+    const rs = reps.filter((r) => (r.tags || []).includes(t));
+    const last = rs.length ? Math.max(...rs.map((r) => r.ts)) : null;
+    const c28 = rs.filter((r) => now - r.ts < 28 * DAY).length;
+    return { t, total: rs.length, c28, last };
+  });
+  const recent = reps.slice(-15).reverse();
+  const flagged = reps.filter((r) => r.flag);
+  const logs = getFieldlog().slice().reverse();
+  return `
+    <h2>現場ログ — このツールの成功指標</h2>
+    <p class="lead">試合ごとに一行。「迷わず出せた指示」がここに増えていくかどうかだけが、ノックの成果の物差しです。</p>
+    <div class="card">
+      <label class="fld">試合日</label><input type="date" id="fldate" value="${todayStr()}">
+      <label class="fld">迷わず出せた指示</label><input type="text" id="flok" placeholder="例: 8回の前進守備を迷わず宣言できた">
+      <label class="fld">迷った場面</label><input type="text" id="flng" placeholder="例: 満塁策を出すか30秒固まった">
+      <div class="btnrow"><button class="primary" onclick="addFieldlog()">記録する</button></div>
+    </div>
+    ${logs.map((l) => `<div class="listitem"><span class="muted small">${esc(l.date)}</span><br>${l.confident ? "○ " + esc(l.confident) + "<br>" : ""}${l.hesitated ? '<span class="muted">△ ' + esc(l.hesitated) + "</span>" : ""}</div>`).join("")}
+    <h2>ノックの記録</h2>
+    <p class="muted small">これまで ${reps.length} 本。本数は目標ではありません。</p>
+    ${recent.map((r) => `<div class="listitem"><b>${esc(r.title)}</b> <span class="lvchip">${esc(r.deck)}</span><br><span class="muted small">${fmtDate(r.ts)}　→ ${esc(r.choice)}（自信度${r.conf}）${r.flag ? ' <span class="flag">🚩</span>' : ""}${r.ruleIds && r.ruleIds.length ? "　✍ルール化済み" : ""}</span></div>`).join("") || '<p class="muted small">まだありません。</p>'}
+    ${flagged.length ? `<h3>🚩 異議ありの局面（デッキを育てる材料）</h3><p class="muted small">次にシチュエーションを追加・改訂するとき（Claudeセッションで）に、この一覧を伝えてください。</p>${flagged.map((r) => `<div class="listitem small">${esc(r.cardId)} — ${esc(r.title)}</div>`).join("")}` : ""}
+    <h2>局面タグのカバレッジ</h2>
+    <p class="muted small">直近4週間で出ていないタグは、次のセットで優先的に出題されます。</p>
+    <table class="covtable"><tr><th>タグ</th><th class="n">4週</th><th class="n">通算</th><th>最後に捕った日</th></tr>
+      ${cov.map((c) => `<tr><td>${esc(c.t)}</td><td class="n">${c.c28}</td><td class="n">${c.total}</td><td>${c.last ? fmtDate(c.last) : "—"}</td></tr>`).join("")}
+    </table>`;
+}
+function addFieldlog() {
+  const date = $("#fldate").value || todayStr();
+  const confident = $("#flok").value.trim(), hesitated = $("#flng").value.trim();
+  if (!confident && !hesitated) { notice("どちらか一行だけでも書きましょう"); return; }
+  const logs = getFieldlog(); logs.push({ id: uid(), date, confident, hesitated }); saveFieldlog(logs); render();
+}
+
+/* ---------- 設定 ---------- */
+function renderSettings() {
+  return `
+    <h2>設定</h2>
+    <div class="card">
+      <h3>出題</h3>
+      <label class="fld">状況の解像度（上げるほど情報が増え、同じ盤面でも判断が変わる）</label>
+      <select id="setres" onchange="settings.resolutionMax=+this.value;saveSettings()">
+        <option value="1" ${settings.resolutionMax === 1 ? "selected" : ""}>Lv1 — イニング・点差・アウト・走者・打順</option>
+        <option value="2" ${settings.resolutionMax === 2 ? "selected" : ""}>Lv2 — ＋カウント・調子・直前のプレー</option>
+        <option value="3" ${settings.resolutionMax === 3 ? "selected" : ""}>Lv3 — ＋走力・球数・大会形式・気配・天候</option>
+      </select>
+      <label class="fld"><input type="checkbox" ${settings.tempo ? "checked" : ""} onchange="settings.tempo=this.checked;saveSettings()"> 実戦テンポモード（30秒の目安タイマー・急かしません）</label>
+    </div>
+    <div class="card">
+      <h3>うちの決め事（ルールセット）</h3>
+      <p class="muted small">制度的な数値は断定せず、あなたの確認済み情報をここに。カードのsafety欄に表示されます。</p>
+      <label class="fld">所属連盟・大会名</label>
+      <input type="text" value="${esc(settings.renmei)}" onchange="settings.renmei=this.value;saveSettings()" placeholder="例: ◯◯県高野連">
+      <label class="fld">球数・連投の規定メモ（確認日も）</label>
+      <input type="text" value="${esc(settings.kyusuMemo)}" onchange="settings.kyusuMemo=this.value;saveSettings()" placeholder="例: 1週間500球以内（2026-04確認）">
+      <label class="fld">伝令・タイムの回数規定メモ</label>
+      <input type="text" value="${esc(settings.denreiMemo)}" onchange="settings.denreiMemo=this.value;saveSettings()" placeholder="例: 守備タイム3回まで">
+      <label class="fld">その他うちの決め事（1・3塁の二盗対応、サイン等）</label>
+      <textarea rows="2" onchange="settings.kimegoto=this.value;saveSettings()" placeholder="例: 1・3塁の二盗対応は今日サインで指定／盗塁GO基準は…">${esc(settings.kimegoto)}</textarea>
+    </div>
+    <div class="card">
+      <h3>データ（端末内のみ）</h3>
+      <p class="muted small">この端末のブラウザにだけ保存されています。機種変更・ブラウザの掃除で消えるので、ときどき書き出しを。学校の共有端末では使わないでください。</p>
+      <div class="btnrow">
+        <button onclick="exportAll()">⬇ すべて書き出す（JSON）</button>
+        <button onclick="$('#importfile').click()">⬆ 読み込む</button>
+      </div>
+      <input type="file" id="importfile" accept=".json" style="display:none" onchange="importAll(this)">
+      <div class="btnrow"><button class="ghost" style="color:var(--danger)" onclick="resetAll()">全データを消去する</button></div>
+    </div>
+    <div class="card">
+      <h3>このツールについて</h3>
+      <p class="small">Tact（タクト） — 采配を振る前の、千本ノック。試合中の「どうする？」を試合の外で反復する道場。ノックを打つのはこのツール、決めるのはあなた。検討室は採点をしません（無裁定原則）。<br>
+      仕様書: リポジトリの <b>Tact 開発指示書.md</b>／使い方と設計: <b>README.md</b></p>
+      <p class="muted small">シチュエーションの追加・改訂はAI（Claudeセッション）に頼めます。アプリ自体はAI・通信なしで動きます。</p>
+    </div>`;
+}
+function exportAll() {
+  const data = { app: "tact", version: 1, exportedAt: new Date().toISOString(), data: { settings, reps: getReps(), notes: getNotes(), mochikaeri: getMochi(), fieldlog: getFieldlog() } };
+  download(`Tact-バックアップ-${todayStr()}.json`, JSON.stringify(data, null, 1), "application/json");
+}
+function importAll(input) {
+  const f = input.files && input.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const j = JSON.parse(reader.result);
+      if ((j.app !== "tact" && j.app !== "saihai-knock") || !j.data) throw new Error("形式が違う");
+      askConfirm({
+        title: "バックアップを読み込みます", body: "現在の端末のデータを、このファイルの内容でまるごと置き換えます。", okLabel: "置き換える", danger: true,
+        onOk: () => {
+          settings = Object.assign({}, DEFAULT_SETTINGS, j.data.settings || {}); saveSettings();
+          saveReps(j.data.reps || []); saveNotes(j.data.notes || []); saveMochi(j.data.mochikaeri || []); saveFieldlog(j.data.fieldlog || []);
+          render(); notice("読み込みました");
+        },
+      });
+    } catch (e) { notice("読み込めませんでした: " + e.message + "（端末のデータは元のままです）", true); }
+  };
+  reader.readAsText(f); input.value = "";
+}
+function resetAll() {
+  askConfirm({
+    title: "全データを消去します", body: "消すと戻せません。先に「すべて書き出す」でバックアップを。", okLabel: "すべて消す", danger: true,
+    items: ["采配ノートのルール", "ノックの記録・現場ログ", "持ち帰り", "設定・うちの決め事"],
+    onOk: () => {
+      ["settings", "reps", "notes", "mochikaeri", "fieldlog", "pendingSet"].forEach((k) => store.del(k));
+      settings = Object.assign({}, DEFAULT_SETTINGS);
+      go({ name: "home" }); notice("初期化しました");
+    },
+  });
+}
+
+/* ---------- 描画ループ ---------- */
+const TABS = [
+  { key: "home", label: "ホーム", ico: "⚾" },
+  { key: "notes", label: "ノート", ico: "📓" },
+  { key: "mochikaeri", label: "持ち帰り", ico: "🎒" },
+  { key: "records", label: "記録", ico: "📈" },
+  { key: "settings", label: "設定", ico: "⚙" },
+];
+function renderTabbar() {
+  const active = screen.name === "knock" ? "" : (["meikyusenList", "brief"].includes(screen.name) ? "home" : (["mochiForm"].includes(screen.name) ? "mochikaeri" : screen.name));
+  $("#tabbar").innerHTML = TABS.map((t) => `<button class="${active === t.key ? "on" : ""}" onclick="leaveKnockAnd('${t.key}')"><span class="ico">${t.ico}</span>${t.label}</button>`).join("");
+}
+function leaveKnockAnd(tab) {
+  const doLeave = () => { if (screen.name === "knock") knock = null; go({ name: tab === "home" ? "home" : tab }); };
+  if (screen.name === "knock" && knock && ["present", "followup"].includes(knock.phase)) {
+    askConfirm({ title: "ノックの途中です", body: "離れると、このカードの選択と理由は消えます。（今日のセットはホームの「続きから」で再開できます）", okLabel: "離れる", onOk: doLeave });
+    return;
+  }
+  doLeave();
+}
+function refreshSubmit() {
+  const b = $("#submitbtn"); if (!b || !knock) return;
+  let ok = false;
+  if (knock.mode === "replay") ok = knock.free.trim().length >= 2 && knock.reason.trim().length >= 2 && !!knock.conf;
+  else ok = (knock.chosen != null || knock.free.trim().length >= 2) && knock.reason.trim().length >= 2 && !!knock.conf;
+  b.disabled = !ok;
+}
+function freeInput(el) {
+  knock.free = el.value;
+  if (el.value) { knock.chosen = null; document.querySelectorAll(".opt.sel").forEach((b) => b.classList.remove("sel")); }
+  refreshSubmit();
+}
+function startTimer() {
+  if (timerHandle) { clearInterval(timerHandle); timerHandle = null; }
+  const el = $("#timer"); if (!el) return;
+  if (!knock.timerEnd) knock.timerEnd = Date.now() + 30000; // 再描画でリセットされない締切方式
+  const tick = () => {
+    if (!document.body.contains(el)) { clearInterval(timerHandle); timerHandle = null; return; }
+    const left = Math.ceil((knock.timerEnd - Date.now()) / 1000);
+    if (left <= 0) { el.textContent = "試合なら、もう間が空いた頃。それでも「決めてから」動こう。"; el.classList.add("over"); clearInterval(timerHandle); timerHandle = null; }
+    else el.textContent = String(left);
+  };
+  tick();
+  timerHandle = setInterval(tick, 500);
+}
+function render() {
+  const v = $("#view");
+  if (!STARTER.length) { v.innerHTML = `<div class="card"><b>デッキが読み込めていません。</b><p class="small muted">decks/starter.deck.js と decks/meikyusen.deck.js が index.html と同じフォルダ構成にあるか確認してください。</p></div>`; return; }
+  switch (screen.name) {
+    case "home": v.innerHTML = renderHome(); break;
+    case "knock": v.innerHTML = renderKnock(); break;
+    case "meikyusenList": v.innerHTML = renderMeikyusenList(); break;
+    case "notes": v.innerHTML = renderNotes(); break;
+    case "brief": v.innerHTML = renderBrief(); break;
+    case "mochikaeri": v.innerHTML = renderMochiList(); break;
+    case "mochiForm": v.innerHTML = renderMochiForm(); break;
+    case "records": v.innerHTML = renderRecords(); break;
+    case "settings": v.innerHTML = renderSettings(); break;
+    default: v.innerHTML = renderHome();
+  }
+  renderTabbar();
+  if (screen.name === "knock" && knock && knock.phase === "present" && settings.tempo) startTimer();
+}
+render();
+</script>
+</body>
+</html>

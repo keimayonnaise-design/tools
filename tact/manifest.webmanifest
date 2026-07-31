@@ -1,0 +1,12 @@
+{
+  "name": "Tact — 采配の千本ノック",
+  "short_name": "Tact",
+  "description": "試合中の「どうする？」を試合の外で反復する、監督のための采配トレーニング",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f6f4ee",
+  "theme_color": "#2f6b4f",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
