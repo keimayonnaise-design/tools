@@ -607,10 +607,10 @@ pre.diag{
     <!-- はじめる前の1枚（v1.12・本人FB第12弾）。
          「わからない」の意味は、テストの入口で伝えるのがいちばん効く -->
     <div class="card hidden" id="q-intro">
-      <h2>はじめる前に、1つだけ</h2>
-      <p>これは合否を決める関門ではなく、いまの現在地を知るための計器です。</p>
-      <p style="margin-top:10px"><b>わからない問題は、正直に「わからない」を選ぶほうが、精度の高い判定になります。</b>当てずっぽうの正解が混ざると、計器が狂ってしまいます。「わからない」を選んで損をすることはありません（減点はありません）。</p>
-      <p class="mini" style="margin-top:10px">30問・12分ほど。選択肢のない記入式と、図から選ぶ問題があります。途中でやめても、そこまでで結果が出ます。</p>
+      <h2>まず、いまの自分を知ろう</h2>
+      <p>出るのは成績ではなく、スタート地点です。ここが分かると、次にやることがはっきりします。</p>
+      <p style="margin-top:10px"><b>わからない問題は「わからない」でだいじょうぶ。</b>まぐれで当たると、スタート地点がずれてしまいます。減点はありません。</p>
+      <p class="mini" style="margin-top:10px">30問・12分ほど。途中でやめても、そこまでの結果が出ます。</p>
       <button type="button" id="q-intro-go" class="btn-main" style="margin-top:14px">はじめる</button>
     </div>
     <div class="progress" id="q-progress">
@@ -1841,11 +1841,11 @@ function renderHomeLevel(){
   var latest = st && st.latest;
 
   if(!latest){
-    box.appendChild(el('h2', null, 'まず、いまの自分を確かめる'));
+    box.appendChild(el('h2', null, 'いまの自分を確かめる'));
     box.appendChild(el('p', null,
-      'スコアシートの何がどこまで分かっているか、30問（12分ほど）で測ります。選択肢のない記入式や、図から選ぶ問題も入っています。答え合わせは最後にまとめて出るので、ここは「測る」時間です。'));
+      'スコアシートの何がどこまで分かっているか、30問（12分ほど）で測ります。答え合わせは、最後にまとめて出ます。'));
     box.appendChild(el('p', 'mini',
-      '通らないと先に進めない関門ではありません。全部の機能は最初から開いています。受けなくても大丈夫ですし、途中でやめても、そこまでで結果が出ます。'));
+      '受けなくても大丈夫です。ここを通らないと使えない機能はありません。'));
     var b = el('button', 'btn-main', '現在地を確かめる（約12分）');
     b.id = 'btn-start';
     b.addEventListener('click', startQuiz);
@@ -2109,7 +2109,7 @@ function renderResult(latest){
   var honest = $('r-honest');
   if(latest.unknown > 0){
     honest.textContent = '「わからない」を' + latest.unknown +
-      '問、正直に押してくれました。おかげで現在地が正確に出せています（当てずっぽうが混ざると、計器は狂います）。';
+      '問、正直に押してくれました。おかげで、スタート地点が正確に出せています。';
     show(honest);
   } else {
     hide(honest);
