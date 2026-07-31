@@ -152,6 +152,13 @@ svg.cell.small{width:min(46vw, 180px)}
    計器が正確になるので、他の選択肢と同じ大きさ・並びで出す。破線で区別だけする */
 .choices button.idk{border-style:dashed; color:var(--muted)}
 .choices button.idk .mark{border-style:dashed}
+/* 図から選ぶ問題（v1.12・本人案）。2×2で並べ、わからないは全幅 */
+.choices.figs{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.choices.figs button{display:block; padding:8px 8px 6px}
+.choices.figs button .mark{margin:0 0 6px}
+.choices.figs button svg{width:100%; height:auto; display:block; color:var(--ink); pointer-events:none}
+.choices.figs button.idk{grid-column:1 / -1; display:flex; align-items:flex-start; padding:13px 16px}
+.choices.figs button.idk .mark{margin:1px 0 0}
 /* 記入式の入力欄（選択肢なしで書く・v1.11） */
 .inputwrap{display:flex; gap:10px; margin:2px 0 12px}
 .inputwrap input{
@@ -597,12 +604,21 @@ pre.diag{
 
   <!-- ============ 診断 ============ -->
   <main id="s-quiz" class="hidden">
-    <div class="progress">
+    <!-- はじめる前の1枚（v1.12・本人FB第12弾）。
+         「わからない」の意味は、テストの入口で伝えるのがいちばん効く -->
+    <div class="card hidden" id="q-intro">
+      <h2>はじめる前に、1つだけ</h2>
+      <p>これは合否を決める関門ではなく、いまの現在地を知るための計器です。</p>
+      <p style="margin-top:10px"><b>わからない問題は、正直に「わからない」を選ぶほうが、精度の高い判定になります。</b>当てずっぽうの正解が混ざると、計器が狂ってしまいます。「わからない」を選んで損をすることはありません（減点はありません）。</p>
+      <p class="mini" style="margin-top:10px">30問・12分ほど。選択肢のない記入式と、図から選ぶ問題があります。途中でやめても、そこまでで結果が出ます。</p>
+      <button type="button" id="q-intro-go" class="btn-main" style="margin-top:14px">はじめる</button>
+    </div>
+    <div class="progress" id="q-progress">
       <span class="num" id="q-num"></span>
       <span class="bar"><i id="q-bar" style="width:0%"></i></span>
       <span class="num" id="q-lv"></span>
     </div>
-    <div class="card">
+    <div class="card" id="q-card">
       <div class="cellbox hidden" id="q-cellbox"><svg class="cell small" id="q-cell" viewBox="0 0 142 120" role="img"></svg></div>
       <p class="qtext" id="q-text"></p>
       <!-- 記入式（選択肢なしで書く・v1.11）。4択のときは隠れる -->
@@ -614,7 +630,7 @@ pre.diag{
       </div>
       <div class="choices" id="q-choices"></div>
     </div>
-    <div class="btn-row">
+    <div class="btn-row" id="q-nav">
       <button type="button" id="btn-back" class="btn-quiet">← 1つ戻る</button>
       <button type="button" id="btn-stop" class="btn-quiet hidden">ここまでで結果を見る</button>
     </div>
@@ -1827,11 +1843,9 @@ function renderHomeLevel(){
   if(!latest){
     box.appendChild(el('h2', null, 'まず、いまの自分を確かめる'));
     box.appendChild(el('p', null,
-      'スコアシートの何がどこまで分かっているか、30問（12分ほど）で測ります。うち5問は選択肢のない記入式——マスに書くとおりに入力します。答え合わせは最後にまとめて出るので、ここは「測る」時間です。'));
+      'スコアシートの何がどこまで分かっているか、30問（12分ほど）で測ります。選択肢のない記入式や、図から選ぶ問題も入っています。答え合わせは最後にまとめて出るので、ここは「測る」時間です。'));
     box.appendChild(el('p', 'mini',
       '通らないと先に進めない関門ではありません。全部の機能は最初から開いています。受けなくても大丈夫ですし、途中でやめても、そこまでで結果が出ます。'));
-    box.appendChild(el('p', 'mini',
-      'どの問題にも「わからない」があります。当てずっぽうで選ぶより、わからないを正直に選ぶほうが現在地が正確に出ます——選んで損をすることはありません。'));
     var b = el('button', 'btn-main', '現在地を確かめる（約12分）');
     b.id = 'btn-start';
     b.addEventListener('click', startQuiz);
@@ -1901,6 +1915,19 @@ var quiz = null;
 function startQuiz(){
   quiz = {i:0, answers:[]};
   goto('quiz');
+  // まず「はじめる前に」の1枚（わからないの意味を入口で伝える・v1.12）
+  show($('q-intro'));
+  hide($('q-progress'));
+  hide($('q-card'));
+  hide($('q-nav'));
+  window.scrollTo(0, 0);
+}
+
+function introGo(){
+  hide($('q-intro'));
+  show($('q-progress'));
+  show($('q-card'));
+  show($('q-nav'));
   renderQuestion();
 }
 
@@ -1925,6 +1952,7 @@ function renderQuestion(){
 
   var box = $('q-choices');
   clear(box);
+  box.className = 'choices';
   var iw = $('q-inputwrap');
   if(q.input){
     // 記入式: 選択肢を出さず、マスに書くとおりに入力してもらう（当て推量が効かない）
@@ -1935,6 +1963,23 @@ function renderQuestion(){
     inp.placeholder = q.input.placeholder || '';
     inp.setAttribute('inputmode', q.input.mode === 'numeric' ? 'numeric' : 'text');
     $('q-input-go').disabled = !inp.value.trim();
+  } else if(q.figures){
+    // 図から選ぶ（v1.12・本人案）。aria-label に図のタイトルを出すと
+    // 答えが漏れるので「選択肢A〜D」だけにする（glyphs.js の掟）
+    hide(iw);
+    box.className = 'choices figs';
+    q.figures.forEach(function(key, idx){
+      var b = el('button', null);
+      b.setAttribute('aria-label', '選択肢' + 'ABCD'.charAt(idx));
+      b.appendChild(el('span', 'mark', 'ABCD'.charAt(idx)));
+      var sv = document.createElementNS(SVGNS, 'svg');
+      sv.setAttribute('viewBox', Cell.viewBox);
+      sv.setAttribute('aria-hidden', 'true');
+      b.appendChild(sv);
+      b.addEventListener('click', function(){ answer(idx); });
+      box.appendChild(b);
+      Cell.still(sv, key);
+    });
   } else {
     hide(iw);
     q.choices.forEach(function(c, idx){
@@ -1949,7 +1994,7 @@ function renderQuestion(){
   // 押しても損はしない＝誤答へのペナルティ採点はしない）
   var idk = el('button', 'idk');
   idk.appendChild(el('span', 'mark', '？'));
-  idk.appendChild(el('span', null, 'わからない・まだ習っていない'));
+  idk.appendChild(el('span', null, 'わからない'));
   idk.addEventListener('click', function(){ answer(-1); });
   box.appendChild(idk);
 
@@ -2145,14 +2190,21 @@ function renderResult(latest){
         })(s, showGlyph, capEl, rb);
         item.appendChild(rb);
       }
+      var figTitle = function(idx){
+        var g = (window.DIAMOND_GLYPHS || {})[(q.figures || [])[idx]] || {};
+        return '図' + 'ABCD'.charAt(idx) + '（' + (g.title || '') + '）';
+      };
       var ans = el('p', 'answer-line');
       ans.appendChild(document.createTextNode('答え: '));
       ans.appendChild(el('b', null,
-        q.input ? (q.input.display || q.input.accept[0]) : q.choices[q.answer]));
+        q.input ? (q.input.display || q.input.accept[0])
+        : q.figures ? figTitle(q.answer)
+        : q.choices[q.answer]));
       item.appendChild(ans);
       var yours;
       if(a.choice === -1) yours = 'あなた: わからない（とばした）';
       else if(typeof a.choice === 'string') yours = 'あなた: 「' + a.choice + '」と書いた';
+      else if(q.figures) yours = 'あなた: ' + figTitle(a.choice);
       else yours = 'あなた: ' + (q.choices ? q.choices[a.choice] : '（前回の答え）');
       item.appendChild(el('p', 'your-line', yours));
       item.appendChild(el('p', 'why', q.why));
@@ -3704,6 +3756,12 @@ function selfTest(){
       // 記入式: accept があり、choices/answer が混ざっていないこと
       if(!(q.input.accept && q.input.accept.length >= 1)) bad.push(q.id + ':input.accept');
       if(q.choices || typeof q.answer === 'number') bad.push(q.id + ':記入式にchoicesが混在');
+    } else if(q.figures){
+      // 図から選ぶ: 図が2つ以上あり、全部描けるマスであること
+      if(!(q.figures.length >= 2)) bad.push(q.id + ':figures');
+      q.figures.forEach(function(k){ if(!window.DIAMOND_GLYPHS[k]) bad.push(q.id + ':figures不明:' + k); });
+      if(!(q.answer >= 0 && q.answer < q.figures.length)) bad.push(q.id + ':answer');
+      if(q.choices) bad.push(q.id + ':図選択にchoicesが混在');
     } else {
       if(!(q.answer >= 0 && q.answer < q.choices.length)) bad.push(q.id + ':answer');
     }
@@ -3782,10 +3840,11 @@ function selfTest(){
   var skip = Score.judge(fake(function(q){ return q.level > 0; }));
   pass &= ok('下のレベルを落としたら飛び級しない', skip.current === -1, 'Lv' + skip.current);
 
-  // 5. 検算の問題が算数として正しいか（教材の検算①）。記入式なので採点関数ごと確かめる
+  // 5. 検算の問題が検算①の式を正解にしているか（教材の検算①）
   var q23 = Score.byId('q2-3');
-  pass &= ok('検算の問題の答えが 6=3+1+2 と一致',
-    q23 && q23.input && D.isRight(q23, '2人') && !D.isRight(q23, '3'));
+  var q23t = (q23 && q23.choices) ? q23.choices[q23.answer] : '';
+  pass &= ok('検算の問題の正解が検算①の式',
+    /打者/.test(q23t) && /アウト/.test(q23t) && /得点/.test(q23t) && /残塁/.test(q23t));
 
   // 5-b. 記入式の採点と正規化（全角・ダッシュ・単位・空文字）
   var q14 = Score.byId('q1-4');
@@ -3794,6 +3853,11 @@ function selfTest(){
     D.isRight(q14, '4-3') && D.isRight(q14, '４ー３') && D.isRight(q14, ' 43 ') &&
     !D.isRight(q14, '3-4') && !D.isRight(q14, '') && !D.isRight(q14, -1),
     '４ー３ → 4-3');
+
+  // 5-c. 図選択の正解が「正しい書き方」の図を指しているか
+  var q39 = Score.byId('q3-9');
+  pass &= ok('図選択の正解が正しい書き方の図',
+    q39 && q39.figures && q39.figures[q39.answer] === 'ph-atbat' && D.isRight(q39, q39.answer));
 
   // 6. 辞典（引く）
   var JT = window.DIAMOND_JITEN;
@@ -4151,7 +4215,14 @@ function boot(){
   $('btn-back').addEventListener('click', function(){
     if(quiz && quiz.i > 0){ quiz.i--; renderQuestion(); }
   });
-  $('btn-stop').addEventListener('click', function(){ finishQuiz(); });
+  // 誤タップでテストが終わってしまわないよう、一度だけ確かめる（2026-07-30 本人FB）。
+  // 結果を見たら続きから再開はできない（途中の暫定判定として保存される）ため
+  $('btn-stop').addEventListener('click', function(){
+    var n = quiz ? quiz.answers.filter(function(a){ return !!a; }).length : 0;
+    if(!window.confirm('ここまでの ' + n + ' 問で、途中までの結果を出します。\nテストはここで終わり、続きから再開はできません。\n結果を見ますか？')) return;
+    finishQuiz();
+  });
+  $('q-intro-go').addEventListener('click', introGo);
 
   $('btn-export').addEventListener('click', function(){
     download('diamond-' + stamp() + '.json', JSON.stringify(Store.get(), null, 2));

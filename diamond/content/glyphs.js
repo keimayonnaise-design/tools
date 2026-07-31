@@ -385,6 +385,87 @@
     }
   };
 
+  /* ---- 診断の図選択問題で使うマス（v1.12・実機FB第12弾）----
+     「実際にこう書きました。正しいのはどれ？」と4つの図から選ばせる（本人案）。
+     誤答の図は「よくある間違った書き方」をわざと描いたもの。正解の図と
+     打席の中身をそろえ、違いが論点（波線の位置・点と本数）だけになるようにする。
+     ※出題中に図のタイトルを読み上げると答えが漏れるので、
+       アプリ側は aria-label に title でなく「選択肢A〜D」を使うこと */
+
+  // 図を読む問題（q1-2）用。中央のⅡを持たせない＝「結末はどこに書くか」
+  // 系の答え（q2-4など）を先に見せないため（カンニング検査が検出した）
+  G['fig-fly8'] = { title: '中堅フライ（弧＝上がって落ちた）', result: { text: '8', trace: 'fly' } };
+
+  // 見逃し三振の書き分け（q1-3）。結末や配球を持たせない＝
+  // 後の問題の答え（アウトカウントの書き場所など）を先に見せないため
+  G['fig-so'] = { title: '見逃し三振（SO）', result: { text: 'SO' } };
+  G['fig-k']  = { title: '空振り三振（K）＝見逃しではない', result: { text: 'K' } };
+  G['fig-bb'] = { title: '四球（B）＝三振ではない', result: { text: 'B' } };
+  G['fig-3f'] = { title: 'ファウルフライ（3F）＝三振ではない', result: { text: '3F', trace: 'fly' } };
+
+  // 二塁打（左越え）の書き分け（q2-9）。点＝落下位置・本数＝塁数、の独立を図で測る
+  G['double-wrong-1slash'] = {
+    title: '斜線1本＝単打の書き方（二塁打なら2本）',
+    kind: 'hit', hit: 1, result: { text: '7', dot: 'over' }
+  };
+  G['double-wrong-underdot'] = {
+    title: '点が下＝野手の前に落ちた書き方（頭を越えたら上）',
+    kind: 'hit', hit: 2, result: { text: '7', dot: 'under' }
+  };
+  G['double-wrong-3slash'] = {
+    title: '斜線3本＝三塁打の書き方（二塁打なら2本）',
+    kind: 'hit', hit: 3, result: { text: '7', dot: 'over' }
+  };
+
+  // 代打の書き方（q3-9）。正解は ph-atbat（左の境目に波線）
+  G['ph-wrong-right'] = {
+    title: '波線が右＝代走の位置（代打は左）',
+    result: { text: 'SO' }, center: { out: 2 },
+    sub: { at:'right', label:'PH かなで' }
+  };
+  G['ph-wrong-top'] = {
+    title: '波線が上端＝守備の交代の位置（代打は左）',
+    result: { text: 'SO' }, center: { out: 2 },
+    sub: { at:'top', label:'PH かなで' }
+  };
+  G['ph-wrong-none'] = {
+    title: 'マスに交代の印が無い（左の境目に波線を引く）',
+    result: { text: 'SO' }, center: { out: 2 }
+  };
+
+  // 代走の書き方（q3-10）。正解は pr-onbase（右の境目に波線）
+  G['pr-wrong-left'] = {
+    title: '波線が左＝代打の位置（代走は右）',
+    kind: 'walk', pitches: ['B','S','B','B','B'],
+    result: { text: 'B' }, sub: { at:'left', label:'PR そらち' }
+  };
+  G['pr-wrong-slash'] = {
+    title: '斜線を足して代走を表した（斜線は安打の分だけ）',
+    kind: 'walk', pitches: ['B','S','B','B','B'],
+    result: { text: 'B' }, hit: 1
+  };
+  G['pr-wrong-top'] = {
+    title: '波線が上端＝守備の交代の位置（代走は右）',
+    kind: 'walk', pitches: ['B','S','B','B','B'],
+    result: { text: 'B' }, sub: { at:'top', label:'PR そらち' }
+  };
+
+  // 投手交代の書き方（q3-11）。正解は fielder-change（上端に横の波線）
+  G['pc-wrong-left'] = {
+    title: '波線が左＝代打の位置（守備の交代は上端）',
+    result: { text: '1-3' }, center: { out: 1 },
+    sub: { at:'left', label:'1 ことり ／ 3 ひなた' }
+  };
+  G['pc-wrong-right'] = {
+    title: '波線が右＝代走の位置（守備の交代は上端）',
+    result: { text: '1-3' }, center: { out: 1 },
+    sub: { at:'right', label:'1 ことり ／ 3 ひなた' }
+  };
+  G['pc-wrong-none'] = {
+    title: 'マスに交代の印が無い（上端に横の波線を引く）',
+    result: { text: '1-3' }, center: { out: 1 }
+  };
+
   /* ---- 1イニング再現（教材ドリル14の第1問）で使うマス ---- */
 
   G['in1-b1'] = {
