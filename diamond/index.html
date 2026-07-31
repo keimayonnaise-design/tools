@@ -147,6 +147,24 @@ svg.cell.small{width:min(46vw, 180px)}
   display:flex; align-items:center; justify-content:center;
   font-size:12.5px; color:var(--muted); margin-top:1px;
 }
+/* 「わからない」は5つ目の対等な選択肢（2026-07-30 本人FB第11弾。
+   薄いリンクだと「本当は使ってはいけないもの」に見える——正直に押すほど
+   計器が正確になるので、他の選択肢と同じ大きさ・並びで出す。破線で区別だけする */
+.choices button.idk{border-style:dashed; color:var(--muted)}
+.choices button.idk .mark{border-style:dashed}
+/* 記入式の入力欄（選択肢なしで書く・v1.11） */
+.inputwrap{display:flex; gap:10px; margin:2px 0 12px}
+.inputwrap input{
+  flex:1; min-width:0; min-height:50px; border:1.5px solid var(--line); border-radius:12px;
+  padding:6px 14px; font-size:19px; letter-spacing:.08em;
+  background:var(--surface); color:var(--ink); font-family:inherit;
+}
+.inputwrap input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-weak)}
+.inputwrap button{
+  flex:none; width:auto; min-height:50px; padding:0 22px; border-radius:12px;
+  background:var(--accent); color:var(--on-accent); border:1px solid var(--accent); font-weight:700;
+}
+.inputwrap button:disabled{opacity:.45}
 .choices button.picked{border-color:var(--accent); background:var(--accent-weak)}
 
 /* ---- 見直し ---- */
@@ -587,8 +605,14 @@ pre.diag{
     <div class="card">
       <div class="cellbox hidden" id="q-cellbox"><svg class="cell small" id="q-cell" viewBox="0 0 142 120" role="img"></svg></div>
       <p class="qtext" id="q-text"></p>
+      <!-- 記入式（選択肢なしで書く・v1.11）。4択のときは隠れる -->
+      <div class="inputwrap hidden" id="q-inputwrap">
+        <input id="q-input" type="text" autocomplete="off" autocapitalize="characters"
+               autocorrect="off" spellcheck="false" maxlength="8"
+               aria-label="答えを入力">
+        <button type="button" id="q-input-go">答える</button>
+      </div>
       <div class="choices" id="q-choices"></div>
-      <button type="button" id="btn-unknown" class="btn-quiet" style="margin-top:12px">わからない・とばす</button>
     </div>
     <div class="btn-row">
       <button type="button" id="btn-back" class="btn-quiet">← 1つ戻る</button>
@@ -611,6 +635,7 @@ pre.diag{
       <h3>できていたこと</h3>
       <div class="chips" id="r-done"></div>
       <p class="mini" id="r-honest" style="margin-top:12px"></p>
+      <p class="mini" id="r-write" style="margin-top:6px"></p>
     </div>
 
     <div class="card">
@@ -1802,9 +1827,11 @@ function renderHomeLevel(){
   if(!latest){
     box.appendChild(el('h2', null, 'まず、いまの自分を確かめる'));
     box.appendChild(el('p', null,
-      'スコアシートの何がどこまで分かっているか、30問（12分ほど）で測ります。答え合わせは最後にまとめて出るので、ここは「測る」時間です。'));
+      'スコアシートの何がどこまで分かっているか、30問（12分ほど）で測ります。うち5問は選択肢のない記入式——マスに書くとおりに入力します。答え合わせは最後にまとめて出るので、ここは「測る」時間です。'));
     box.appendChild(el('p', 'mini',
       '通らないと先に進めない関門ではありません。全部の機能は最初から開いています。受けなくても大丈夫ですし、途中でやめても、そこまでで結果が出ます。'));
+    box.appendChild(el('p', 'mini',
+      'どの問題にも「わからない」があります。当てずっぽうで選ぶより、わからないを正直に選ぶほうが現在地が正確に出ます——選んで損をすることはありません。'));
     var b = el('button', 'btn-main', '現在地を確かめる（約12分）');
     b.id = 'btn-start';
     b.addEventListener('click', startQuiz);
@@ -1898,13 +1925,33 @@ function renderQuestion(){
 
   var box = $('q-choices');
   clear(box);
-  q.choices.forEach(function(c, idx){
-    var b = el('button', null);
-    b.appendChild(el('span', 'mark', 'ABCD'.charAt(idx)));
-    b.appendChild(el('span', null, c));
-    b.addEventListener('click', function(){ answer(idx); });
-    box.appendChild(b);
-  });
+  var iw = $('q-inputwrap');
+  if(q.input){
+    // 記入式: 選択肢を出さず、マスに書くとおりに入力してもらう（当て推量が効かない）
+    show(iw);
+    var inp = $('q-input');
+    var prev = quiz.answers[quiz.i];
+    inp.value = (prev && typeof prev.choice === 'string') ? prev.choice : '';
+    inp.placeholder = q.input.placeholder || '';
+    inp.setAttribute('inputmode', q.input.mode === 'numeric' ? 'numeric' : 'text');
+    $('q-input-go').disabled = !inp.value.trim();
+  } else {
+    hide(iw);
+    q.choices.forEach(function(c, idx){
+      var b = el('button', null);
+      b.appendChild(el('span', 'mark', 'ABCD'.charAt(idx)));
+      b.appendChild(el('span', null, c));
+      b.addEventListener('click', function(){ answer(idx); });
+      box.appendChild(b);
+    });
+  }
+  // 「わからない」は5つ目の対等な選択肢（正直に押すほど計器が正確になる。
+  // 押しても損はしない＝誤答へのペナルティ採点はしない）
+  var idk = el('button', 'idk');
+  idk.appendChild(el('span', 'mark', '？'));
+  idk.appendChild(el('span', null, 'わからない・まだ習っていない'));
+  idk.addEventListener('click', function(){ answer(-1); });
+  box.appendChild(idk);
 
   if(quiz.i === 0) hide($('btn-back')); else show($('btn-back'));
   // 「途中でやめても、そこまでで結果が出る」の約束どおり、1問目から出す
@@ -1912,12 +1959,20 @@ function renderQuestion(){
   if(quiz.answers.length >= 1) show($('btn-stop')); else hide($('btn-stop'));
 }
 
+/* choice = 選択肢の番号（4択）／入力した文字列（記入式）／-1（わからない）。
+   正誤は diagnostic.js の isRight に一元化（記入式の正規化もそちら） */
 function answer(choice){
   var q = D.questions[quiz.i];
-  quiz.answers[quiz.i] = {id:q.id, choice:choice, ok:(choice === q.answer)};
+  quiz.answers[quiz.i] = {id:q.id, choice:choice, ok:D.isRight(q, choice)};
   quiz.i++;
   if(quiz.i >= D.questions.length) finishQuiz();
   else renderQuestion();
+}
+
+function submitInput(){
+  var v = $('q-input').value.trim();
+  if(!v) return;
+  answer(v);
 }
 
 function finishQuiz(){
@@ -1929,6 +1984,14 @@ function finishQuiz(){
     if(a.choice === -1) unknown++;
   });
 
+  // 記入式（選択肢なしで書く）の内訳。当て推量が効かないぶん、
+  // 「書ける」の手ごたえをいちばん正直に映す数字になる
+  var inputT = 0, inputC = 0;
+  answers.forEach(function(a){
+    var q = Score.byId(a.id);
+    if(q && q.input){ inputT++; if(a.ok) inputC++; }
+  });
+
   var latest = {
     at: new Date().toISOString(),
     level: judged.current,
@@ -1936,6 +1999,8 @@ function finishQuiz(){
     answered: answers.length,
     correct: correct,
     unknown: unknown,
+    inputT: inputT,
+    inputC: inputC,
     answers: answers,
     nextTag: Score.nextTag(answers, judged)
   };
@@ -2005,6 +2070,22 @@ function renderResult(latest){
     hide(honest);
   }
 
+  // 記入式の内訳。選択肢の消去法が効かない問題なので、
+  // 「書ける」の手ごたえをいちばん正直に映す（v1.11・外部テスター第1号の発見から）
+  var wEl = $('r-write');
+  if(latest.inputT > 0){
+    var wText = '選択肢なしで書く問題（記入式）は ' + latest.inputC + ' / ' + latest.inputT + ' 問。';
+    if(latest.inputC < latest.inputT){
+      wText += ' 選択肢があれば選べても、白紙から書くのはまた別の力です——ドリルと実践編（紙に書く）がいちばん効きます。';
+    } else {
+      wText += ' 白紙から書けています。仕上げは実践編——印刷した紙に1イニング書いて、検算まで通れば本物です。';
+    }
+    wEl.textContent = wText;
+    show(wEl);
+  } else {
+    hide(wEl);
+  }
+
   // 次に効くこと（全問正解なら、既にできることを勧めない）
   var perfect = (latest.correct === latest.answered && latest.answered === D.questions.length);
   var step = perfect ? D.perfectStep : (D.nextSteps[latest.nextTag] || D.nextSteps['守備番号']);
@@ -2066,10 +2147,14 @@ function renderResult(latest){
       }
       var ans = el('p', 'answer-line');
       ans.appendChild(document.createTextNode('答え: '));
-      ans.appendChild(el('b', null, q.choices[q.answer]));
+      ans.appendChild(el('b', null,
+        q.input ? (q.input.display || q.input.accept[0]) : q.choices[q.answer]));
       item.appendChild(ans);
-      item.appendChild(el('p', 'your-line',
-        a.choice === -1 ? 'あなた: わからない（とばした）' : 'あなた: ' + q.choices[a.choice]));
+      var yours;
+      if(a.choice === -1) yours = 'あなた: わからない（とばした）';
+      else if(typeof a.choice === 'string') yours = 'あなた: 「' + a.choice + '」と書いた';
+      else yours = 'あなた: ' + (q.choices ? q.choices[a.choice] : '（前回の答え）');
+      item.appendChild(el('p', 'your-line', yours));
       item.appendChild(el('p', 'why', q.why));
       item.appendChild(el('p', 'ref', '教材16 ' + q.ref));
       rbox.appendChild(item);
@@ -3615,7 +3700,13 @@ function selfTest(){
   // 2. 問題データの整合
   var bad = [];
   D.questions.forEach(function(q){
-    if(!(q.answer >= 0 && q.answer < q.choices.length)) bad.push(q.id + ':answer');
+    if(q.input){
+      // 記入式: accept があり、choices/answer が混ざっていないこと
+      if(!(q.input.accept && q.input.accept.length >= 1)) bad.push(q.id + ':input.accept');
+      if(q.choices || typeof q.answer === 'number') bad.push(q.id + ':記入式にchoicesが混在');
+    } else {
+      if(!(q.answer >= 0 && q.answer < q.choices.length)) bad.push(q.id + ':answer');
+    }
     if(D.tags.indexOf(q.tag) < 0) bad.push(q.id + ':tag');
     if(!q.why || !q.ref) bad.push(q.id + ':why/ref');
     if(!D.nextSteps[q.tag]) bad.push(q.id + ':nextStep欠落');
@@ -3691,9 +3782,18 @@ function selfTest(){
   var skip = Score.judge(fake(function(q){ return q.level > 0; }));
   pass &= ok('下のレベルを落としたら飛び級しない', skip.current === -1, 'Lv' + skip.current);
 
-  // 5. 検算の問題が算数として正しいか（教材の検算①）
+  // 5. 検算の問題が算数として正しいか（教材の検算①）。記入式なので採点関数ごと確かめる
   var q23 = Score.byId('q2-3');
-  pass &= ok('検算の問題の答えが 6=3+1+2 と一致', q23 && q23.choices[q23.answer] === '2人');
+  pass &= ok('検算の問題の答えが 6=3+1+2 と一致',
+    q23 && q23.input && D.isRight(q23, '2人') && !D.isRight(q23, '3'));
+
+  // 5-b. 記入式の採点と正規化（全角・ダッシュ・単位・空文字）
+  var q14 = Score.byId('q1-4');
+  pass &= ok('記入式の採点と正規化が効く',
+    q14 && q14.input &&
+    D.isRight(q14, '4-3') && D.isRight(q14, '４ー３') && D.isRight(q14, ' 43 ') &&
+    !D.isRight(q14, '3-4') && !D.isRight(q14, '') && !D.isRight(q14, -1),
+    '４ー３ → 4-3');
 
   // 6. 辞典（引く）
   var JT = window.DIAMOND_JITEN;
@@ -4040,7 +4140,14 @@ function boot(){
   $('jd-replay').addEventListener('click', replayJdGlyph);
   $('jd-flag').addEventListener('click', flagJd);
 
-  $('btn-unknown').addEventListener('click', function(){ answer(-1); });
+  // 記入式の送信（Enterでも。IMEの変換確定のEnterは isComposing で除外）
+  $('q-input-go').addEventListener('click', submitInput);
+  $('q-input').addEventListener('keydown', function(e){
+    if(e.key === 'Enter' && !e.isComposing){ e.preventDefault(); submitInput(); }
+  });
+  $('q-input').addEventListener('input', function(){
+    $('q-input-go').disabled = !this.value.trim();
+  });
   $('btn-back').addEventListener('click', function(){
     if(quiz && quiz.i > 0){ quiz.i--; renderQuestion(); }
   });

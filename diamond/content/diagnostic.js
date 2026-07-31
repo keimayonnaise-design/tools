@@ -12,13 +12,22 @@
      glyph    : 出題時に見せるマス（DIAMOND_GLYPHS のキー）。無くてよい
      glyphAnswer: 見直しで見せる「答えのマス」。glyph より優先して表示
      q        : 問題文
-     choices  : 選択肢（2つ以上）
-     answer   : 正解の位置（0始まり）
+     choices  : 選択肢（2つ以上）※記入式のときは持たない
+     answer   : 正解の位置（0始まり）※記入式のときは持たない
+     input    : 記入式（選択肢なしで書く）。{accept:[受理する答え], mode:'numeric'|'text',
+                placeholder, display:見直しに出す正解の表記}
      why      : 答え合わせで出す一言。教材の「理屈」を渡す
      ref      : 教材16のどこが根拠か（必須・§6-6）
 
-   ※「わからない」は選択肢に入れない。全問に共通のボタンとして出す
-     （正直に飛ばすほど計器は正確になる。教材「完璧主義が最大の敵」）
+   ※ 記入式は v1.11（2026-07-30・実機FB第11弾）から。外部テスター第1号
+     （本人の同僚）が「スコアは書けないが野球は知っている」状態で4択を
+     消去法で通過できてしまった——4択が測っていたのは「選べるか」で、
+     測りたいのは「書けるか」。当て推量が構造的に効かない記入式を、
+     各レベルの中心スキルに置く（Lv0=番号 / Lv1=経路と記号 / Lv2=本数と検算）。
+
+   ※「わからない」は選択肢に混ぜず、全問共通の5つ目の選択肢として出す
+     （正直に飛ばすほど計器は正確になる。教材「完璧主義が最大の敵」。
+      誤答へのペナルティ採点はしない——妥当性を損なう研究知見・v1.7）
 
    ※ 出題順の掟（2026-07-27 本人フィードバックから）:
      「どこに書く？」を問う前に、その答えが描かれた図を別の問題で
@@ -134,9 +143,8 @@
     /* ===== Lv0 番号が読める ===== */
     {
       id: 'q0-1', level: 0, tag: '守備番号', type: 'yomi',
-      q: '二塁手の守備番号は？',
-      choices: ['2', '4', '6', '3'],
-      answer: 1,
+      q: '二塁手の守備番号は？（数字で入力）',
+      input: { accept: ['4'], mode: 'numeric', placeholder: '数字1つ', display: '4' },
       why: '二塁手は4。2は捕手です。4-6-3 と 6-4-3 を取り違えると、守備の絵が左右逆になってしまいます。',
       ref: 'ドリル4・詳説B-1'
     },
@@ -225,9 +233,8 @@
     {
       id: 'q1-4', level: 1, tag: '打球の種類', type: 'kaki',
       glyphAnswer: 'ground43-out1',
-      q: '一塁と二塁の間へのゴロを、二塁手が捕って一塁でアウト。この打者のマスの右下に書くのは？',
-      choices: ['3-4','4-3','6-3','打った方向なので「一二塁間」と書く'],
-      answer: 1,
+      q: '一塁と二塁の間へのゴロを、二塁手が捕って一塁でアウト。この打者のマスの右下に書くのは？（マスに書くとおりに入力）',
+      input: { accept: ['4-3', '43'], mode: 'text', placeholder: '例: 6-3', display: '4-3' },
       why: '書くのは打った方向ではなく、実際に処理した野手です。二塁手（4）が捕って一塁手（3）が受けたので 4-3。順番を逆にすると送球の向きが逆になってしまいます。',
       ref: 'ドリル5・詳説B-3'
     },
@@ -243,10 +250,9 @@
     {
       id: 'q1-7', level: 1, tag: '三振・四死球', type: 'kaki',
       glyphAnswer: 'bb',
-      q: '四球で歩いた打者。その打者のマスの右下に書くのは？',
-      choices: ['K','1-3','H','B'],
-      answer: 3,
-      why: '四球は B。打数に入らないので青で書きます。赤い斜線は引きません——打撃で得た塁ではないからです。',
+      q: '四球で歩いた打者。その打者のマスの右下に書くのは？（マスに書くとおりに入力）',
+      input: { accept: ['B', 'BB'], mode: 'text', placeholder: 'アルファベットで', display: 'B' },
+      why: '四球は B。打数に入らないので青で書きます。赤い斜線は引きません——打撃で得た塁ではないからです。（BB と書く流儀もあり、どちらでも正解にしています）',
       ref: 'ドリル7'
     },
     {
@@ -292,9 +298,8 @@
     {
       id: 'q2-1', level: 2, tag: '安打の斜線', type: 'kaki',
       glyphAnswer: 'double',
-      q: '二塁打を打ったとき、斜線は何本引く？',
-      choices: ['1本', '2本', '3本', '4本'],
-      answer: 1,
+      q: '二塁打を打ったとき、斜線は何本引く？（数字で入力）',
+      input: { accept: ['2'], mode: 'numeric', placeholder: '数字1つ', display: '2本' },
       why: '赤い斜線は「自分の打撃で得た塁」の分だけ引きます。何塁打かを表すのは、この本数。数字に打つ点は別の情報で、打球がどこへ飛んだか（下＝野手の前／上＝越えた／横＝ライン際）を表します。',
       ref: 'ドリル6'
     },
@@ -325,9 +330,8 @@
     },
     {
       id: 'q2-3', level: 2, tag: '検算', type: 'riyu',
-      q: 'あるイニングで、打者は6人、アウトは3つ、得点は1点。残塁は何人？',
-      choices: ['1人', '2人', '3人', 'これだけでは分からない'],
-      answer: 1,
+      q: 'あるイニングで、打者は6人、アウトは3つ、得点は1点。残塁は何人？（数字で入力）',
+      input: { accept: ['2'], mode: 'numeric', placeholder: '数字1つ', display: '2人' },
       why: '打者数＝アウト＋得点＋残塁。6＝3＋1＋2 なので残塁は2人です。打者の結末は3種類しかないので、この式は必ず成立します。',
       ref: 'ドリル13'
     },
@@ -494,11 +498,41 @@
     }
   ];
 
+  /* ---- 記入式の答え合わせ（正規化と採点）----
+     アプリの採点・自己テスト・tools/validate.js が全部これを使う（二重実装しない）。
+     全角→半角・小文字→大文字・ダッシュ類→ハイフン・空白除去・
+     数字の後の単位（本/人/番/点/球）除去。「４ー３」「4−3」「2本」も受かる */
+  function normalizeAnswer(s){
+    var t = String(s === null || s === undefined ? '' : s);
+    if(typeof t.normalize === 'function') t = t.normalize('NFKC');
+    t = t.toUpperCase()
+      .replace(/[\s　]+/g, '')
+      .replace(/[－ー‐‑–—−ｰ]/g, '-');
+    var m = t.match(/^([0-9]+)(本|人|番|点|球)$/);
+    if(m) t = m[1];
+    return t;
+  }
+
+  /* 正誤判定の一元化。choice は 選択肢の番号（4択）／入力文字列（記入式）／-1（わからない） */
+  function isRight(q, choice){
+    if(q.input){
+      var n = normalizeAnswer(choice);
+      if(!n) return false;
+      for(var i = 0; i < q.input.accept.length; i++){
+        if(normalizeAnswer(q.input.accept[i]) === n) return true;
+      }
+      return false;
+    }
+    return choice === q.answer;
+  }
+
   root.DIAMOND_DIAGNOSTIC = {
     tags: TAGS,
     levels: LEVELS,
     nextSteps: NEXT_STEPS,
     perfectStep: PERFECT_STEP,
-    questions: QUESTIONS
+    questions: QUESTIONS,
+    normalizeAnswer: normalizeAnswer,
+    isRight: isRight
   };
 })(typeof window !== 'undefined' ? window : globalThis);
