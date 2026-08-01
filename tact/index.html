@@ -48,6 +48,15 @@
   --danger: #b4470e;       /* JSのインラインstyleから参照（= --magnet） */
   --shadow-float: 0 2px 6px rgba(22, 42, 30, .10), 0 14px 32px rgba(22, 42, 30, .16);
   --ease-out: cubic-bezier(.23, 1, .32, 1);
+  /* 角丸の階（直書きをやめて階層をトークンに上げる。値は据え置き） */
+  --r-mark: 1px;    /* 署名の菱形 */
+  --r-chip: 6px;    /* バッジ */
+  --r-btn: 8px;     /* ボタン・入力欄・小箱 */
+  --r-card: 12px;   /* カード・盤面・箱 */
+  --r-modal: 16px;  /* モーダル・シート */
+  --r-pill: 9999px; /* ピル */
+  /* 余白の階（内側＜外側。§6 internal ≤ external） */
+  --sp-1: 6px; --sp-2: 10px; --sp-3: 14px; --sp-4: 16px; --sp-5: 24px; --sp-6: 40px;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -80,17 +89,22 @@
 
 /* ---------- 土台と日本語組版 ---------- */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 16px; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-padding-top: 64px; }
-@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+html { font-size: 16px; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; height: 100%; }
 body {
   font-family: ui-sans-serif, -apple-system, "Segoe UI",
     "BIZ UDPGothic", "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", Meiryo, sans-serif;
   background: var(--paper); color: var(--ink);
   font-size: 1rem; line-height: 1.75; letter-spacing: .02em;
   line-break: strict; word-break: normal; overflow-wrap: break-word;
-  padding-bottom: calc(64px + env(safe-area-inset-bottom));
   -webkit-tap-highlight-color: rgba(21, 107, 63, .18);
+  /* 画面を3段（アプリバー・巻物・タブバー）に組み、body自体はスクロールさせない。
+     iOS Safari は body スクロール中にツールバーを伸縮させ、position:fixed の底が
+     追随せず「タブバーが画面の途中に浮く」。スクロールを内側の器に閉じ込めて根治する */
+  display: flex; flex-direction: column;
+  height: 100vh; height: 100dvh; overflow: hidden;
 }
+/* 画面遷移のたびに先頭へ戻すので、ここは smooth にしない（毎回スルスル動くのは邪魔） */
+#scroll { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 ::selection { background: var(--seal-soft); color: var(--ink); }
 ::placeholder { color: var(--ink-soft); opacity: 1; }
 input, textarea { caret-color: var(--seal); }
@@ -104,7 +118,7 @@ a { color: var(--seal); }
 h2 { font-size: 1.25rem; line-height: 1.45; letter-spacing: .01em; font-feature-settings: "palt" 1; margin: 24px 0 10px; }
 h2:first-child { margin-top: 2px; }
 h2::before { content: ""; display: inline-block; width: 9px; height: 9px; background: var(--seal);
-  border-radius: 1px; transform: rotate(45deg); margin-right: 10px; vertical-align: .08em; }
+  border-radius: var(--r-mark); transform: rotate(45deg); margin-right: 10px; vertical-align: .08em; }
 h3 { font-size: 1rem; line-height: 1.6; margin: 18px 0 6px; }
 p.lead { color: var(--ink-soft); margin-bottom: 12px; }
 .muted { color: var(--ink-soft); }
@@ -113,25 +127,25 @@ p.lead { color: var(--ink-soft); margin-bottom: 12px; }
 
 /* ---------- アプリバー ---------- */
 .appbar {
-  position: sticky; top: 0; z-index: 20;
+  flex: none;
   display: flex; align-items: baseline; gap: 10px;
   background: var(--paper); border-bottom: 1px solid var(--line);
   padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
 }
 .appbar h1 { font-size: 1.0625rem; font-weight: 700; letter-spacing: .06em; white-space: nowrap; }
 .appbar h1::before { content: ""; display: inline-block; width: 10px; height: 10px; background: var(--seal);
-  border-radius: 1px; transform: rotate(45deg); margin-right: 9px; vertical-align: .02em; }
+  border-radius: var(--r-mark); transform: rotate(45deg); margin-right: 9px; vertical-align: .02em; }
 .appbar .sub { font-size: .875rem; color: var(--ink-soft); white-space: nowrap; }
 @media (max-width: 480px) { .appbar .sub { display: none; } }
 .appbar .lock { margin-left: auto; font-size: .875rem; color: var(--ink-soft);
-  border: 1px solid var(--line); border-radius: 9999px; padding: 1px 10px; white-space: nowrap; }
+  border: 1px solid var(--line); border-radius: var(--r-pill); padding: 1px 10px; white-space: nowrap; }
 main { max-width: 640px; margin: 0 auto; padding: 16px 14px 40px; }
 
 /* ---------- ボタン ---------- */
 button {
   font: inherit; letter-spacing: .02em; line-height: 1.35; cursor: pointer;
   border: 1px solid var(--line-strong); background: var(--card); color: var(--ink);
-  border-radius: 8px; padding: 10px 14px; min-height: 44px;
+  border-radius: var(--r-btn); padding: 10px 14px; min-height: 44px;
   transition: transform .12s var(--ease-out), background-color .12s linear, border-color .12s linear;
 }
 button:active { transform: scale(.98); }
@@ -139,7 +153,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 button.primary { background: var(--seal); border-color: var(--seal); color: var(--seal-ink); font-weight: 700; }
 button.big { width: 100%; padding: 13px 16px; }
 button.ghost { background: transparent; }
-button.chipbtn { border-radius: 9999px; font-size: .875rem; padding: 9px 14px; }
+button.chipbtn { border-radius: var(--r-pill); font-size: .875rem; padding: 9px 14px; }
 button.chipbtn.on { background: var(--seal); border-color: var(--seal); color: var(--seal-ink); }
 button.dangerbtn { background: var(--magnet); border-color: var(--magnet); color: #fff; font-weight: 700; }
 @media (hover: hover) and (pointer: fine) {
@@ -152,30 +166,32 @@ button.dangerbtn { background: var(--magnet); border-color: var(--magnet); color
 /* ---------- フォーム ---------- */
 textarea, input[type=text], input[type=date], input[type=number], select {
   font: inherit; letter-spacing: .02em; width: 100%;
-  border: 1px solid var(--line-strong); border-radius: 8px;
+  border: 1px solid var(--line-strong); border-radius: var(--r-btn);
   background: var(--card); color: var(--ink); padding: 10px 12px;
 }
 textarea { min-height: 72px; resize: vertical; }
 label.fld { display: block; margin: 18px 0 6px; font-size: .875rem; line-height: 1.6; color: var(--ink-soft); }
 
 /* ---------- タグ・バッジ ---------- */
-.tag { display: inline-block; background: var(--chip); border-radius: 9999px; padding: 1px 10px;
+.tag { display: inline-block; background: var(--chip); border-radius: var(--r-pill); padding: 1px 10px;
   font-size: .875rem; line-height: 1.6; margin: 0 4px 4px 0; color: var(--ink-soft); }
-.badge { display: inline-block; border-radius: 6px; padding: 0 8px; font-size: .875rem; line-height: 1.5;
-  font-weight: 700; color: #fff; vertical-align: middle; }
-.badge.guideline { background: #b4470e; }
-.badge.research-based { background: #1e5fa8; }
-.badge.coach-consensus { background: #156b3f; }
-.badge.experimental { background: #7a611b; }
+/* 定石の根拠4段階は、盤面の3色（朱・緑・墨）と「ベタか輪郭か」の形で示す。
+   色を足さずに4つを区別する＝コンセプトの彩色制限を守りつつ、色だけに頼らない（§5⑤） */
+.badge { display: inline-block; border-radius: var(--r-chip); padding: 0 8px; font-size: .875rem; line-height: 1.5;
+  font-weight: 700; vertical-align: middle; border: 1px solid transparent; }
+.badge.guideline { background: var(--magnet); border-color: var(--magnet); color: var(--seal-ink); }
+.badge.coach-consensus { background: var(--seal); border-color: var(--seal); color: var(--seal-ink); }
+.badge.research-based { background: transparent; border-color: var(--seal); color: var(--seal); }
+.badge.experimental { background: transparent; border-color: var(--line-strong); color: var(--ink-soft); }
 .lvchip { font-size: .875rem; line-height: 1.5; color: var(--ink-soft);
-  border: 1px solid var(--line); border-radius: 9999px; padding: 0 9px; }
+  border: 1px solid var(--line); border-radius: var(--r-pill); padding: 0 9px; }
 
 /* ---------- カード（面のみ・線と影で囲まない） ---------- */
-.card { background: var(--card); border-radius: 12px; padding: 16px 16px 18px; margin-bottom: 16px; }
+.card { background: var(--card); border-radius: var(--r-card); padding: 16px 16px 18px; margin-bottom: 16px; }
 .card.plain { background: transparent; padding: 0; }
 
 /* ---------- 盤面（主役・作戦盤そのもの） ---------- */
-.board { background: var(--board); color: var(--board-ink); border-radius: 12px; padding: 14px 16px 16px; margin: 12px 0; }
+.board { background: var(--board); color: var(--board-ink); border-radius: var(--r-card); padding: 14px 16px 16px; margin: 12px 0; }
 .scoreline { display: flex; align-items: baseline; justify-content: center; gap: 14px; font-variant-numeric: tabular-nums; }
 .scoreline .team { font-size: .875rem; color: var(--board-soft); }
 .scoreline .num { font-size: 2.75rem; line-height: 1.15; font-weight: 700; letter-spacing: 0; }
@@ -199,10 +215,10 @@ label.fld { display: block; margin: 18px 0 6px; font-size: .875rem; line-height:
 
 /* ---------- 選択肢（かちり、と選ぶ） ---------- */
 .opt { display: block; width: 100%; text-align: left; margin-bottom: 10px; padding: 12px 14px;
-  border-radius: 8px; border: 1px solid var(--line-strong); background: var(--card); }
+  border-radius: var(--r-btn); border: 1px solid var(--line-strong); background: var(--card); }
 .opt .olabel { font-weight: 700; display: flex; align-items: baseline; gap: 10px; }
 .opt .olabel::before { content: ""; flex: none; width: 9px; height: 9px;
-  transform: rotate(45deg); border: 1.5px solid var(--line-strong); border-radius: 1px; }
+  transform: rotate(45deg); border: 1.5px solid var(--line-strong); border-radius: var(--r-mark); }
 .opt.sel { border-color: var(--seal); box-shadow: inset 0 0 0 1px var(--seal); }
 .opt.sel .olabel::before { background: var(--seal); border-color: var(--seal); }
 .conf { display: flex; gap: 8px; margin-top: 6px; }
@@ -210,13 +226,13 @@ label.fld { display: block; margin: 18px 0 6px; font-size: .875rem; line-height:
 .conf button.on { background: var(--seal); color: var(--seal-ink); border-color: var(--seal); font-weight: 700; }
 .stepper { display: flex; align-items: center; gap: 8px; margin: 2px 2px 12px; }
 .stepper .dia { width: 10px; height: 10px; transform: rotate(45deg);
-  border: 1.5px solid var(--line-strong); border-radius: 1px; background: transparent; }
+  border: 1.5px solid var(--line-strong); border-radius: var(--r-mark); background: transparent; }
 .stepper .dia.done { background: var(--ink-soft); border-color: var(--ink-soft); }
 .stepper .dia.now { background: var(--seal); border-color: var(--seal); }
 .stepper .stext { font-size: .875rem; color: var(--ink-soft); margin-left: 4px; font-variant-numeric: tabular-nums; }
 
 /* ---------- 検討室（見出し＋余白＋罫線で組む。箱は意味のあるものだけ） ---------- */
-.safety { background: var(--safety-bg); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+.safety { background: var(--safety-bg); border-radius: var(--r-card); padding: 12px 14px; margin-bottom: 12px; }
 .safety .shead { font-weight: 700; font-size: .875rem; color: var(--safety-ink); margin-bottom: 4px; }
 .cols { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 14px; }
 @media (min-width: 560px) { .cols { grid-template-columns: 1fr 1fr; } }
@@ -224,29 +240,29 @@ label.fld { display: block; margin: 18px 0 6px; font-size: .875rem; line-height:
   padding-bottom: 5px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
 .col ul, .optreview ul { padding-left: 1.15em; }
 .col li { margin-bottom: 7px; }
-.col.camp { background: var(--chip); border-radius: 8px; padding: 11px 13px; }
+.col.camp { background: var(--chip); border-radius: var(--r-btn); padding: 11px 13px; }
 .col.wakare { margin-top: 14px; }
 .col.wakare > .chead { color: var(--magnet); }
 .optreview { margin-top: 16px; }
 .optreview .oitem { border-top: 1px solid var(--line); padding: 12px 2px; }
-.optreview .oitem.chosen { background: var(--seal-soft); border-top-color: transparent; border-radius: 8px; padding: 12px 12px; }
+.optreview .oitem.chosen { background: var(--seal-soft); border-top-color: transparent; border-radius: var(--r-btn); padding: 12px 12px; }
 .optreview .yours { color: var(--seal); font-size: .875rem; font-weight: 700; }
 .optreview .aim { margin-top: 3px; }
 .optreview .ura { color: var(--ink-soft); margin-top: 2px; }
 .teigen { border-top: 1px solid var(--line); padding: 12px 2px 10px; }
 .teigen .lnote { margin-top: 6px; font-size: .875rem; line-height: 1.6; color: var(--ink-soft); }
-.banner { background: var(--chip); border-radius: 12px; padding: 12px 14px; margin: 14px 0;
+.banner { background: var(--chip); border-radius: var(--r-card); padding: 12px 14px; margin: 14px 0;
   font-size: .875rem; line-height: 1.6; color: var(--ink-soft); }
-.actualbox { background: var(--seal-soft); border-radius: 12px; padding: 14px 16px; margin: 14px 0; }
+.actualbox { background: var(--seal-soft); border-radius: var(--r-card); padding: 14px 16px; margin: 14px 0; }
 .actualbox .ahead { font-size: .875rem; font-weight: 700; color: var(--seal); margin-bottom: 4px; }
 .sources { font-size: .875rem; line-height: 1.6; color: var(--ink-soft); margin-top: 8px; padding-left: 1.1em; }
-.reasonbox { background: var(--chip); border-radius: 8px; padding: 10px 12px; margin: 12px 0; }
+.reasonbox { background: var(--chip); border-radius: var(--r-btn); padding: 10px 12px; margin: 12px 0; }
 .refs { margin-top: 12px; }
 .refs .tag { background: transparent; border: 1px solid var(--line); }
 
 /* ---------- タブバー（文字タブ・現在地は上端の線＋色＋太字） ---------- */
 .tabbar {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+  flex: none;
   display: flex; background: var(--card); border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -261,57 +277,91 @@ label.fld { display: block; margin: 18px 0 6px; font-size: .875rem; line-height:
 .modalwrap { position: fixed; inset: 0; z-index: 50; background: rgba(18, 26, 20, .55);
   display: flex; align-items: flex-end; justify-content: center; }
 @media (min-width: 560px) { .modalwrap { align-items: center; } }
-.modal { background: var(--card); border-radius: 16px 16px 0 0; width: 100%; max-width: 560px;
+.modal { background: var(--card); border-radius: var(--r-modal) var(--r-modal) 0 0; width: 100%; max-width: 560px;
   max-height: 86vh; overflow-y: auto; overscroll-behavior: contain;
   padding: 20px 18px 24px; box-shadow: var(--shadow-float); }
-@media (min-width: 560px) { .modal { border-radius: 16px; } }
+@media (min-width: 560px) { .modal { border-radius: var(--r-modal); } }
 .modal h3 { margin-top: 2px; }
 
 /* ---------- 画面内のお知らせ（window.alert の代替。浮くものなので影を使う） ---------- */
-#notice-root { position: fixed; left: 0; right: 0; bottom: calc(70px + env(safe-area-inset-bottom));
+#notice-root { position: fixed; left: 0; right: 0; bottom: calc(62px + env(safe-area-inset-bottom));
   z-index: 60; display: flex; justify-content: center; pointer-events: none; padding: 0 12px; }
 #notice-root .notice { pointer-events: auto; background: var(--ink); color: var(--paper);
-  border-radius: 10px; padding: 12px 16px; line-height: 1.6; box-shadow: var(--shadow-float);
+  border-radius: var(--r-btn); padding: 12px 16px; line-height: 1.6; box-shadow: var(--shadow-float);
   max-width: 560px; animation: rise .16s var(--ease-out); }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
 #notice-root .nclose { margin-left: 10px; background: none; border: 1px solid currentColor; color: inherit;
-  border-radius: 6px; padding: 2px 10px; font-size: .875rem; min-height: 0; }
+  border-radius: var(--r-chip); padding: 2px 10px; font-size: .875rem; min-height: 0; }
 
 /* ---------- 一覧・記録 ---------- */
 .listitem { border-bottom: 1px solid var(--line); padding: 12px 2px; }
 .listitem:last-child { border-bottom: none; }
-.notecard { background: var(--card); border-radius: 12px; padding: 13px 15px; margin-bottom: 10px; }
+/* 一覧から1件を選ぶ札（div+onclickでなくbuttonにしてキーボードでも辿れる） */
+.pickcard { display: block; width: 100%; text-align: left; background: var(--card); border: none;
+  border-radius: var(--r-card); padding: 13px 15px; margin-bottom: 10px; min-height: 0; }
+.pickcard b { display: block; margin-top: 2px; }
+/* 記録の1件（押すと振り返りが開く） */
+.recitem { display: block; width: 100%; text-align: left; background: none; border: none;
+  border-bottom: 1px solid var(--line); border-radius: 0; padding: 12px 2px; min-height: 0; }
+.recitem:active { transform: none; }
+/* 既定で畳んでおく区画（普段は見えなくていいもの） */
+details.fold { border-top: 1px solid var(--line); }
+details.fold > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px;
+  padding: 14px 2px; font-weight: 700; }
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary::before { content: ""; flex: none; width: 7px; height: 7px; margin-left: 2px;
+  border-right: 1.5px solid var(--ink-soft); border-bottom: 1.5px solid var(--ink-soft);
+  transform: rotate(-45deg); transition: transform .15s var(--ease-out); }
+details.fold[open] > summary::before { transform: rotate(45deg) translate(-2px, -2px); }
+details.fold > summary .cnt { margin-left: auto; font-weight: 400; color: var(--ink-soft);
+  font-size: .875rem; font-variant-numeric: tabular-nums; }
+details.fold .foldbody { padding: 0 0 18px; }
+details.fold .foldbody h3:first-child { margin-top: 4px; }
+.notecard { background: var(--card); border-radius: var(--r-card); padding: 13px 15px; margin-bottom: 10px; }
 .notecard .ntext { font-weight: 700; white-space: pre-wrap; }
 .notecard .nmeta { margin-top: 6px; font-size: .875rem; line-height: 1.6; color: var(--ink-soft); }
 .covtable { width: 100%; border-collapse: collapse; font-size: .875rem; line-height: 1.35; font-variant-numeric: tabular-nums; }
 .covtable th, .covtable td { border-bottom: 1px solid var(--line); padding: 11px 8px; text-align: left; }
 .covtable td.n { text-align: right; }
 .done { color: var(--seal); font-weight: 700; }
-.flag { color: var(--magnet); border: 1px solid currentColor; border-radius: 9999px; padding: 0 8px; font-size: .875rem; }
+.flag { color: var(--magnet); border: 1px solid currentColor; border-radius: var(--r-pill); padding: 0 8px; font-size: .875rem; }
 .timer { text-align: center; font-variant-numeric: tabular-nums; color: var(--ink-soft); font-size: .875rem; margin-bottom: 8px; }
 .timer.over { color: var(--magnet); }
 .homehero { text-align: center; padding: 10px 0 6px; }
 .homehero .date { font-size: .875rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-.reunion { background: var(--seal-soft); border-radius: 12px; padding: 13px 15px; margin: 12px 0; }
+.reunion { background: var(--seal-soft); border-radius: var(--r-card); padding: 13px 15px; margin: 12px 0; }
 .reunion .rhead { font-size: .875rem; font-weight: 700; color: var(--seal); margin-bottom: 4px; }
-.warnbox { background: var(--magnet-soft); border-radius: 12px; padding: 11px 14px; margin: 10px 0; }
+.warnbox { background: var(--magnet-soft); border-radius: var(--r-card); padding: 11px 14px; margin: 10px 0; }
 .gamehead { font-size: .875rem; line-height: 1.6; color: var(--ink-soft);
   border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 10px; }
 .gamehead b { color: var(--ink); font-size: 1rem; display: block; }
 button.dangerbtn { background: var(--magnet); border-color: var(--magnet); }
 
 /* ---------- 達成（土の色は、ここでしか出ない） ---------- */
-.setdone h2::before { background: var(--clay); width: 12px; height: 12px; animation: setpop .5s var(--ease-out); }
-@keyframes setpop { from { transform: rotate(45deg) scale(0); } }
+/* 形＝署名の菱形を捕った本数ぶん／時間＝420msで灯り、900msかけて余韻に落ちる2段／
+   面積＝18pxを間隔16pxで横に並べる。手本は Diamond の「金の光」（opacity 0→1→.32 の2段明滅） */
+.setdone h2::before { background: var(--clay); width: 12px; height: 12px; }
+.setdone h2 { margin-top: 4px; }
+.tally { display: flex; justify-content: center; gap: 16px; margin: 2px 0 16px; }
+.tally .dia { width: 18px; height: 18px; border-radius: 2px; background: var(--clay);
+  transform: rotate(45deg); opacity: 0; animation: clay-light 1320ms forwards; }
+@keyframes clay-light {
+  0%   { opacity: 0; transform: rotate(45deg) scale(.4); animation-timing-function: cubic-bezier(.23, 1, .32, 1); }
+  32%  { opacity: 1; transform: rotate(45deg) scale(1); animation-timing-function: linear; }
+  39%  { opacity: 1; animation-timing-function: ease-in; }
+  100% { opacity: .42; transform: rotate(45deg) scale(1); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
-  html { scroll-behavior: auto; }
+  .tally .dia { animation: none; opacity: 1; }  /* 動かさずに、灯った状態で見せる */
 }
 
 @media print {
   .tabbar, .appbar, .noprint, button, #notice-root, #modal-root { display: none !important; }
-  body { background: #fff; color: #000; padding: 0; }
+  /* 画面は3段組みで内側だけスクロールするが、紙では全部を流す */
+  body { display: block; height: auto; overflow: visible; background: #fff; color: #000; padding: 0; }
+  #scroll { overflow: visible; }
   * { box-shadow: none !important; }
   .card, .notecard, .reunion { background: #fff; border: 1px solid #999; break-inside: avoid; }
   h2::before { display: none; }
@@ -327,7 +377,7 @@ button.dangerbtn { background: var(--magnet); border-color: var(--magnet); }
   <span class="sub">采配の千本ノック</span>
   <span class="lock">データは端末内のみ</span>
 </header>
-<main id="view"></main>
+<div id="scroll"><main id="view"></main></div>
 <nav class="tabbar" id="tabbar"></nav>
 <div id="modal-root"></div>
 <div id="notice-root"></div>
@@ -408,7 +458,9 @@ let screen = { name: "home" };
 let knock = null; // { mode, ids, idx, phase, chosen, free, reason, conf, fuChosen, fuReason, repId, reunionDone, mochiId }
 let timerHandle = null;
 
-function go(next) { screen = next; render(); window.scrollTo(0, 0); }
+/* スクロールするのは body でなく内側の器（#scroll）。先頭に戻すのはこちら */
+function toTop() { const s = $("#scroll"); if (s) s.scrollTop = 0; }
+function go(next) { screen = next; render(); toTop(); }
 
 /* ---------- 盤面描画 ---------- */
 function boardHtml(board, rules) {
@@ -485,6 +537,25 @@ function startMeikyusen(id) {
   knock = { mode: "meikyusen", ids: [id], idx: 0, phase: "present", chosen: null, free: "", reason: "", conf: 0, fuChosen: null, fuReason: "", repId: null };
   go({ name: "knock" });
 }
+/* 一覧から1枚だけ捕る（タイブレークなど。終えたら来た一覧へ戻る） */
+function startSingle(id, back) {
+  knock = { mode: "single", ids: [id], idx: 0, phase: "present", chosen: null, free: "", reason: "", conf: 0, fuChosen: null, fuReason: "", repId: null, timerEnd: null, back: back || "home" };
+  go({ name: "knock" });
+}
+/* 記録から過去の1本を開き直す（読むだけ。新しい記録は作らない） */
+function openReview(repId) {
+  const rep = getRep(repId);
+  const card = rep && rep.cardId ? cardById(rep.cardId) : null;
+  if (!card) { notice("この場面のカードが見つかりません（持ち帰りの記録か、デッキから外れた可能性があります）", true); return; }
+  knock = { mode: "review", ids: [card.id], idx: 0, phase: "discuss", chosen: null, free: "", reason: "", conf: 0, fuChosen: null, fuReason: "", repId: rep.id, back: "records" };
+  go({ name: "knock" });
+}
+/* 同じ場面を、今の自分でもう一度決める（新しい1本として記録される） */
+function startAgain(cardId) {
+  if (!cardById(cardId)) return;
+  knock = { mode: "again", ids: [cardId], idx: 0, phase: "present", chosen: null, free: "", reason: "", conf: 0, fuChosen: null, fuReason: "", repId: null, timerEnd: null, back: "records" };
+  go({ name: "knock" });
+}
 function startReplay(mochiId) {
   knock = { mode: "replay", ids: [], idx: 0, phase: "present", chosen: null, free: "", reason: "", conf: 0, repId: null, mochiId };
   go({ name: "knock" });
@@ -508,7 +579,7 @@ function submitDecision() {
   markDailyConsumed(); // 決断を出した時点で消化済み。タブバーで離脱しても「続きから」が同じカードを返さない
   const fu = (card.followups || []).find((f) => f.when.includes(choice));
   knock.phase = fu ? "followup" : "discuss";
-  render(); window.scrollTo(0, 0);
+  render(); toTop();
 }
 function submitFollowup() {
   const card = currentCard();
@@ -518,7 +589,7 @@ function submitFollowup() {
   rep.followup = { choice: fu.options[knock.fuChosen].label, reason: knock.fuReason.trim() };
   saveReps(reps);
   knock.phase = "discuss";
-  render(); window.scrollTo(0, 0);
+  render(); toTop();
 }
 function getRep(id) { return getReps().find((r) => r.id === id) || {}; }
 function toggleFlag() {
@@ -546,12 +617,13 @@ function finishCard() {
     markDailyConsumed();
     if (nextIdx < knock.ids.length) {
       knock = Object.assign(knock, { idx: nextIdx, phase: "present", chosen: null, free: "", reason: "", conf: 0, fuChosen: null, fuReason: "", repId: null, timerEnd: null });
-      render(); window.scrollTo(0, 0);
+      render(); toTop();
     } else {
-      knock.phase = "setdone"; render(); window.scrollTo(0, 0);
+      knock.phase = "setdone"; render(); toTop();
     }
   } else {
-    knock = null; go({ name: "home" });
+    const back = knock.back || "home";
+    knock = null; go({ name: back });
   }
 }
 
@@ -611,7 +683,7 @@ function renderKnock() {
   if (knock.mode === "replay") return renderReplay();
   const card = currentCard();
   if (!card) { knock = null; return renderHome(); }
-  const isMei = knock.mode === "meikyusen";
+  const isMei = card.source === "meikyusen"; // 振り返りで名勝負を開いても「実際の采配」が出るように
   const step = knock.mode === "daily"
     ? `<div class="stepper">${knock.ids.map((_, i) => `<span class="dia${i < knock.idx ? " done" : i === knock.idx ? " now" : ""}"></span>`).join("")}<span class="stext">${knock.idx + 1}本目 / 全${knock.ids.length}本</span></div>`
     : "";
@@ -681,6 +753,7 @@ function renderKnock() {
     const reps = getReps().slice(-3);
     return `
       <div class="card center setdone">
+        <div class="tally">${knock.ids.map((_, i) => `<span class="dia" style="animation-delay:${i * 140}ms"></span>`).join("")}</div>
         <h2>今日の3本、捕りました</h2>
         <p class="muted small">ノックの本数は誇るための数字ではありません。残ったルールと、次の試合の現場ログだけが本物の成果です。</p>
       </div>
@@ -697,6 +770,7 @@ function renderKnock() {
 /* ---------- 検討室（decision 提出後にのみ到達） ---------- */
 function renderDiscussion(card, isMei, step, gamehead) {
   const rep = getRep(knock.repId);
+  const isReview = knock.mode === "review";
   const d = card.discussion || {};
   const safety = d.safety ? `
     <div class="safety"><div class="shead">安全がからむ局面 <span class="badge guideline">guideline</span></div>
@@ -759,8 +833,10 @@ function renderDiscussion(card, isMei, step, gamehead) {
     ${step}
     <div class="card">
       ${gamehead}
-      <h2>検討室 — 採点はしません</h2>
-      <p class="muted small">開くのは、論点・各選択肢の構造・定石とその由来。決めたのはあなたで、これからも毎回そうです。</p>
+      <h2>${isReview ? "振り返り" : "検討室 — 採点はしません"}</h2>
+      <p class="muted small">${isReview
+        ? `${fmtDate(rep.ts)} に捕った1本を、もう一度開いています。あのときの決断はそのまま残ります。`
+        : "開くのは、論点・各選択肢の構造・定石とその由来。決めたのはあなたで、これからも毎回そうです。"}</p>
       ${safety}
       ${yourEcho}
       ${actual}
@@ -777,7 +853,8 @@ function renderDiscussion(card, isMei, step, gamehead) {
       <p class="muted small">「異議あり」は「この定石はうちに合わない・局面が不自然」の印。責める道具ではなく、デッキを育てる材料です（記録画面で見返せます）。</p>
       <div class="btnrow">
         <button class="big" onclick="openRuleModal(${esc(JSON.stringify(card.phaseTags)).replace(/"/g, "&quot;")}, ['${esc(card.id)}'])">ルールにする</button>
-        <button class="primary big" id="nextbtn" onclick="finishCard()">${hasNextDaily() ? "次の1本へ" : "終える"}</button>
+        ${isReview ? `<button class="big" onclick="startAgain('${esc(card.id)}')">この場面をもう一度決める</button>` : ""}
+        <button class="primary big" id="nextbtn" onclick="finishCard()">${hasNextDaily() ? "次の1本へ" : (isReview ? "記録へ戻る" : "終える")}</button>
       </div>
       ${hasNextDaily() ? `
       <div class="btnrow"><button class="ghost big" onclick="pauseSet()">今日はここまで</button></div>
@@ -838,7 +915,7 @@ function submitReplayDecision() {
   const reps = getReps();
   const rep = { id: uid(), ts: Date.now(), cardId: item.id, deck: "mochikaeri", title: "持ち帰り: " + item.scene.slice(0, 24), tags: ["持ち帰り"], choice: item.replay.decision, free: true, reason: item.replay.reason, conf: knock.conf, flag: false, followup: null, ruleIds: [] };
   reps.push(rep); saveReps(reps); knock.repId = rep.id;
-  knock.phase = "discuss"; render(); window.scrollTo(0, 0);
+  knock.phase = "discuss"; render(); toTop();
 }
 function saveReplaySelf() {
   const items = getMochi(); const item = items.find((m) => m.id === knock.mochiId);
@@ -863,6 +940,7 @@ function renderHome() {
     ${resume ? `<button class="primary big" onclick="startDaily()">続きから（${pending.idx + 1}/${pending.ids.length}本目）</button>` : `<button class="primary big" onclick="startDaily()">今日のノック（3本・5〜10分）</button>`}
     <div class="btnrow">
       <button class="big" onclick="go({name:'meikyusenList'})">名勝負ノック</button>
+      <button class="big" onclick="go({name:'tiebreakList'})">タイブレーク</button>
       <button class="big" onclick="go({name:'mochiForm'})">試合の場面を持ち帰る</button>
     </div>
     ${reunion && !empty ? `<div class="reunion"><div class="rhead">最近のルール</div><div style="white-space:pre-wrap">${esc(reunion.text)}</div><div class="muted small" style="margin-top:4px">${fmtDate(reunion.ts)}</div></div>` : ""}
@@ -877,11 +955,28 @@ function renderMeikyusenList() {
     <p class="lead">実在の試合の局面を、実際の采配を伏せて出題します。決断のあとに「あの日の答え」と出典が開きます。</p>
     <div class="banner">${esc(BANNER_TEXT)}</div>
     ${MEIKYUSEN.map((c) => `
-      <div class="card plain" style="cursor:pointer" onclick="startMeikyusen('${c.id}')">
-        <div class="muted small">${esc(c.game.name)}${played.has(c.id) ? '　<span class="done">✓ 体験済み（もう一度でも）</span>' : ""}</div>
+      <button class="pickcard" onclick="startMeikyusen('${c.id}')">
+        <span class="muted small">${esc(c.game.name)}${played.has(c.id) ? '　<span class="done">✓ 体験済み（もう一度でも）</span>' : ""}</span>
         <b>${esc(c.title)}</b>
-        <div>${c.phaseTags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
-      </div>`).join("")}
+        <span>${c.phaseTags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</span>
+      </button>`).join("")}
+    <button class="ghost big" onclick="go({name:'home'})">← ホームへ</button>`;
+}
+
+/* ---------- タイブレーク一覧（延長の場面だけを集めた棚） ---------- */
+function renderTiebreakList() {
+  const cards = STARTER.filter((c) => c.phaseTags.includes("タイブレーク"));
+  const played = new Set(getReps().map((r) => r.cardId));
+  return `
+    <h2>タイブレーク</h2>
+    <p class="lead">延長は無死一・二塁から、しかも表と裏で同じ形が来る。ここだけを集中して捕れる棚です。</p>
+    ${cards.map((c) => `
+      <button class="pickcard" onclick="startSingle('${c.id}','tiebreakList')">
+        <span class="muted small">解像度 Lv${c.resolution}${played.has(c.id) ? '　<span class="done">✓ 捕った（もう一度でも）</span>' : ""}</span>
+        <b>${esc(c.title)}</b>
+        <span>${c.phaseTags.filter((t) => t !== "タイブレーク").map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</span>
+      </button>`).join("")}
+    <p class="muted small">今日のノックにも、この場面は混ざって出ます。</p>
     <button class="ghost big" onclick="go({name:'home'})">← ホームへ</button>`;
 }
 
@@ -1086,9 +1181,23 @@ function renderRecords() {
     const c28 = rs.filter((r) => now - r.ts < 28 * DAY).length;
     return { t, total: rs.length, c28, last };
   });
-  const recent = reps.slice(-15).reverse();
   const flagged = reps.filter((r) => r.flag);
   const logs = getFieldlog().slice().reverse();
+  // ノックの記録は種類（局面タグ）ごとにまとめ、最近捕った種類を上に置く
+  const groups = new Map();
+  for (const r of reps) {
+    const key = (r.tags && r.tags[0]) || "その他";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  const grouped = [...groups.entries()]
+    .map(([tag, rs]) => ({ tag, rs: rs.slice().reverse(), last: Math.max(...rs.map((r) => r.ts)) }))
+    .sort((a, b) => b.last - a.last);
+  const repItem = (r) => `
+    <button class="recitem" onclick="openReview('${r.id}')">
+      <b>${esc(r.title)}</b> <span class="lvchip">${esc(r.deck)}</span><br>
+      <span class="muted small">${fmtDate(r.ts)}　→ ${esc(r.choice)}（自信度${r.conf}）${r.flag ? ' <span class="flag">異議あり</span>' : ""}${r.ruleIds && r.ruleIds.length ? "　ルール化済み" : ""}</span>
+    </button>`;
   return `
     <h2>現場ログ — このツールの成功指標</h2>
     <p class="lead">試合ごとに一行。「迷わず出せた指示」がここに増えていくかどうかだけが、ノックの成果の物差しです。</p>
@@ -1099,15 +1208,28 @@ function renderRecords() {
       <div class="btnrow"><button class="primary" onclick="addFieldlog()">記録する</button></div>
     </div>
     ${logs.map((l) => `<div class="listitem"><span class="muted small">${esc(l.date)}</span><br>${l.confident ? "○ " + esc(l.confident) + "<br>" : ""}${l.hesitated ? '<span class="muted">△ ' + esc(l.hesitated) + "</span>" : ""}</div>`).join("")}
-    <h2>ノックの記録</h2>
-    <p class="muted small">これまで ${reps.length} 本。本数は目標ではありません。</p>
-    ${recent.map((r) => `<div class="listitem"><b>${esc(r.title)}</b> <span class="lvchip">${esc(r.deck)}</span><br><span class="muted small">${fmtDate(r.ts)}　→ ${esc(r.choice)}（自信度${r.conf}）${r.flag ? ' <span class="flag">異議あり</span>' : ""}${r.ruleIds && r.ruleIds.length ? "　ルール化済み" : ""}</span></div>`).join("") || '<p class="muted small">まだありません。</p>'}
-    ${flagged.length ? `<h3>異議ありの局面（デッキを育てる材料）</h3><p class="muted small">次にシチュエーションを追加・改訂するとき（Claudeセッションで）に、この一覧を伝えてください。</p>${flagged.map((r) => `<div class="listitem small">${esc(r.cardId)} — ${esc(r.title)}</div>`).join("")}` : ""}
-    <h2>局面タグのカバレッジ</h2>
-    <p class="muted small">直近4週間で出ていないタグは、次のセットで優先的に出題されます。</p>
-    <table class="covtable"><tr><th>タグ</th><th class="n">4週</th><th class="n">通算</th><th>最後に捕った日</th></tr>
-      ${cov.map((c) => `<tr><td>${esc(c.t)}</td><td class="n">${c.c28}</td><td class="n">${c.total}</td><td>${c.last ? fmtDate(c.last) : "—"}</td></tr>`).join("")}
-    </table>`;
+    <details class="fold">
+      <summary>ノックの記録<span class="cnt">${reps.length} 本</span></summary>
+      <div class="foldbody">
+        <p class="muted small">押すと、その場面の検討室をもう一度開けます（本数は目標ではありません）。</p>
+        ${grouped.length ? grouped.map((g) => `
+          <h3>${esc(g.tag)}<span class="muted small">　${g.rs.length}本</span></h3>
+          ${g.rs.map(repItem).join("")}`).join("") : '<p class="muted small">まだありません。</p>'}
+        ${flagged.length ? `
+          <h3>異議ありの局面（デッキを育てる材料）</h3>
+          <p class="muted small">次にシチュエーションを追加・改訂するとき（Claudeセッションで）に、この一覧を伝えてください。</p>
+          ${flagged.map((r) => `<div class="listitem small">${esc(r.cardId)} — ${esc(r.title)}</div>`).join("")}` : ""}
+      </div>
+    </details>
+    <details class="fold">
+      <summary>局面タグのカバレッジ<span class="cnt">${cov.filter((c) => c.total > 0).length} / ${cov.length} 種</span></summary>
+      <div class="foldbody">
+        <p class="muted small">直近4週間で出ていないタグは、次のセットで優先的に出題されます。</p>
+        <table class="covtable"><tr><th>タグ</th><th class="n">4週</th><th class="n">通算</th><th>最後に捕った日</th></tr>
+          ${cov.map((c) => `<tr><td>${esc(c.t)}</td><td class="n">${c.c28}</td><td class="n">${c.total}</td><td>${c.last ? fmtDate(c.last) : "—"}</td></tr>`).join("")}
+        </table>
+      </div>
+    </details>`;
 }
 function addFieldlog() {
   const date = $("#fldate").value || todayStr();
@@ -1203,7 +1325,7 @@ const TABS = [
   { key: "settings", label: "設定" },
 ];
 function renderTabbar() {
-  const active = screen.name === "knock" ? "" : (["meikyusenList", "brief"].includes(screen.name) ? "home" : (["mochiForm"].includes(screen.name) ? "mochikaeri" : screen.name));
+  const active = screen.name === "knock" ? "" : (["meikyusenList", "tiebreakList", "brief"].includes(screen.name) ? "home" : (["mochiForm"].includes(screen.name) ? "mochikaeri" : screen.name));
   $("#tabbar").innerHTML = TABS.map((t) => `<button class="${active === t.key ? "on" : ""}" onclick="leaveKnockAnd('${t.key}')">${t.label}</button>`).join("");
 }
 function leaveKnockAnd(tab) {
@@ -1252,6 +1374,7 @@ function render() {
     case "home": v.innerHTML = renderHome(); break;
     case "knock": v.innerHTML = renderKnock(); break;
     case "meikyusenList": v.innerHTML = renderMeikyusenList(); break;
+    case "tiebreakList": v.innerHTML = renderTiebreakList(); break;
     case "notes": v.innerHTML = renderNotes(); break;
     case "brief": v.innerHTML = renderBrief(); break;
     case "mochikaeri": v.innerHTML = renderMochiList(); break;
