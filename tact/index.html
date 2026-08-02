@@ -170,6 +170,16 @@ textarea, input[type=text], input[type=date], input[type=number], select {
   background: var(--card); color: var(--ink); padding: 10px 12px;
 }
 textarea { min-height: 72px; resize: vertical; }
+/* iOS Safari の日付欄は、UAが独自の最小幅と「値を中央寄せ」を持っている。
+   width:100% を書いても箱が器より広がって右にはみ出し、値だけ真ん中に浮いて
+   他の入力欄と頭が揃わない。素の箱に戻し（appearance:none）、最小幅を殺し、
+   値の中央寄せを解いて、他の欄と同じ見た目に揃える */
+input[type=date] {
+  display: block; min-width: 0; max-width: 100%;
+  -webkit-appearance: none; appearance: none; text-align: left;
+}
+input[type=date]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+input[type=date]::-webkit-datetime-edit { padding: 0; }
 label.fld { display: block; margin: 18px 0 6px; font-size: .875rem; line-height: 1.6; color: var(--ink-soft); }
 
 /* ---------- タグ・バッジ ---------- */
@@ -282,6 +292,11 @@ label.fld { display: block; margin: 18px 0 6px; font-size: .875rem; line-height:
   padding: 20px 18px 24px; box-shadow: var(--shadow-float); }
 @media (min-width: 560px) { .modal { border-radius: var(--r-modal); } }
 .modal h3 { margin-top: 2px; }
+/* 土台で * { padding:0 } を敷いているため、指定がないと箇条書きの点が
+   箱の外（モーダルの余白の中）へはみ出し、本文より左に飛び出て見える。
+   他の一覧（.extras/.sources/.col ul）と同じ字下げに揃える */
+.modal ul { margin: 10px 0 2px; padding-left: 1.2em; }
+.modal ul li { margin-top: 2px; }
 
 /* ---------- 画面内のお知らせ（window.alert の代替。浮くものなので影を使う） ---------- */
 #notice-root { position: fixed; left: 0; right: 0; bottom: calc(62px + env(safe-area-inset-bottom));
