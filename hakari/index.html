@@ -127,6 +127,14 @@
   .li-act button{min-height:38px; padding:6px 12px; font-size:.78rem; font-weight:500; color:var(--sub);}
   .list-more{width:100%; margin-top:12px; min-height:42px; font-size:.82rem; color:var(--sub);}
   .empty{color:var(--sub); font-size:.85rem;}
+  /* 記録を直すパネル（§5.7 の例外）。取消＝赤い notice に対して、こちらは色を付けない。
+     直すのは「報告書の数字が動かない項目」だけ＝警告する操作ではないので、面の重さも揃えない */
+  .panel{
+    background:var(--bg); border:1px solid var(--line); border-radius:var(--radius);
+    padding:12px 14px; margin-bottom:12px; font-size:.86rem;
+  }
+  .panel h3{margin:0 0 6px; font-size:.9rem;}
+  .panel label,.panel .fieldlabel{margin-top:10px;}
   .notice{border-radius:var(--radius); padding:12px 14px; margin-bottom:12px; font-size:.86rem; border:1px solid;}
   .notice h3{margin:0 0 6px; font-size:.9rem;}
   .notice.warn{background:var(--warn-bg); border-color:var(--warn-line); color:var(--warn-ink);}
@@ -480,6 +488,44 @@
         <button type="button" id="btn-void-cancel">やめる</button>
       </div>
     </div>
+
+    <!-- 直す（§5.7 の例外）。**報告書の数字が1円も動かない項目だけ**をここで直せる。
+         金額・日付・費目・領収書の有無は、動かすと紙の数字か現物との対応が変わるので取消して入れ直す。
+         支払い元をここに入れてよい根拠は §5.3 の精算——`paidFrom` を動かしても収支は変わらない -->
+    <div id="edit-panel" class="panel hidden">
+      <h3>この記録を直す</h3>
+      <p id="edit-detail"></p>
+
+      <div id="edit-paidfrom-wrap">
+        <div class="fieldlabel" id="edit-paidfrom-label">支払い元</div>
+        <div class="seg" role="group" aria-labelledby="edit-paidfrom-label">
+          <button type="button" id="edit-pf-envelope" aria-pressed="true">封筒から</button>
+          <button type="button" id="edit-pf-advance" aria-pressed="false">立て替え</button>
+        </div>
+      </div>
+      <p id="edit-paidfrom-locked" class="meta hidden"></p>
+
+      <label for="edit-note">内容メモ</label>
+      <input type="text" id="edit-note" autocomplete="off">
+
+      <div id="edit-headcount-wrap" class="hidden">
+        <label for="edit-headcount">何人から集めたか</label>
+        <input type="text" id="edit-headcount" inputmode="numeric" autocomplete="off" placeholder="24">
+      </div>
+
+      <div id="edit-purpose-wrap" class="hidden">
+        <label for="edit-purpose">目的</label>
+        <select id="edit-purpose"></select>
+      </div>
+
+      <p class="meta">金額・日付・費目・領収書の有無は、ここでは直せません（報告書の数字や、実物に書いた領収書番号が動くため）。その3つを直すときは「取り消す」で理由を残してから入れ直してください。</p>
+      <p id="edit-hist" class="meta"></p>
+      <p id="edit-error" class="notice bad hidden"></p>
+      <div class="row">
+        <button type="button" id="btn-edit-do">この内容にする</button>
+        <button type="button" id="btn-edit-cancel">やめる</button>
+      </div>
+    </div>
     </details>
   </div>
 
@@ -601,6 +647,8 @@
   // 人数を聞くのは「部員から頭割りで集める」費目だけ。寄付や返金で人数を聞かれても答えようがない
   var HEADCOUNT_CATEGORIES = ['部費徴収', '臨時徴収'];
   var VOID_PRESETS = ['金額のまちがい', '費目のまちがい', '二重に入れた'];
+  // 支払い元の言い方はここ1か所に置く。画面と修正履歴で言葉が割れないように（§5.3）
+  var PAIDFROM_LABEL = { envelope:'封筒から', advance:'立て替え' };
   var ADVANCE_ALERT_DAYS = 30;         // 立て替えたままを知らせるまでの日数（§5.3）
 
   var SEED_VERSION = 2;                // 初期セットを1度だけ入れるための版番号（2で収入の費目を2つ引き上げ）
@@ -1233,6 +1281,8 @@
   var showAll = false;                       // 一覧を全件出しているか
   var sessionAdded = [];                     // このセッションで入れた記録（'年度#id'）＝理由なしで消せる対象
   var voidTarget = { key:null, id:null };    // 取消パネルが対象にしている記録
+  var editTarget = { key:null, id:null };    // 「直す」パネルが対象にしている記録（§5.7 の例外）
+  var editPaidFrom = 'envelope';             // 「直す」パネルの中だけで使う支払い元（入力欄のものと混ぜない）
   var refillFrom = { key:null, id:null, receiptNo:null };  // 取消から「入れ直す」でフォームに移した元記録
   var currentPurpose = null;                 // 選んでいる目的タグ（§5.5）。既定は毎回なし
   var currentHasReceipt = true;              // 領収書があるか（§5.6）。既定は毎回「ある」
@@ -1687,6 +1737,9 @@
       if(e.note) parts.push(e.note);
       // 実物のファイルを引くための番号。ここに出ていないと、報告書の別紙でしか照合できない（§5.6）
       if(Number.isSafeInteger(e.receiptNo)) parts.push('領収書 No.' + e.receiptNo);
+      // 直した記録には、直した日を出す。帳簿が黙って書き換わったように見えないようにする（§5.7）。
+      // 中身（何を何に変えたか）は「直す」を開けば全部見える
+      if(isNonEmptyString(e.editedAt)) parts.push(e.editedAt.slice(5, 10).replace('-', '/') + ' 修正');
 
       if(parts.length){
         var sub = document.createElement('div');
@@ -1695,17 +1748,25 @@
         li.appendChild(sub);
       }
 
+      var act = document.createElement('div');
+      act.className = 'li-act';
+
       if(e.voided){
         var v = document.createElement('div');
         v.className = 'li-void';
         v.textContent = '取消：' + (e.voidReason || '理由なし') +
                         (e.voidedAt ? '（' + e.voidedAt.slice(0, 10) + '）' : '');
         li.appendChild(v);
+        // 取消の取り消し（§5.7）。押し間違えた取消を「もう戻せない」状態にしない。
+        // 戻すと金額が帳簿に戻る＝残高が動くので、画面でその場で見える
+        var bu = document.createElement('button');
+        bu.type = 'button';
+        bu.textContent = 'もとに戻す';
+        bu.addEventListener('click', function(){ unvoid(key, e.id); });
+        act.appendChild(bu);
       } else {
         // 入れた直後の打ち間違いに理由を書かせるのは気遣いがない（§5.7）。
         // その場合だけ「削除」、時間が経ったものは理由つきの「取り消す」
-        var act = document.createElement('div');
-        act.className = 'li-act';
         var b2 = document.createElement('button');
         b2.type = 'button';
         if(isJustEntered(key, e)){
@@ -1716,8 +1777,17 @@
           b2.addEventListener('click', function(){ openVoid(key, e.id); });
         }
         act.appendChild(b2);
-        li.appendChild(act);
+        // 報告書の数字が動かない項目（内容メモ・支払い元・人数・目的）は、取消させずにその場で直す（§5.7）。
+        // 精算は現金移動で、直せる項目をひとつも持たない
+        if(e.kind !== 'settlement'){
+          var b3 = document.createElement('button');
+          b3.type = 'button';
+          b3.textContent = '直す';
+          b3.addEventListener('click', function(){ openEdit(key, e.id); });
+          act.appendChild(b3);
+        }
       }
+      li.appendChild(act);
       ul.appendChild(li);
     });
   }
@@ -2414,6 +2484,7 @@
     text($('void-detail'), entryLabel(e));
     $('void-reason').value = '';
     $('btn-void-do').disabled = true;
+    closeEdit();                               // 取消と直すを同時に開かない
     show($('void-panel'));
     openRecent();                              // 取消パネルは記録カードの中にある
     try { $('void-panel').scrollIntoView({ block:'nearest' }); }
@@ -2535,6 +2606,256 @@
     var e = list[0].e;
     e.voidRefilled = true;
     if(!save()) e.voidRefilled = false;
+    render();
+  }
+
+  /* --- 記録に手を入れるときの共通の受け皿 -----------------------------------
+     保存に失敗したら、触った項目をひとつ残らず元へ戻す（§6 画面と端末の中身を食い違わせない）。
+     ここで拾う項目＝取消まわり・直せる4項目・履歴。それ以外は誰も書き換えない */
+  function snapshot(e){
+    return {
+      voided:e.voided, voidReason:e.voidReason, voidedAt:e.voidedAt, voidRefilled:e.voidRefilled,
+      note:e.note, paidFrom:e.paidFrom, headcount:e.headcount, purpose:e.purpose,
+      edits: Array.isArray(e.edits) ? e.edits.slice() : undefined, editedAt:e.editedAt
+    };
+  }
+
+  function restore(e, snap){
+    Object.keys(snap).forEach(function(k){
+      if(snap[k] === undefined) delete e[k]; else e[k] = snap[k];
+    });
+  }
+
+  // 帳簿は黙って書き換わらない。何を何に変えたかを記録の中に残し、「直す」を開けば全部読める
+  function logEdit(e, line){
+    var now = localStampISO(new Date());
+    if(!Array.isArray(e.edits)) e.edits = [];
+    e.edits.push(now.slice(5, 16).replace('T', ' ').replace('-', '/') + '　' + line);
+    e.editedAt = now;
+  }
+
+  /* --- 取消をもとに戻す（§5.7）----------------------------------------------
+     「間違えて取り消した」を、もう戻せない状態にしない。
+     戻すと金額が帳簿に戻る＝残高がその場で動いて目に見えるので、確認は挟まない（§2.5 テンポ優先）。
+     ただし入れ直し済みの取消を戻すと同じ記録が2件になる。そこだけは先に聞く */
+  function unvoid(key, id){
+    var e = findEntry(key, id);
+    if(!e || !e.voided) return;
+
+    if(e.voidRefilled === true){
+      var dup = liveWithReceiptNo(key, e.receiptNo, e.id);
+      ask('入れ直した記録があります',
+          entryLabel(e) + '　は取り消したあとに入れ直しています。戻すと、同じ記録が2件になります' +
+          (dup ? '（領収書 No.' + e.receiptNo + ' が2件になります）' : '') +
+          '。こちらを戻すなら、入れ直したほうを取り消してください。',
+          'それでも戻す', function(){ doUnvoid(key, id); });
+      return;
+    }
+    doUnvoid(key, id);
+  }
+
+  // 同じ領収書番号を持つ、生きている記録。番号は実物に書いてあるので2件あってはいけない（§5.6）
+  function liveWithReceiptNo(key, no, exceptId){
+    if(!Number.isSafeInteger(no)) return null;
+    var y = state.years[key];
+    if(!y) return null;
+    var hit = null;
+    y.entries.forEach(function(x){
+      if(x && !x.voided && x.id !== exceptId && x.receiptNo === no) hit = x;
+    });
+    return hit;
+  }
+
+  function doUnvoid(key, id){
+    var e = findEntry(key, id);
+    if(!e || !e.voided) return;
+    var snap = snapshot(e);
+    var why = e.voidReason;
+
+    e.voided = false;
+    e.voidReason = '';
+    e.voidedAt = null;
+    delete e.voidRefilled;
+    logEdit(e, '取消をもとに戻した' + (why ? '（取消の理由は「' + why + '」だった）' : ''));
+
+    if(save()){
+      lastAdded = { key:key, id:id };          // 戻った行を光らせる＝どれが戻ったのかを見せる
+      openRecent();
+      diag('取消をもとに戻しました（' + entryLabel(e) + '）。');
+    } else {
+      restore(e, snap);                        // 保存できなければ取り消したままにする
+    }
+    render();
+  }
+
+  /* --- 記録を直す（§5.7 の例外）----------------------------------------------
+     直せるのは「報告書の数字が1円も動かない項目」だけ＝内容メモ・支払い元・人数・目的。
+     金額・日付・費目・種別を動かすと紙の数字が変わり、領収書の有無を動かすと実物に書いた
+     番号とずれる。そこは今までどおり取り消して入れ直す（上書きしない）。
+     支払い元をここへ入れてよい根拠は §5.3 の精算——paidFrom は収支をひとつも動かさない */
+  function openEdit(key, id){
+    var e = findEntry(key, id);
+    if(!e || e.voided || e.kind === 'settlement') return;
+    editTarget = { key:key, id:id };
+
+    text($('edit-detail'), entryLabel(e));
+    formErrorAt('edit-error', '');
+
+    // 精算済みの支出は支払い元を動かさない。戻すと settledAt（いつ封筒に戻ったか）が宙に浮く
+    var settled = isNonEmptyString(e.settledAt);
+    if(e.kind === 'expense' && !settled){
+      show($('edit-paidfrom-wrap'));
+      hide($('edit-paidfrom-locked'));
+      setEditPaidFrom(e.paidFrom === 'advance' ? 'advance' : 'envelope');
+    } else {
+      hide($('edit-paidfrom-wrap'));
+      if(e.kind === 'expense' && settled){
+        text($('edit-paidfrom-locked'),
+             '支払い元：立て替え（' + ymdJP(e.settledAt.slice(0, 10)) +
+             'に精算済み）。精算が済んだものは、ここでは変えられません。');
+        show($('edit-paidfrom-locked'));
+      } else {
+        hide($('edit-paidfrom-locked'));
+      }
+    }
+
+    $('edit-note').value = e.note || '';
+
+    // 人数は「部費徴収・臨時徴収」のときだけ。入力欄と同じ規則（ほかの収入では意味を持たない）
+    if(e.kind === 'income' && HEADCOUNT_CATEGORIES.indexOf(e.category) >= 0){
+      show($('edit-headcount-wrap'));
+      $('edit-headcount').value = (Number.isSafeInteger(e.headcount) && e.headcount > 0) ? String(e.headcount) : '';
+    } else {
+      hide($('edit-headcount-wrap'));
+      $('edit-headcount').value = '';
+    }
+
+    // 目的タグは「使う」にしているときだけ（§5.5）
+    if(usePurpose()){
+      renderEditPurpose(key, e);
+      show($('edit-purpose-wrap'));
+    } else {
+      hide($('edit-purpose-wrap'));
+    }
+
+    renderEditHist(e);
+    hide($('void-panel'));                     // 取消と直すを同時に開かない
+    voidTarget = { key:null, id:null };
+    show($('edit-panel'));
+    openRecent();                              // 直すパネルは記録カードの中にある
+    try { $('edit-panel').scrollIntoView({ block:'nearest' }); }
+    catch(err){ diag('直すパネルへの移動に失敗: ' + describe(err)); }
+  }
+
+  function renderEditPurpose(key, e){
+    var sel = $('edit-purpose');
+    clear(sel);
+    var y = state.years[key];
+    var opts = [''].concat(y ? purposeChoices(y) : []);
+    // その記録が持っている目的が候補にないこともある（前年度で使い終わったもの）。落とさない
+    if(isNonEmptyString(e.purpose) && opts.indexOf(e.purpose) < 0) opts.push(e.purpose);
+    opts.forEach(function(p){
+      var o = document.createElement('option');
+      o.value = p;
+      o.textContent = (p === '') ? 'なし' : p;
+      sel.appendChild(o);
+    });
+    sel.value = isNonEmptyString(e.purpose) ? e.purpose : '';
+  }
+
+  function renderEditHist(e){
+    var p = $('edit-hist');
+    if(!Array.isArray(e.edits) || !e.edits.length){
+      text(p, '');
+      hide(p);
+      return;
+    }
+    text(p, '直した記録：' + e.edits.join('／'));
+    show(p);
+  }
+
+  function setEditPaidFrom(pf){
+    editPaidFrom = (pf === 'advance') ? 'advance' : 'envelope';
+    $('edit-pf-envelope').setAttribute('aria-pressed', String(editPaidFrom === 'envelope'));
+    $('edit-pf-advance').setAttribute('aria-pressed',  String(editPaidFrom === 'advance'));
+  }
+
+  function closeEdit(){
+    hide($('edit-panel'));
+    editTarget = { key:null, id:null };
+  }
+
+  function doEdit(){
+    var e = findEntry(editTarget.key, editTarget.id);
+    if(!e){
+      formErrorAt('edit-error', '直す記録が見つかりませんでした。画面を読み込み直してください。');
+      return;
+    }
+
+    var changes = [];
+    var next = {};
+
+    // 欄を出していないもの（収入の支払い元・精算済み・人数なしの費目・目的オフ）は触らない
+    if(!$('edit-paidfrom-wrap').classList.contains('hidden')){
+      var wasPf = (e.paidFrom === 'advance') ? 'advance' : 'envelope';
+      if(editPaidFrom !== wasPf){
+        next.paidFrom = editPaidFrom;
+        changes.push('支払い元：' + PAIDFROM_LABEL[wasPf] + '→' + PAIDFROM_LABEL[editPaidFrom]);
+      }
+    }
+
+    var note = $('edit-note').value;
+    if(note !== (e.note || '')){
+      next.note = note;
+      changes.push('内容メモ：' + (e.note ? '「' + e.note + '」' : '（空）') +
+                   '→' + (note ? '「' + note + '」' : '（空）'));
+    }
+
+    if(!$('edit-headcount-wrap').classList.contains('hidden')){
+      var hc = parseCount($('edit-headcount').value);
+      if(hc === null){
+        formErrorAt('edit-error', '人数は数字で入れてください（空のままでも大丈夫です）。');
+        $('edit-headcount').focus();
+        return;
+      }
+      var hcNew = (hc > 0) ? hc : null;
+      var hcOld = (Number.isSafeInteger(e.headcount) && e.headcount > 0) ? e.headcount : null;
+      if(hcNew !== hcOld){
+        next.headcount = hcNew;
+        changes.push('人数：' + (hcOld === null ? '（なし）' : hcOld + '名') +
+                     '→' + (hcNew === null ? '（なし）' : hcNew + '名'));
+      }
+    }
+
+    if(!$('edit-purpose-wrap').classList.contains('hidden')){
+      var pNew = isNonEmptyString($('edit-purpose').value) ? $('edit-purpose').value : null;
+      var pOld = isNonEmptyString(e.purpose) ? e.purpose : null;
+      if(pNew !== pOld){
+        next.purpose = pNew;
+        changes.push('目的：' + (pOld === null ? '（なし）' : pOld) + '→' + (pNew === null ? '（なし）' : pNew));
+      }
+    }
+
+    // 何も変えずに押したときに「直しました」と言わない。履歴に空の行も溜めない
+    if(!changes.length){
+      closeEdit();
+      render();
+      return;
+    }
+
+    var snap = snapshot(e);
+    Object.keys(next).forEach(function(k){ e[k] = next[k]; });
+    logEdit(e, changes.join('／'));
+
+    if(save()){
+      lastAdded = { key:editTarget.key, id:editTarget.id };   // 直った行を光らせる
+      diag('記録を直しました（' + entryLabel(e) + '／' + changes.join('／') + '）。');
+      closeEdit();
+      openRecent();
+    } else {
+      restore(e, snap);
+      formErrorAt('edit-error', '保存できませんでした。直す前の内容に戻しています。');
+    }
     render();
   }
 
@@ -3123,6 +3444,7 @@
     hide($('count-ok'));
     hide($('count-diff'));
     voidTarget = { key:null, id:null };
+    closeEdit();                             // 消した記録を対象にした「直す」が開いたまま残らないように
     refillFrom = { key:null, id:null, receiptNo:null };
     setPurpose(null);                        // 目的の選択も初期化する（消えたタグが選ばれたまま残らないように）
     setReceipt(true);
@@ -3287,6 +3609,13 @@
     });
     $('btn-void-refill').addEventListener('click', refillFromVoid);
     $('btn-void-done').addEventListener('click', markVoidDone);
+
+    // §5.7 直す（報告書の数字が動かない項目だけ）。理由は要らない＝上書きではなく補足だから
+    $('edit-pf-envelope').addEventListener('click', function(){ setEditPaidFrom('envelope'); });
+    $('edit-pf-advance').addEventListener('click',  function(){ setEditPaidFrom('advance'); });
+    $('btn-edit-do').addEventListener('click', doEdit);
+    $('btn-edit-cancel').addEventListener('click', closeEdit);
+
     $('btn-backup').addEventListener('click', backup);
     $('btn-backup-2').addEventListener('click', backup);
     $('btn-wipe-backup').addEventListener('click', backup);
@@ -3453,6 +3782,28 @@
     diag('目的別の集計テスト（§5.5）: ' +
       ((k5.length === 1 && t5['6月遠征'].income === 24000 && t5['6月遠征'].expense === 22000 &&
         t5['6月遠征'].count === 2) ? 'OK（集めた24,000／使った22,000／残り2,000）' : 'NG'));
+
+    // §5.7 「直す」の線引きの番人。直せる4項目（内容メモ・支払い元・人数・目的）を全部動かしても、
+    // 報告書に出る数字＝収入合計・支出合計・会計残高が1円も動かないこと。
+    // ここが崩れたら「直す」に入れてよい項目ではない＝取消して入れ直す側へ戻す
+    var y7 = { openingBalance:0, entries:[
+      { kind:'income',  amount:24000, category:'部費徴収', purpose:null, note:'', headcount:24, paidFrom:null,       voided:false },
+      { kind:'expense', amount: 3000, category:'審判費',   purpose:null, note:'', headcount:null, paidFrom:'envelope', voided:false }
+    ]};
+    var rep7 = [sumOf(y7.entries, 'income'), sumOf(y7.entries, 'expense'), accountBalance(y7)].join('/');
+    y7.entries[0].note = '7月分';  y7.entries[0].headcount = 23;  y7.entries[0].purpose = '6月遠征';
+    y7.entries[1].note = '練習試合 審判2名';  y7.entries[1].paidFrom = 'advance';
+    var rep7b = [sumOf(y7.entries, 'income'), sumOf(y7.entries, 'expense'), accountBalance(y7)].join('/');
+    diag('「直す」で紙の数字が動かないテスト（§5.7）: ' +
+      (rep7 === rep7b ? 'OK（' + rep7 + ' のまま）' : 'NG（' + rep7 + '→' + rep7b + '）') +
+      '／立て替え未精算は動く: ' + (advanceOutstanding(y7) === 3000 ? 'OK' : 'NG'));
+
+    // 取消をもとに戻すと、外れていた金額が集計に戻る（§5.7 取り消しの取り消し）
+    var yu = [{ kind:'expense', amount:1000, voided:false }, { kind:'expense', amount:500, voided:true }];
+    var uBefore = sumOf(yu, 'expense');
+    yu[1].voided = false;
+    diag('取消をもとに戻すテスト: ' +
+      ((uBefore === 1000 && sumOf(yu, 'expense') === 1500) ? 'OK（1,000→1,500）' : 'NG'));
 
     // 目的タグを出すかどうかの既定。新しく始める人には出さず、すでに使っている人からは取り上げない
     var up = [
