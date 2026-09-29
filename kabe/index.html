@@ -69,6 +69,8 @@ header.top{display:grid;gap:var(--sp2);margin-bottom:var(--sp6);max-width:46em}
 .ov{position:absolute;inset:0}
 .ov[hidden]{display:none}
 .cell,.lab{position:absolute;margin:0;padding:0;border:0;background:transparent;cursor:pointer;border-radius:6px}
+/* 列の名前は本番と同じ位置と大きさで重ねる。押せる範囲だけ、上の空いている所へ 44px まで広げる（見た目の枠は変えない） */
+.lab::before{content:"";position:absolute;left:0;right:0;bottom:0;height:max(100%,44px)}
 .cell:hover,.lab:hover{box-shadow:inset 0 0 0 2px rgba(255,255,255,.6)}
 .cell[aria-pressed="true"],.lab[aria-pressed="true"]{box-shadow:0 0 0 3px var(--accent),inset 0 0 0 1px rgba(16,28,44,.7)}
 .cell.swapfrom{box-shadow:0 0 0 3px #FFFFFF,0 0 0 6px var(--accent)}
@@ -859,7 +861,8 @@ function renderBacks(){
     var b=mk("button","back",row), bk=livePl(state.backs[g]), lab=state.labels[g];b.type="button";b.dataset.g=String(g);b.draggable=!!bk;
     mk("span","bm",b,lab.m+" "+lab.n);
     var c=mk("canvas","",b);c.width=384;c.height=216;thumbInto(c,bk||diveOf(g));
-    if(!bk)mk("span","bsame",b,diveOf(g)?"飛び込む写真と同じ":"まだありません");
+    // 狭いときは「飛び込む／写真と同じ」の切れ目で折る（「同じ」だけが次の行に落ちないように）
+    if(!bk){var bs=mk("span","bsame",b);if(diveOf(g)){mk("span","ph",bs,"飛び込む");mk("span","ph",bs,"写真と同じ");}else bs.textContent="まだありません";}
     var ph=bk&&photos.get(bk.p);
     b.setAttribute("aria-label",lab.m+"の戻るときの写真："+(ph?ph.name:(diveOf(g)?"飛び込む写真と同じ":"まだありません")));
     b.setAttribute("aria-pressed",sel&&sel.kind==="back"&&sel.g===g?"true":"false");
@@ -1030,7 +1033,7 @@ function celebrateIfFull(quiet){var full=filledCount()===ALL_CELLS.length, just=
    写真を残せなかったときは、その写真を覚えておき、並びを残すたびにやり直す。全部残せるまで赤い知らせを消さない */
 var db=null, saveTimer=null, savedAt=null, stateSaveOK=true, unsaved=new Set(), saveBlocked=false, myRev=0, lastQuota=false, persistAsked=false;
 function idbOpen(){return new Promise(function(res,rej){var q;try{q=indexedDB.open("kabe",1);}catch(e){rej(e);return;}q.onupgradeneeded=function(){var d=q.result;if(!d.objectStoreNames.contains("photos"))d.createObjectStore("photos",{keyPath:"id"});if(!d.objectStoreNames.contains("kv"))d.createObjectStore("kv");};q.onsuccess=function(){res(q.result);};q.onerror=function(){rej(q.error);};q.onblocked=function(){rej(new Error("blocked"));};});}
-function idb(store,rw,fn){return new Promise(function(res,rej){if(!db){rej(new Error("nodb"));return;}var t;try{t=db.transaction(store,rw?"readwrite":"readonly");}catch(e){rej(e);return;}var r=fn(t.objectStore(store));if(rw&&t.commit){try{t.commit();}catch(e){}}t.oncomplete=function(){res(r&&r.result);};t.onerror=function(){rej(t.error);};t.onabort=function(){rej(t.error||new Error("abort"));};});}
+function idb(store,rw,fn){return new Promise(function(res,rej){if(!db){rej(new Error("nodb"));return;}var t;try{t=db.transaction(store,rw?"readwrite":"readonly");}catch(e){rej(e);return;}var r=fn(t.objectStore(store));if(rw&&t.commit){try{t.commit();}catch(e){/* 早めに確定させるだけ。失敗しても結果は oncomplete・onerror で届く */}}t.oncomplete=function(){res(r&&r.result);};t.onerror=function(){rej(t.error);};t.onabort=function(){rej(t.error||new Error("abort"));};});}
 function noteStoreErr(e){if(e&&e.name==="QuotaExceededError")lastQuota=true;}
 function renderStoreErr(){
   var box=$("storeErr"), parts=[], q=lastQuota?"（空き容量が足りないかもしれません）":"";
@@ -1060,7 +1063,7 @@ function saveState(){
 }
 function putPhoto(rec){
   if(!db||saveBlocked||!canWrite)return Promise.resolve(false);
-  if(!persistAsked&&navigator.storage&&navigator.storage.persist){persistAsked=true;navigator.storage.persist().catch(function(){});}   // 空きが減っても、ブラウザが黙って消さないように頼む
+  if(!persistAsked&&navigator.storage&&navigator.storage.persist){persistAsked=true;navigator.storage.persist().catch(function(){/* 断られても、ふだんどおり残せる（Chrome・Edge が消すのは空きがとても少ないときだけ） */});}   // 空きが減っても、ブラウザが黙って消さないように頼む
   return idb("photos",true,function(s){return s.put({id:rec.id,name:rec.name,type:rec.type,size:rec.size,w:rec.w,h:rec.h,order:rec.order,sample:rec.sample,blob:rec.blob,thumbBlob:rec.thumbBlob});})
     .then(function(){unsaved.delete(rec.id);renderStoreErr();return true;},function(e){unsaved.add(rec.id);noteStoreErr(e);renderStoreErr();return false;});
 }
@@ -1091,7 +1094,7 @@ async function loadFromDB(){
     }
     if(!th){bad.push(r);continue;}
     var rec={id:r.id,name:String(r.name||"写真"),type:r.type,size:r.size||(r.blob&&r.blob.size)||0,w:r.w,h:r.h,order:r.order||0,sample:!!r.sample,blob:r.blob,thumbBlob:r.thumbBlob,thumb:th};
-    if(remade){try{var tc=document.createElement("canvas");tc.width=th.width;tc.height=th.height;tc.getContext("2d").drawImage(th,0,0);rec.thumbBlob=await toBlob(tc,"image/jpeg",0.9);putPhoto(rec);}catch(e3){}}
+    if(remade){try{var tc=document.createElement("canvas");tc.width=th.width;tc.height=th.height;tc.getContext("2d").drawImage(th,0,0);rec.thumbBlob=await toBlob(tc,"image/jpeg",0.9);putPhoto(rec);}catch(e3){/* 小さい絵を残し直せなくても、次に開くときにまた作り直す */}}
     photos.set(r.id,rec);nextOrder=Math.max(nextOrder,(r.order||0)+1);
   }
   // 並びが指していたのに見つからない写真は、場所を数えて知らせる（黙って消さない）
@@ -1125,7 +1128,7 @@ async function makeRecord(file,opts){
   var rec={id:newId(),name:String(file.name||"写真").slice(0,200),type:blob.type,size:blob.size,w:w,h:h,order:nextOrder++,sample:!!(opts&&opts.sample),blob:blob,thumbBlob:thumbBlob,thumb:th};
   photos.set(rec.id,rec);
   // このブラウザに残せたら、残した写しに持ち替える（読み込んだ中身をメモリに持ち続けない）
-  if(await putPhoto(rec)){try{var back=await getPhotoDB(rec.id);if(back&&back.blob&&photos.get(rec.id)===rec)rec.blob=back.blob;}catch(e){}}
+  if(await putPhoto(rec)){try{var back=await getPhotoDB(rec.id);if(back&&back.blob&&photos.get(rec.id)===rec)rec.blob=back.blob;}catch(e){/* 読み直せなくても、取り込みで写した中身で続けられる */}}
   return rec;
 }
 /* 写真の置き場所のフォルダ名から列を決める。月が分かったのに列が無い（10月など）ときは -2＝置き場へ。月が分からないときは -1 */
@@ -1463,8 +1466,8 @@ async function pickDestination(){
       var fh=await sub.getFileHandle(fn,{create:true}), w=await fh.createWritable();
       try{await w.write(blob);await w.close();}
       catch(e){
-        try{await w.abort();}catch(e2){}
-        var gone=false;try{await sub.removeEntry(fn);gone=true;}catch(e3){}   // 途中まで書いた（0バイトの）ファイルを残さない
+        try{await w.abort();}catch(e2){/* 片付けだけ */}
+        var gone=false;try{await sub.removeEntry(fn);gone=true;}catch(e3){/* 消せたかは gone で知らせに出す */}   // 途中まで書いた（0バイトの）ファイルを残さない
         throw new UserError("「"+fn+"」を保存できませんでした（空き容量が足りないかもしれません）。"+(gone?"":"フォルダに残った「"+fn+"」は途中までのファイルなので、消してください。")+"容量を空けてから、もう一度書き出してください。");
       }
     }};
@@ -1495,7 +1498,7 @@ async function pickEncoderConfig(){
   var codecs=["avc1.640028","avc1.4d0028","avc1.42e028"];
   for(var i=0;i<codecs.length;i++){
     var cfg={codec:codecs[i],width:W,height:H,bitrate:24000000,framerate:FPS,avc:{format:"avc"},latencyMode:"quality"};
-    try{var s=await VideoEncoder.isConfigSupported(cfg);if(s&&s.supported)return cfg;}catch(e){}
+    try{var s=await VideoEncoder.isConfigSupported(cfg);if(s&&s.supported)return cfg;}catch(e){/* この形式が使えないだけ。次の形式を試す */}
   }
   throw new UserError("このブラウザでは H.264 の動画を作れません。パソコンの Chrome か Edge の新しい版で開いてください。");
 }
@@ -1525,7 +1528,7 @@ async function makeVideo(kind,onStep){
       if(i%6===0){onStep(0.1+0.9*i/N);await yieldNow();}
     }
     await enc.flush();
-  }finally{try{enc.close();}catch(e){}if(pf)pf.close();}
+  }finally{try{enc.close();}catch(e){/* 片付けだけ（もう閉じていることがある） */}if(pf)pf.close();}
   if(err)throw err;
   if(!meta||!meta.description||chunks.length!==N)throw new UserError("動画を作る途中で失敗しました（"+chunks.length+"/"+N+"コマ）。ほかのタブを閉じてから、もう一度書き出してください。");
   return muxMP4({width:W,height:H,fps:FPS,chunks:chunks,description:new Uint8Array(meta.description),colorSpace:meta.colorSpace});
@@ -1783,9 +1786,9 @@ async function saveProject(){
       var w=await fh.createWritable();
       try{await writeZip(function(b){return w.write(b);},entries,step);await w.close();}
       catch(e){
-        try{await w.abort();}catch(e2){}
+        try{await w.abort();}catch(e2){/* 片付けだけ */}
         // 保存の窓で選んだ場所には、中身の無いファイルができている。消せたら消し、消せなければそう書く
-        var gone=false;try{if(typeof fh.remove==="function"){await fh.remove();gone=true;}}catch(e3){}
+        var gone=false;try{if(typeof fh.remove==="function"){await fh.remove();gone=true;}}catch(e3){/* 消せたかは gone で知らせに出す */}
         var left=gone?"":"選んだ場所に中身の無いファイル（"+fh.name+"）が残っていたら、消してください。";
         throw new UserError(((e&&e.user)?e.message:"作業ファイルを保存できませんでした（空き容量が足りないかもしれません）。別の場所を選んで、もう一度保存してください。")+left);
       }
@@ -1836,12 +1839,12 @@ async function openProject(file){
   }
   busy=true;renderAll();showBusy("作業ファイルの中身を入れています",0,0);
   try{
-    if(saveBlocked&&db){saveBlocked=false;try{var kv0=await idb("kv",false,function(s){return s.get("state");});myRev=(kv0&&kv0.rev)||0;}catch(e){}}
+    if(saveBlocked&&db){saveBlocked=false;try{var kv0=await idb("kv",false,function(s){return s.get("state");});myRev=(kv0&&kv0.rev)||0;}catch(e){/* 読めなければ前の番号のまま。食い違えば、保存のときに知らせの帯が出る */}}
     await clearAll(true);
     fresh.forEach(function(r){photos.set(r.id,r);});nextOrder=fresh.size+1;
     state=normalizeState(pj.state);labelCache={};
     var n=0;
-    for(var rec of fresh.values()){showBusy("このブラウザに残しています",++n,fresh.size);if(await putPhoto(rec)){try{var back=await getPhotoDB(rec.id);if(back&&back.blob&&photos.get(rec.id)===rec)rec.blob=back.blob;}catch(e){}}}
+    for(var rec of fresh.values()){showBusy("このブラウザに残しています",++n,fresh.size);if(await putPhoto(rec)){try{var back=await getPhotoDB(rec.id);if(back&&back.blob&&photos.get(rec.id)===rec)rec.blob=back.blob;}catch(e){/* 読み直せなくても、作業ファイルから写した中身で続けられる */}}}
     await saveState();
     undoStack.length=0;redoStack.length=0;sel=null;wasFull=filledCount()===ALL_CELLS.length;
     say("作業ファイルを開きました（写真 "+fresh.size+"枚）。"+(bad?"読めなかった写真が "+bad+"枚あります。":""),bad?"warn":"ok");
@@ -1997,7 +2000,7 @@ async function setupTabs(){
   if(got===false){
     canWrite=false;
     showBanner("このページは、ほかのタブでも開いています。書き換えは、先に開いたタブだけでできます。このタブでは、見る・試写・書き出しだけできます（ほかのタブを閉じたら、読み込み直してください）。",false);
-    try{navigator.locks.request("kabe-edit",function(){showBanner("ほかのタブが閉じられました。読み込み直すと、このタブで続けられます。",true);return new Promise(function(){});});}catch(e){}
+    try{navigator.locks.request("kabe-edit",function(){showBanner("ほかのタブが閉じられました。読み込み直すと、このタブで続けられます。",true);return new Promise(function(){});});}catch(e){/* 待てないブラウザでは「閉じられました」の知らせが出ないだけ */}
   }else if(got===null&&window.BroadcastChannel){
     var ch=new BroadcastChannel("kabe"), me=newId();
     ch.onmessage=function(e){var d=e.data||{};if(d.from===me)return;if(d.type==="hello")ch.postMessage({type:"here",from:me});if(d.type==="hello"||d.type==="here")showBanner("このページが、ほかのタブでも開いています。片方のタブだけで作業してください（もう片方の変更が残らないことがあります）。",false);};
