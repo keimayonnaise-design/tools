@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>写真の壁</title>
 <!--
-  写真の壁 v1.2（2026-09-29・v1.2＝「次に移る」マス）
+  写真の壁 v1.3（2026-09-29・v1.2＝「次に移る」マス・v1.3＝⑥ 試写の通しの動画）
   学校紹介2026 の行事の章「B 写真の壁から1枚に飛び込む」を、自分の写真で作る道具。
   正はこのファイル（動画制作/学校紹介2026/行事の見せ方/写真の壁.html）。公開の写しは GitHub の tools/kabe/index.html（そのまま写す）。
   動きと寸法は 見本.html の OPT_B と同じ値（B_TW・B_Y・B_GROUPS・EVENTS の秒）。ここを変えると見本とずれる。
@@ -93,6 +93,7 @@ header.top{display:grid;gap:var(--sp2);margin-bottom:var(--sp6);max-width:46em}
 .veil[hidden]{display:none}
 .bigplay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);min-height:56px;padding:0 28px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:18px;cursor:pointer;display:inline-flex;align-items:center;gap:10px}
 .bigplay svg{width:18px;height:18px}
+.bigplay span{white-space:nowrap}   /* 狭い画面で「試写を始める」の「める」だけが落ちないように */
 .bigplay[hidden]{display:none}
 .busybox{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 24px));display:grid;gap:var(--sp3);padding:var(--sp5);border-radius:var(--r-l);background:rgba(11,18,28,.93);color:#FFFFFF;text-align:center;font-size:17px;font-weight:700}
 .busybox[hidden]{display:none}
@@ -280,7 +281,7 @@ footer.foot{margin-top:var(--sp7);font-size:14px;color:var(--muted);display:grid
         <input type="range" class="seek" id="seek" min="14" max="97" step="0.05" value="14" aria-label="試写の再生位置">
         <span class="time" id="time">0:14</span>
       </div>
-      <p class="note just">時刻は、学校紹介の動画の「行事」の場面の頭から数えた秒です（写真が並び始めるのが 0:14）。全画面の所は、その月の写真を順に出しています。本番の全画面は Resolve で並べます。</p>
+      <p class="note just">時刻は、学校紹介の動画の「行事」の場面の頭から数えた秒です（写真が並び始めるのが 0:14）。全画面の所は、その月の写真を順に出しています。書き出すと、この動きがそのまま「⑥ 試写の通しの動画」になります。</p>
       <div class="chips" id="chips"></div>
     </div>
 
@@ -313,9 +314,10 @@ footer.foot{margin-top:var(--sp7);font-size:14px;color:var(--muted);display:grid
         </div>
         <p class="note just res-note">まず 4K で試して、寄り切った所のぼやけが気になったら 8K にします。8K はファイルが大きく、書き出しにも時間がかかります。</p>
         <label class="item"><input type="checkbox" id="exF" checked><span><b>② 全画面の写真</b> 8枚<span class="sub"><span class="ph">飛び込む・次に移るマスと</span><span class="ph">同じ切り方</span><span class="ph">（寄り切ったら切り替える）</span></span></span></label>
-        <label class="item"><input type="checkbox" id="exV2" checked><span><b>③ 写真が並ぶ動き</b> MP4<span class="sub">1920×1080・24コマ/秒・<span id="v2len"></span>秒</span></span></label>
-        <label class="item"><input type="checkbox" id="exV3" checked><span><b>④ 来年の動き</b> MP4<span class="sub">波→裏返る→空の枠が点滅・<span id="v3len"></span>秒</span></span></label>
-        <label class="item"><input type="checkbox" id="exG" checked><span><b>⑤ ズームの目安</b> 8枚<span class="sub">枠の始まりと終わり（動画には入れない）</span></span></label>
+        <label class="item"><input type="checkbox" id="exV2" checked><span><b>③ 写真が並ぶ動き</b> MP4<span class="sub"><span class="ph">1920×1080・</span><span class="ph">24コマ/秒・</span><span class="ph"><span id="v2len"></span>秒</span></span></span></label>
+        <label class="item"><input type="checkbox" id="exV3" checked><span><b>④ 来年の動き</b> MP4<span class="sub"><span class="ph">波→裏返る→</span><span class="ph">空の枠が点滅・</span><span class="ph"><span id="v3len"></span>秒</span></span></span></label>
+        <label class="item"><input type="checkbox" id="exG" checked><span><b>⑤ ズームの目安</b> 8枚<span class="sub"><span class="ph">枠の始まりと終わり</span><span class="ph">（動画には入れない）</span></span></span></label>
+        <label class="item"><input type="checkbox" id="exAll" checked><span><b>⑥ 試写の通しの動画</b> MP4<span class="sub"><span class="ph">試写と同じ動きを1本に</span><span class="ph">（そのまま動画に差し込める）</span><span class="ph">1920×1080・<span id="alllen"></span>秒</span></span></span></label>
       </fieldset>
       <p class="note just">使い方の説明（読んでください.txt）も一緒に入ります。次に移るマスが空の月は、全画面の「次に移る」も飛び込む写真になります。</p>
       <details class="more" id="timesBox">
@@ -363,7 +365,7 @@ footer.foot{margin-top:var(--sp7);font-size:14px;color:var(--muted);display:grid
 </main>
 
 <footer class="foot">
-  <p>写真の壁 v1.2（2026年9月29日）。動きの秒は、学校紹介の動画の「行事」の場面に合わせてあります（④の秒は変えられます）。</p>
+  <p>写真の壁 v1.3（2026年9月29日）。動きの秒は、学校紹介の動画の「行事」の場面に合わせてあります（④の秒は変えられます）。</p>
   <p>写真と作業の記憶は、このブラウザの中にだけあります。別のブラウザや別のパソコンには移りません（移すときは作業ファイル）。</p>
 </footer>
 </div>
@@ -488,7 +490,7 @@ function sceneAt(t,mode){
 var photos=new Map();   // id → {id,name,type,w,h,order,sample,blob,thumbBlob,thumb}
 var state=freshState();
 var nextOrder=1;
-function freshState(){return {v:2,labels:LABELS_DEFAULT.map(function(l){return {m:l.m,n:l.n};}),cells:{},times:Object.assign({},TIMES_DEFAULT),res:"4k",ex:{w:true,f:true,v2:true,v3:true,g:true}};}
+function freshState(){return {v:2,labels:LABELS_DEFAULT.map(function(l){return {m:l.m,n:l.n};}),cells:{},times:Object.assign({},TIMES_DEFAULT),res:"4k",ex:{w:true,f:true,v2:true,v3:true,g:true,all:true}};}
 function num(v,d,lo,hi){v=Number(v);return isFinite(v)?clamp(v,lo,hi):d;}
 function normPl(pl){if(!pl||typeof pl.p!=="string"||!photos.has(pl.p))return null;return {p:pl.p,z:num(pl.z,1,1,4),cx:num(pl.cx,0.5,0,1),cy:num(pl.cy,0.5,0,1)};}
 function normalizeState(o){
@@ -510,7 +512,7 @@ function normalizeState(o){
   if(o.times)s.times={wave:num(o.times.wave,TIMES_DEFAULT.wave,0,60),flip:num(o.times.flip,TIMES_DEFAULT.flip,0,60),blink:num(o.times.blink,TIMES_DEFAULT.blink,0,60),len:num(o.times.len,TIMES_DEFAULT.len,1,60)};
   if(!validTimes(s.times))s.times=Object.assign({},TIMES_DEFAULT);
   if(o.res==="8k")s.res="8k";
-  if(o.ex)["w","f","v2","v3","g"].forEach(function(k){if(typeof o.ex[k]==="boolean")s.ex[k]=o.ex[k];});
+  if(o.ex)["w","f","v2","v3","g","all"].forEach(function(k){if(typeof o.ex[k]==="boolean")s.ex[k]=o.ex[k];});
   return s;
 }
 function validTimes(tm){return tm.wave>=0&&tm.flip>tm.wave+0.5&&tm.blink>tm.flip+0.6&&tm.len>tm.blink&&tm.len<=60;}
@@ -541,6 +543,9 @@ function stamp(d){return d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+
 function jpTime(d){return (d.getMonth()+1)+"月"+d.getDate()+"日 "+d.getHours()+":"+pad2(d.getMinutes());}
 function fmtSec(s){return s.toFixed(2).replace(/\.?0+$/,"");}
 function v3Frames(){return Math.round(state.times.len*FPS);}
+// ⑥ 試写の通し＝試写の頭（14.0秒）から終わり（来年の枠が消えて1秒）まで
+function allFrames(){return Math.round((previewEnd()-T0)*FPS);}
+var ALL_FILE="6_試写の通し.mp4";
 function fmtClock(t){t=Math.max(0,t);var m=Math.floor(t/60),s=Math.floor(t%60);return m+":"+pad2(s);}
 /* フォルダの名前から月を読む: 「5月」「2025年6月」「2025-06-10 運動会」「05」「May」「June」。Junior・Mayor のような語は月にしない */
 function monthNum(s){
@@ -1412,8 +1417,8 @@ function readiness(){
   return {empty:empty,noDive:noDive,noExit:noExit,over:over};
 }
 function renderExportInfo(){
-  $("v2len").textContent=fmtSec(CLIP2.frames/FPS);$("v3len").textContent=fmtSec(v3Frames()/FPS);
-  $("exW").checked=state.ex.w;$("exF").checked=state.ex.f;$("exV2").checked=state.ex.v2;$("exV3").checked=state.ex.v3;$("exG").checked=state.ex.g;
+  $("v2len").textContent=fmtSec(CLIP2.frames/FPS);$("v3len").textContent=fmtSec(v3Frames()/FPS);$("alllen").textContent=fmtSec(allFrames()/FPS);
+  $("exW").checked=state.ex.w;$("exF").checked=state.ex.f;$("exV2").checked=state.ex.v2;$("exV3").checked=state.ex.v3;$("exG").checked=state.ex.g;$("exAll").checked=state.ex.all;
   Array.prototype.forEach.call(document.querySelectorAll('input[name="res"]'),function(r){r.checked=r.value===state.res;});
   var r=readiness(), lines=[], wb=$("expWarn");
   if(!photos.size){lines.push("写真を入れると書き出せます。");}
@@ -1481,8 +1486,25 @@ function waitDequeue(enc,max){
   if(!("ondequeue" in enc))return wait(4);
   return new Promise(function(r){var done=false;function f(){if(done)return;done=true;enc.removeEventListener("dequeue",f);r();}enc.addEventListener("dequeue",f);if(enc.encodeQueueSize<=max)f();});
 }
+/* ⑥ で写真ごとに要る細かさ: 全部のコマのカメラで、画面に入るマスと全画面の写真が、出力の何 px の幅で出るかの一番大きい値（写真の画素に直す） */
+function playNeeds(t0,N){
+  var need=new Map();
+  function up(pl,disp){if(!pl||!photos.has(pl.p))return;var ph=photos.get(pl.p), v=disp*ph.w/cropRegion(ph,pl,16/9).w;if(!(need.get(pl.p)>=v))need.set(pl.p,v);}
+  for(var i=0;i<N;i++){
+    var sc=sceneAt(t0+i/FPS,"play"), c=sc.cam, z=c.z, ox=960-c.x*z, oy=540-c.y*z;
+    if(sc.worldA>0)sc.tiles.forEach(function(r){
+      if(r.g>=PHOTO_GROUPS||r.alpha<=0)return;
+      var mx=ox+(r.x+TW/2)*z, my=oy+(r.y+TH/2)*z, hw=TW/2*z*r.scale*1.1+2, hh=TH/2*z*r.scale*1.1+2;
+      if(mx+hw<0||mx-hw>W||my+hh<0||my-hh>H)return;
+      up(placementFor(r),TW*z*r.scale);
+    });
+    shotStates(sc).forEach(function(st){up(st.pl,W*st.scl);});
+  }
+  return need;
+}
 async function makeVideo(kind,onStep){
-  var cfg=await pickEncoderConfig(), N=kind==="v2"?CLIP2.frames:v3Frames(), t0=kind==="v2"?CLIP2.t0:REST;
+  var all=kind==="all", cfg=await pickEncoderConfig(), N=all?allFrames():(kind==="v2"?CLIP2.frames:v3Frames()), t0=all?T0:(kind==="v2"?CLIP2.t0:REST), sceneMode=all?"play":"clip";
+  var needs=all?playNeeds(t0,N):null;
   var c=document.createElement("canvas");c.width=W;c.height=H;var x=c.getContext("2d",{alpha:false});
   var chunks=[], meta=null, err=null;
   var enc=new VideoEncoder({output:function(ch,md){var d=new Uint8Array(ch.byteLength);ch.copyTo(d);chunks.push({data:d,pts:ch.timestamp,key:ch.type==="key"});if(md&&md.decoderConfig&&!meta)meta=md.decoderConfig;},error:function(e){err=e;}});
@@ -1491,11 +1513,11 @@ async function makeVideo(kind,onStep){
   // 1.25 は、並ぶときに少し大きく出る分のゆとり
   var pf=null;
   try{
-    pf=await prefetch(wallPlacements(),function(ph,pl){return TW*1.25*ph.w/cropRegion(ph,pl,16/9).w;},function(u){onStep(u*0.1);});
+    pf=await prefetch(wallPlacements(),function(ph,pl){return needs?(needs.get(ph.id)||0)*1.02:TW*1.25*ph.w/cropRegion(ph,pl,16/9).w;},function(u){onStep(u*0.1);});
     for(var i=0;i<N;i++){
       if(cancelReq)throw new UserError("CANCEL");
       if(err)throw err;
-      drawScene(x,1,sceneAt(t0+i/FPS,"clip"),{src:pf.src});
+      drawScene(x,1,sceneAt(t0+i/FPS,sceneMode),{src:pf.src});
       var f=new VideoFrame(c,{timestamp:Math.round(i*1e6/FPS),duration:Math.round(1e6/FPS)});
       try{enc.encode(f,{keyFrame:i%FPS===0});}finally{f.close();}
       while(enc.encodeQueueSize>4)await waitDequeue(enc,4);
@@ -1540,8 +1562,10 @@ function readmeText(when,files,res,madeFull,skipFull,sameExit){
   if(files.v2)lines.push("■ 3_並ぶ.mp4（1920×1080・24コマ/秒・"+fmtSec(CLIP2.frames/FPS)+"秒）","  写真が次々に並ぶ動き。最後のコマは「"+WALL_FILE+"」と同じ絵です。行事の場面の 14.0秒から。","");
   if(files.v3)lines.push("■ 4_来年.mp4（1920×1080・24コマ/秒・"+fmtSec(v3Frames()/FPS)+"秒）","  最初のコマは「"+WALL_FILE+"」と同じ絵。"+fmtSec(tm.wave)+"秒で波、"+fmtSec(tm.flip)+"秒で裏返り、"+fmtSec(tm.blink)+"秒から空の枠が1秒ごとに点滅します。行事の場面の 84.2秒から。","");
   if(files.g)lines.push("■ 5_目安（8枚）","  ダイナミックズームの枠の目安です（緑＝始まり、赤＝終わり）。動画には入れません。","");
-  lines.push("置く秒の目安（行事の場面の頭＝0秒）",
-    "  14.0〜18.8  3_並ぶ",
+  if(files.all)lines.push("■ "+ALL_FILE+"（1920×1080・24コマ/秒・"+fmtSec(allFrames()/FPS)+"秒）","  試写と同じ動きを、最初から最後まで1本にした動画です。行事の場面の 14.0秒の所に置けば、下の組み立てをしなくても、そのまま使えます（①〜⑤は、自分で組み直すときの素材）。","");
+  lines.push("置く秒の目安（行事の場面の頭＝0秒）");
+  if(files.all)lines.push("  14.0〜"+previewEnd().toFixed(1)+"  "+ALL_FILE+"（これ1本で、下の全部が入っています）","  ①〜⑤から自分で組むとき:");
+  lines.push("  14.0〜18.8  3_並ぶ",
     "  17.6〜22.0  "+L[0].m+"に寄る（飛び込むマスへ）→ 22.0 から全画面（飛び込む → … → 次に移る）",
     "  43.6〜44.5  "+L[0].m+"から引く（次に移るマスから）／44.5〜45.3 "+L[1].m+"に寄る（飛び込むマスへ）",
     "  57.7〜58.6  "+L[1].m+"から引く（次に移るマスから）／58.6〜59.4 "+L[2].m+"に寄る（飛び込むマスへ）",
@@ -1555,11 +1579,11 @@ async function doExport(){
   if(isBusy()){say(BUSY_MSG,"warn");return;}
   flushPending();
   var ex=Object.assign({},state.ex), errBox=$("expErr");errBox.hidden=true;$("expDone").hidden=true;
-  if(!(ex.w||ex.f||ex.v2||ex.v3||ex.g)){say("書き出すものに、1つ以上チェックを入れてください。","warn");return;}
+  if(!(ex.w||ex.f||ex.v2||ex.v3||ex.g||ex.all)){say("書き出すものに、1つ以上チェックを入れてください。","warn");return;}
   if(!filledCount()){say("写真を入れてから書き出してください。","warn");return;}
   // 全画面だけを選んで、飛び込むマスが全部空だと、作る物が無い（読んでください.txt だけを出して「書き出しました」と言わない）
-  if(!(ex.w||ex.v2||ex.v3||ex.g)&&![0,1,2,3].some(function(g){return !!diveOf(g);})){say("② 全画面の写真は、飛び込むマスに写真が入っている列だけ作ります。いまは飛び込むマスが全部空です。飛び込むマスに写真を入れるか、ほかの書き出すものにもチェックを入れてください。","warn");return;}
-  if(ex.v2||ex.v3){try{await pickEncoderConfig();}catch(e){errBox.textContent=describeErr(e);errBox.hidden=false;return;}}
+  if(!(ex.w||ex.v2||ex.v3||ex.g||ex.all)&&![0,1,2,3].some(function(g){return !!diveOf(g);})){say("② 全画面の写真は、飛び込むマスに写真が入っている列だけ作ります。いまは飛び込むマスが全部空です。飛び込むマスに写真を入れるか、ほかの書き出すものにもチェックを入れてください。","warn");return;}
+  if(ex.v2||ex.v3||ex.all){try{await pickEncoderConfig();}catch(e){errBox.textContent=describeErr(e);errBox.hidden=false;return;}}
   var dest;
   try{dest=await pickDestination();}catch(e){errBox.textContent=describeErr(e);errBox.hidden=false;return;}
   if(!dest)return;
@@ -1603,6 +1627,7 @@ async function doExport(){
       return await toBlob(c,"image/png");
     });});
   }
+  if(ex.all)task(ALL_FILE,Math.round(allFrames()/FPS*0.5),function(step){return makeVideo("all",step);});
   task("読んでください.txt",0.2,async function(){return new Blob([readmeText(when,ex,resAt,madeFull,skipFull,sameExit)],{type:"text/plain;charset=utf-8"});});
   var totalW=tasks.reduce(function(a,t){return a+t.weight;},0), doneW=0, failed=null;
   try{
@@ -1873,7 +1898,7 @@ function bindUI(){
   $("bannerReload").addEventListener("click",function(){location.reload();});
   $("btnSampleOff").addEventListener("click",removeSamples);
   $("btnClear").addEventListener("click",async function(){if(!photos.size)return;if(isBusy()){say(BUSY_MSG,"warn");return;}if(!guardWrite())return;var ok=await askConfirm("このブラウザから消しますか","写真 "+photos.size+"枚と、壁の並び・名前・秒を、このブラウザから消します。パソコンにある元の写真と、保存した作業ファイルはそのまま残ります。消したあとは戻せません。","消す");if(ok&&!isBusy())await clearAll(false);});
-  [["exW","w"],["exF","f"],["exV2","v2"],["exV3","v3"],["exG","g"]].forEach(function(p){$(p[0]).addEventListener("change",function(){state.ex[p[1]]=this.checked;scheduleSave();});});
+  [["exW","w"],["exF","f"],["exV2","v2"],["exV3","v3"],["exG","g"],["exAll","all"]].forEach(function(p){$(p[0]).addEventListener("change",function(){state.ex[p[1]]=this.checked;scheduleSave();});});
   Array.prototype.forEach.call(document.querySelectorAll('input[name="res"]'),function(r){r.addEventListener("change",function(){if(this.checked){state.res=this.value;scheduleSave();if(cropView)cropView.draw();}});});
   var tmIds=[["tmWave","wave"],["tmFlip","flip"],["tmBlink","blink"],["tmLen","len"]];
   tmIds.forEach(function(p){$(p[0]).addEventListener("input",function(){
