@@ -1,0 +1,2064 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src blob: data:; connect-src 'none'; form-action 'none'; base-uri 'none'; require-trusted-types-for 'script'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>写真の壁</title>
+<!--
+  写真の壁 v1（2026-09-29）
+  学校紹介2026 の行事の章「B 写真の壁から1枚に飛び込む」を、自分の写真で作る道具。
+  正はこのファイル（動画制作/学校紹介2026/行事の見せ方/写真の壁.html）。公開の写しは GitHub の tools/kabe/index.html（そのまま写す）。
+  動きと寸法は 見本.html の OPT_B と同じ値（B_TW・B_Y・B_GROUPS・EVENTS の秒）。ここを変えると見本とずれる。
+  写真は通信しない（CSP で connect-src 'none'）。AI の確かめは「見本の写真で試す」の絵だけで行う。
+  直したら python 動画制作/tools/kabe_check.py（見本との突き合わせ・操作・書き出し）を流す。
+
+  コンセプト1枚（WebデザインUI §1）
+  - 実世界の例え: 編集室の壁に、行事の写真を月の列ごとにはめていく台紙。はめた台紙がそのまま動画の絵になる
+  - 形容詞3語: 手早い・落ち着いた・見たまま出る
+  - 主役: 16:9 の壁（本番と同じ描き方）。操作はその下と右に小さく
+  - やらないこと3つ: 写真をどこかへ送る（通信しない）／書き出す絵に編集の印を描く（黄色い印や＋は重ねた部品だけ）／秒や解像度を最初から並べる（既定のまま書き出せる。変えるときだけ開く）
+  - アクセント色の理由: 本番の壁で「5月」の文字に使っている黄色（#F4CC60）。動画で「いまの月」を示す色を、道具では「選んだマス・飛び込むマス」に使う
+  - 署名要素: 列の上の「5月 校外学習」が本番と同じ見た目で出ていて、押すと名前を直せる
+  - 個性の技（2個まで）: ①試写と書き出しが同じ描画の関数（題材が動画の部品だから、見たまま出ることが価値）②写真を入れたマスが本番と同じ「ぽん」で弾む（題材＝写真が次々に並ぶ動き）
+-->
+<style>
+:root{
+  --ground:#EDF0F3; --card:#FFFFFF; --ink:#101C2C; --muted:#4A5566; --line:#7A889B; --soft:#E3E8EE;
+  --accent:#F4CC60; --accent-ink:#101C2C; --focus:#1F5FBF; --stage-bg:#0F1826;
+  --warn-bg:#FFF4D6; --warn-line:#9A6B00; --err:#A3261B; --err-bg:#FDECEA; --ok:#1C6B3A;
+  --sp1:4px; --sp2:8px; --sp3:12px; --sp4:16px; --sp5:24px; --sp6:48px; --sp7:64px;
+  --r-s:6px; --r-m:10px; --r-l:16px;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:"BIZ UDPGothic","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo","Noto Sans JP",sans-serif;font-size:16px;line-height:1.8}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+::selection{background:var(--accent);color:var(--accent-ink)}
+a{color:inherit;text-underline-offset:3px}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+h1{font-size:32px;line-height:1.35;margin:0}
+h2{font-size:20px;line-height:1.45;margin:0}
+h3{font-size:16px;line-height:1.5;margin:0}
+p{margin:0}
+.wrap{max-width:1480px;margin:0 auto;padding:var(--sp5) 16px var(--sp7)}
+header.top{display:grid;gap:var(--sp2);margin-bottom:var(--sp6);max-width:46em}
+.lead{font-size:17px}
+.note{font-size:14px;color:var(--muted);line-height:1.7}
+.just{text-align:justify}
+.ph{display:inline-block}
+.just .ph{display:inline}
+.tail{white-space:nowrap}
+.just .tail{white-space:normal}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+.layout{display:grid;gap:var(--sp6)}
+.work{display:grid;gap:var(--sp4);min-width:0}
+.work-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--sp3)}
+.modes{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:var(--card)}
+.modes button{min-height:44px;padding:0 22px;border:0;border-radius:999px;background:transparent;cursor:pointer;font-weight:700}
+.modes button[aria-selected="true"]{background:var(--ink);color:#FFFFFF}
+.modes button.ready[aria-selected="false"]{box-shadow:inset 0 0 0 2px var(--accent)}
+
+.stage-wrap{position:relative;min-width:0}
+.stage-scroll{overflow-x:auto;border-radius:var(--r-s)}
+.stage{position:relative;width:100%;aspect-ratio:16/9;background:var(--stage-bg);border-radius:var(--r-s);overflow:hidden}
+.stage canvas{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
+.ov{position:absolute;inset:0}
+.ov[hidden]{display:none}
+.cell,.lab{position:absolute;margin:0;padding:0;border:0;background:transparent;cursor:pointer;border-radius:6px}
+.cell:hover,.lab:hover{box-shadow:inset 0 0 0 2px rgba(255,255,255,.6)}
+.cell[aria-pressed="true"],.lab[aria-pressed="true"]{box-shadow:0 0 0 3px var(--accent),inset 0 0 0 1px rgba(16,28,44,.7)}
+.cell.swapfrom{box-shadow:0 0 0 3px #FFFFFF,0 0 0 6px var(--accent)}
+.cell:focus-visible,.lab:focus-visible{outline:3px solid #FFFFFF;outline-offset:2px}
+.cell.drop,.lab.drop{box-shadow:0 0 0 3px #FFFFFF,inset 0 0 0 300px rgba(244,204,96,.28)}
+.cell .badge{position:absolute;left:3px;top:3px;font-size:14px;line-height:1.35;padding:0 6px;border-radius:4px;background:var(--accent);color:var(--accent-ink);font-weight:700;pointer-events:none;white-space:nowrap}
+.cell .plus{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;color:rgba(255,255,255,.62);pointer-events:none}
+.cell.has .plus{display:none}
+.hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(600px,calc(100% - 24px));display:grid;gap:var(--sp3);justify-items:center;text-align:center;padding:var(--sp5);border-radius:var(--r-l);background:rgba(11,18,28,.93);color:#FFFFFF;border:2px dashed #8FA3C0}
+.hint[hidden]{display:none}
+.hint p{font-size:17px}
+.hint .note{color:#C9D3E0}
+.hint .btns{justify-content:center}
+.veil{position:absolute;inset:0;display:grid;place-items:center;background:rgba(11,18,28,.55);color:#FFFFFF;font-weight:700;font-size:20px;pointer-events:none;border:3px dashed var(--accent);border-radius:var(--r-s)}
+.veil[hidden]{display:none}
+.bigplay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);min-height:56px;padding:0 28px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:18px;cursor:pointer;display:inline-flex;align-items:center;gap:10px}
+.bigplay svg{width:18px;height:18px}
+.bigplay[hidden]{display:none}
+.busybox{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 24px));display:grid;gap:var(--sp3);padding:var(--sp5);border-radius:var(--r-l);background:rgba(11,18,28,.93);color:#FFFFFF;text-align:center;font-size:17px;font-weight:700}
+.busybox[hidden]{display:none}
+.busybox progress{width:100%;height:10px;accent-color:#F4CC60}
+.busybox progress[hidden]{display:none}
+.legend{margin-top:calc(-1 * var(--sp1))}
+.legend[hidden]{display:none}
+.banner{font-size:15px;line-height:1.7;padding:var(--sp3) var(--sp4);border-radius:var(--r-m);background:var(--warn-bg);border-left:6px solid var(--warn-line);color:var(--ink);display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp2) var(--sp3)}
+.banner[hidden]{display:none}
+.banner p{flex:1 1 18em}
+.done-msg{font-size:15px;line-height:1.6;color:var(--ok);font-weight:700;overflow-wrap:anywhere}
+.done-msg[hidden]{display:none}
+.crop-note{font-size:14px;line-height:1.6;color:var(--muted)}
+.inwrap{display:flex;align-items:center;gap:6px}
+.inwrap input{flex:1 1 auto;min-width:0}
+.inwrap span{font-size:15px;color:var(--muted)}
+
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp2)}
+.bar .spacer{flex:1 1 auto}
+.count{font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums;padding:0 var(--sp2)}
+.btns{display:flex;flex-wrap:wrap;gap:var(--sp2)}
+.btn{min-height:44px;padding:0 18px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-size:15px;font-weight:700;white-space:nowrap}
+.btn:hover{background:var(--soft)}
+.btn:disabled{opacity:.45;cursor:default;background:var(--card)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:#FFFFFF}
+.btn.primary:hover{background:#22324A}
+.btn.primary:disabled{background:var(--ink)}
+.btn.quiet{border-color:transparent;background:transparent;text-decoration:underline;text-underline-offset:3px;padding:0 10px}
+.btn.quiet:hover{background:var(--soft)}
+.btn.danger{border-color:var(--err);color:var(--err)}
+.hint .btn{border-color:#8FA3C0;background:#FFFFFF}
+.hint .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+
+.player{display:grid;gap:var(--sp3)}
+.player[hidden]{display:none}
+.ctrl{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:var(--sp3)}
+.btn-play{width:48px;height:48px;border-radius:50%;border:0;background:var(--ink);color:#FFFFFF;display:grid;place-items:center;cursor:pointer}
+.btn-play svg{width:20px;height:20px}
+.btn-play[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seek{width:100%;accent-color:#946A00;height:44px;margin:0}
+.time{font-variant-numeric:tabular-nums;font-size:15px;color:var(--muted);min-width:5.6em;text-align:right}
+.chips{display:flex;flex-wrap:wrap;gap:var(--sp2)}
+.chip{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:15px;cursor:pointer}
+.chip[aria-current="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+
+.msg{min-height:1.8em;font-size:15px}
+.msg.ok{color:var(--ok);font-weight:700}
+.msg.warn{color:#6B4A00;font-weight:700}
+.msg.err{color:var(--err);font-weight:700}
+
+.shelf{display:grid;gap:var(--sp2)}
+.shelf-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--sp2) var(--sp3)}
+.back-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--sp3)}
+.back{position:relative;display:grid;gap:4px;justify-items:stretch;padding:8px;border-radius:var(--r-m);border:1px solid var(--line);background:var(--card);cursor:pointer;text-align:left;min-height:44px}
+.back canvas{width:100%;aspect-ratio:16/9;height:auto;border-radius:4px;background:#22324A;display:block}
+.back .bm{font-size:14px;font-weight:700}
+.back .bsame{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);max-width:calc(100% - 24px);padding:2px 10px;border-radius:999px;background:rgba(11,18,28,.82);color:#FFFFFF;font-size:14px;line-height:1.5;pointer-events:none;text-align:center;width:max-content}
+.back[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--accent)}
+.back.drop{box-shadow:0 0 0 3px var(--accent)}
+.tray-list{display:flex;flex-wrap:wrap;gap:var(--sp2);min-height:44px;padding:var(--sp2);border-radius:var(--r-m);border:1px dashed var(--line);background:rgba(255,255,255,.5)}
+.tray-list.drop{border-color:var(--ink);background:#FFF8E1}
+.tray-list .empty{align-self:center;padding:0 var(--sp2)}
+.titem{display:grid;gap:2px;width:120px;padding:4px;border-radius:var(--r-s);border:1px solid transparent;background:var(--card);cursor:grab;text-align:left}
+.titem canvas{width:100%;aspect-ratio:16/9;height:auto;border-radius:3px;display:block;background:#22324A}
+.titem .tname{font-size:14px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.titem[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--accent)}
+
+.side{display:grid;gap:var(--sp6);align-content:start}
+.panel{display:grid;gap:var(--sp3);padding:var(--sp5);border-radius:var(--r-l);background:var(--card)}
+.panel h2{margin-bottom:2px}
+.fieldrow{display:grid;gap:4px}
+.fieldrow label{font-size:15px;font-weight:700}
+.fieldrow input[type="text"],.fieldrow input[type="number"]{min-height:44px;padding:0 12px;border-radius:var(--r-s);border:1px solid var(--line);background:#FFFFFF;font-size:16px}
+.crop{position:relative;border-radius:var(--r-s);background:#1A2433;overflow:hidden;touch-action:none;cursor:grab}
+.crop canvas{display:block;width:100%}
+.crop.dragging{cursor:grabbing}
+.sliders{display:grid;gap:2px}
+.slider{display:grid;grid-template-columns:5.2em 1fr 3.6em;align-items:center;gap:var(--sp2);font-size:15px}
+.slider input{width:100%;height:44px;margin:0;accent-color:#946A00}
+.slider output{font-variant-numeric:tabular-nums;text-align:right;color:var(--muted)}
+.slider.off{opacity:.5}
+.meta{font-size:14px;color:var(--muted);line-height:1.6;overflow-wrap:anywhere}
+.quality{font-size:14px;line-height:1.6;color:#6B4A00}
+
+fieldset.items{border:0;margin:0;padding:0;display:grid;gap:var(--sp1)}
+.item{display:grid;grid-template-columns:24px 1fr;gap:var(--sp2);align-items:start;padding:6px 0;cursor:pointer}
+.item input{width:20px;height:20px;margin:4px 0 0}
+.item .sub{display:block;font-size:14px;color:var(--muted);line-height:1.5}
+.res{display:flex;flex-wrap:wrap;gap:var(--sp1) var(--sp4);padding:0 0 4px 32px;font-size:15px}
+.res label{display:inline-flex;align-items:center;gap:6px;min-height:44px;cursor:pointer}
+.res input{width:18px;height:18px;margin:0}
+details.more{border-radius:var(--r-m);border:1px solid var(--line)}
+details.more summary{min-height:44px;display:flex;align-items:center;gap:var(--sp2);padding:0 var(--sp3);cursor:pointer;font-weight:700;font-size:15px;list-style:none}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::before{content:"";width:0;height:0;border-left:7px solid currentColor;border-top:5px solid transparent;border-bottom:5px solid transparent;transition:transform .2s}
+details.more[open] summary::before{transform:rotate(90deg)}
+.more-body{display:grid;gap:var(--sp3);padding:0 var(--sp3) var(--sp3)}
+.times{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp3)}
+.warnbox{font-size:14px;line-height:1.6;padding:var(--sp2) var(--sp3);border-radius:var(--r-s);background:var(--warn-bg);border-left:4px solid var(--warn-line)}
+.warnbox[hidden]{display:none}
+.errbox{font-size:14px;line-height:1.6;padding:var(--sp2) var(--sp3);border-radius:var(--r-s);background:var(--err-bg);border-left:4px solid var(--err);color:var(--err)}
+.errbox[hidden]{display:none}
+.progress{display:grid;gap:var(--sp2)}
+.progress[hidden]{display:none}
+.progress progress{width:100%;height:12px;accent-color:#946A00}
+.done-list{margin:0;padding-left:1.3em;font-size:14px;line-height:1.6;color:var(--muted);overflow-wrap:anywhere}
+.done-list li.fail{color:var(--err)}
+.done-list:empty{display:none}
+.saved{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+dialog.dlg{border:0;border-radius:var(--r-l);padding:0;max-width:min(460px,92vw);color:var(--ink);background:var(--card)}
+dialog.dlg::backdrop{background:rgba(11,18,28,.5)}
+.dlg-body{display:grid;gap:var(--sp3);padding:var(--sp5)}
+.dlg-body .btns{justify-content:flex-end;margin-top:var(--sp2)}
+footer.foot{margin-top:var(--sp7);font-size:14px;color:var(--muted);display:grid;gap:var(--sp1)}
+
+@media (min-width:1100px){
+  .layout{grid-template-columns:minmax(0,1fr) 360px;align-items:start}
+  h1{font-size:36px}
+}
+@media (max-width:760px){
+  /* スマホは壁を横に動かせる形にして、マスの高さを押しやすい44px以上に保つ（740/1920×117＝45px） */
+  .stage{min-width:740px}
+  .hint{padding:var(--sp4)}
+  .hint .note{text-align:left}
+  .back-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:640px){
+  .just{text-align:left}
+  .just .ph{display:inline-block}
+  .just .tail{white-space:nowrap}
+}
+@media (prefers-reduced-motion: reduce){
+  details.more summary::before{transition:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>写真の壁</h1>
+  <p class="lead just">行事の写真を、月の列の枠にはめる道具です。はめた壁を試写で動かして確かめてから、動画に使う静止画と動き（MP4）を書き出します。</p>
+  <p class="note">写真はこのパソコンの中だけで使います。このページは開いたあと通信しないので、写真がどこかへ送られることはありません。</p>
+</header>
+
+<main class="layout">
+  <section class="work" aria-labelledby="h-wall">
+    <div class="work-head">
+      <h2 id="h-wall">壁</h2>
+      <div class="modes" role="tablist" aria-label="画面の切り替え">
+        <button type="button" role="tab" id="tab-edit" aria-selected="true" aria-controls="stage">並べる</button>
+        <button type="button" role="tab" id="tab-play" aria-selected="false" aria-controls="stage">試写</button>
+      </div>
+    </div>
+    <div class="banner" id="banner" role="alert" hidden><p id="bannerText"></p><button type="button" class="btn" id="bannerReload" hidden>読み込み直す</button></div>
+
+    <div class="stage-wrap">
+      <div class="stage-scroll">
+        <div class="stage" id="stage">
+          <canvas id="cv" aria-hidden="true"></canvas>
+          <div class="ov" id="ov" role="group" aria-label="壁のマス（矢印キーで移動）"></div>
+          <div class="veil" id="veil" hidden>放すと入ります</div>
+        </div>
+      </div>
+      <!-- 案内と「試写を始める」は壁の外側に置く＝スマホで壁を横に動かしても、見えている所の真ん中に出る -->
+      <div class="hint" id="hint">
+        <p>写真をここへドラッグしてください</p>
+        <p class="note">月の名前のフォルダ（5月・6月…）ごと入れると、その月の列に入ります。ばらばらの写真は、空いているマスに順に入ります。</p>
+        <div class="btns">
+          <button type="button" class="btn primary" data-act="files">写真を選ぶ</button>
+          <button type="button" class="btn" data-act="folder">フォルダを選ぶ</button>
+          <button type="button" class="btn" data-act="sample">見本の写真で試す</button>
+        </div>
+      </div>
+      <div class="busybox" id="busybox" role="status" aria-live="polite" hidden><p id="busyText"></p><progress id="busyBar" max="1" value="0"></progress></div>
+      <button type="button" class="bigplay" id="bigplay" hidden><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3 L17 10 L5 17 Z" fill="currentColor"/></svg><span id="bigplayText">試写を始める</span></button>
+    </div>
+    <p class="note legend just" id="legend"></p>
+
+    <div class="bar" id="barEdit">
+      <button type="button" class="btn" data-act="files">写真を選ぶ</button>
+      <button type="button" class="btn" data-act="folder">フォルダを選ぶ</button>
+      <span class="count" id="count"></span>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="btnUndo" disabled>元に戻す</button>
+      <button type="button" class="btn" id="btnRedo" disabled>やり直す</button>
+    </div>
+
+    <div class="player" id="barPlay" hidden>
+      <div class="ctrl">
+        <button type="button" class="btn-play" id="btnPlay" aria-label="試写を再生" aria-pressed="false"></button>
+        <input type="range" class="seek" id="seek" min="14" max="97" step="0.05" value="14" aria-label="試写の再生位置">
+        <span class="time" id="time">0:14</span>
+      </div>
+      <p class="note just">時刻は、学校紹介の動画の「行事」の場面の頭から数えた秒です（写真が並び始めるのが 0:14）。全画面の所は、その月の写真を順に出しています。本番の全画面は Resolve で並べます。</p>
+      <div class="chips" id="chips"></div>
+    </div>
+
+    <p class="msg" id="msg" role="status" aria-live="polite"></p>
+
+    <section class="shelf" aria-labelledby="h-backs">
+      <div class="shelf-head">
+        <h3 id="h-backs">戻るときの写真</h3>
+        <p class="note">全画面の最後に見せて、壁へ戻る写真です。空いていれば、飛び込む写真のまま戻ります。枠を押すと、写真を選べます。</p>
+      </div>
+      <div class="back-row" id="backRow"></div>
+    </section>
+
+    <section class="shelf" aria-labelledby="h-tray">
+      <div class="shelf-head">
+        <h3 id="h-tray">置き場<span id="trayCount"></span></h3>
+        <p class="note">壁に入っていない写真です。マスへドラッグするか、押してからマスを押すと入ります。</p>
+      </div>
+      <div class="tray-list" id="tray"></div>
+    </section>
+  </section>
+
+  <aside class="side">
+    <section class="panel" aria-labelledby="h-sel">
+      <h2 id="h-sel">選んだ所</h2>
+      <div id="selBody"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-exp">
+      <h2 id="h-exp">書き出す</h2>
+      <p class="note just">保存するフォルダを選ぶと、その中に「写真の壁_日付」のフォルダを作って入れます。</p>
+      <fieldset class="items" id="exFields">
+        <legend class="sr">書き出すもの</legend>
+        <label class="item"><input type="checkbox" id="exW" checked><span><b>① 壁の静止画</b> 5枚<span class="sub">寄る・引くとき（ダイナミックズーム）に使う</span></span></label>
+        <div class="res" role="radiogroup" aria-label="壁の静止画の大きさ">
+          <label><input type="radio" name="res" value="4k" checked>4K（3840×2160）</label>
+          <label><input type="radio" name="res" value="8k">8K（7680×4320）</label>
+        </div>
+        <p class="note just res-note">まず 4K で試して、寄り切った所のぼやけが気になったら 8K にします。8K はファイルが大きく、書き出しにも時間がかかります。</p>
+        <label class="item"><input type="checkbox" id="exF" checked><span><b>② 全画面の写真</b> 8枚<span class="sub">飛び込むマスと同じ切り方（寄り切ったら切り替える）</span></span></label>
+        <label class="item"><input type="checkbox" id="exV2" checked><span><b>③ 写真が並ぶ動き</b> MP4<span class="sub">1920×1080・24コマ/秒・<span id="v2len"></span>秒</span></span></label>
+        <label class="item"><input type="checkbox" id="exV3" checked><span><b>④ 来年の動き</b> MP4<span class="sub">波→裏返る→空の枠が点滅・<span id="v3len"></span>秒</span></span></label>
+        <label class="item"><input type="checkbox" id="exG" checked><span><b>⑤ ズームの目安</b> 8枚<span class="sub">枠の始まりと終わり（動画には入れない）</span></span></label>
+      </fieldset>
+      <p class="note just">使い方の説明（読んでください.txt）も一緒に入ります。戻るときの写真を決めていない月は、壁の静止画も全画面の写真も、前と同じ絵になります（そのまま使えます）。</p>
+      <details class="more" id="timesBox">
+        <summary>④ 来年の動きの秒を変える（声に合わせるとき）</summary>
+        <div class="more-body">
+          <p class="note just">④の頭からの秒です。試写の「来年」にも同じ秒が効きます。</p>
+          <div class="times">
+            <div class="fieldrow"><label for="tmWave">波</label><div class="inwrap"><input type="number" id="tmWave" step="0.01" min="0" max="60" inputmode="decimal"><span>秒</span></div></div>
+            <div class="fieldrow"><label for="tmFlip">裏返す</label><div class="inwrap"><input type="number" id="tmFlip" step="0.01" min="0" max="60" inputmode="decimal"><span>秒</span></div></div>
+            <div class="fieldrow"><label for="tmBlink">点滅</label><div class="inwrap"><input type="number" id="tmBlink" step="0.01" min="0" max="60" inputmode="decimal"><span>秒</span></div></div>
+            <div class="fieldrow"><label for="tmLen">長さ</label><div class="inwrap"><input type="number" id="tmLen" step="0.01" min="1" max="60" inputmode="decimal"><span>秒</span></div></div>
+          </div>
+          <p class="errbox" id="tmErr" hidden></p>
+          <div class="btns"><button type="button" class="btn" id="tmReset">見本の秒に戻す</button></div>
+        </div>
+      </details>
+      <p class="warnbox" id="expWarn" hidden></p>
+      <div class="btns"><button type="button" class="btn primary" id="btnExport">書き出す</button></div>
+      <p class="done-msg" id="expDone" role="status" hidden></p>
+      <div class="progress" id="expProg" hidden>
+        <progress id="expBar" max="1" value="0"></progress>
+        <p class="note" id="expNow"></p>
+        <div class="btns"><button type="button" class="btn" id="btnCancel">止める</button></div>
+      </div>
+      <p class="errbox" id="expErr" hidden></p>
+      <ol class="done-list" id="expList"></ol>
+    </section>
+
+    <section class="panel" aria-labelledby="h-save">
+      <h2 id="h-save">作業を残す</h2>
+      <p class="note just" id="saveNote">作業はこのブラウザに自動で残ります。</p>
+      <p class="errbox" id="storeErr" hidden></p>
+      <div class="btns">
+        <button type="button" class="btn" id="btnSave">作業ファイルに保存</button>
+        <button type="button" class="btn" id="btnOpen">作業ファイルを開く</button>
+      </div>
+      <p class="done-msg" id="saveDone" role="status" hidden></p>
+      <p class="note just">作業ファイル（.zip）には写真も入ります。別のパソコンで続けるときや、控えに使います。</p>
+      <div class="btns">
+        <button type="button" class="btn quiet" id="btnSampleOff" hidden>見本の写真を片付ける</button>
+        <button type="button" class="btn danger" id="btnClear">このブラウザから消す</button>
+      </div>
+    </section>
+  </aside>
+</main>
+
+<footer class="foot">
+  <p>写真の壁 v1（2026年9月29日）。動きの秒は、学校紹介の動画の「行事」の場面に合わせてあります（④の秒は変えられます）。</p>
+  <p>写真と作業の記憶は、このブラウザの中にだけあります。別のブラウザや別のパソコンには移りません（移すときは作業ファイル）。</p>
+</footer>
+</div>
+
+<input type="file" id="inFiles" accept="image/*,.heic,.heif" multiple hidden>
+<input type="file" id="inFolder" webkitdirectory multiple hidden>
+<input type="file" id="inBack" accept="image/*,.heic,.heif" hidden>
+<input type="file" id="inProject" accept=".zip,application/zip" hidden>
+<dialog class="dlg" id="dlg" aria-labelledby="dlgTitle">
+  <div class="dlg-body">
+    <h2 id="dlgTitle"></h2>
+    <p class="just" id="dlgText"></p>
+    <div class="btns"><button type="button" class="btn" id="dlgNo">やめる</button><button type="button" class="btn primary" id="dlgYes">進める</button></div>
+  </div>
+</dialog>
+
+<script>
+(function(){
+"use strict";
+/* よそのページの枠（iframe）の中では動かない（知らないうちに操作させられないように） */
+if(window.top!==window.self){
+  document.body.textContent="";
+  var fp=document.createElement("p");fp.textContent="このページは、ほかのページの中では使えません。アドレス欄に直接入れて開いてください。";fp.style.cssText="font:16px/1.8 sans-serif;padding:24px";document.body.appendChild(fp);
+  return;
+}
+
+/* ========== 見本 B と同じ寸法と秒（見本.html の OPT_B・EVENTS。行事の章の頭＝0秒） ========== */
+var W=1920, H=1080;
+var TW=208, TH=117, GAP=10, GGAP=30, ROWS=[300,427,554,681], BLINK=1.0, XF=0.35;
+var GROUP_COLS=[2,2,2,1,1];                 // 5月・6月・7月・8月・10月（10月は空の枠だけ）
+var PHOTO_GROUPS=4, ANCHOR_I=1;             // 飛び込むマス＝左の列の上から2つ目（見本の tiles[1]）
+var EVENTS=[
+  {t:20.97,end:43.6,shots:[20.97,25.79,29.8,34.54,38.9]},
+  {t:43.6,end:57.7,shots:[43.6,47.96,51.48,53.68,55.28]},
+  {t:57.7,end:69.5,shots:[57.7,60.6,63.14,66.09]},
+  {t:69.5,end:80.3,shots:[69.5,73.28,74.1,75.3]}
+];
+var GSTART=[14.3,15.05,15.8,16.55,17.2];     // 列ごとに並び始める秒（見出しも同じ秒）
+var REST=84.2;                               // ④ 来年の頭（波の0.5秒前）
+var TIMES_DEFAULT={wave:0.5,flip:4.49,blink:8.12,len:14.1};
+var CLIP2={t0:14.0,frames:115};              // ③ 並ぶ＝14.0〜18.79秒（最後の1秒は並び終わった壁のまま）
+var T0=14.0, FPS=24;
+var LABELS_DEFAULT=[{m:"5月",n:"校外学習"},{m:"6月",n:"学年フェス"},{m:"7月",n:"お楽しみ会"},{m:"8月",n:"教室開放"},{m:"10月",n:"予定"}];
+var LABEL_FONT='"BIZ UDPGothic","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo","Noto Sans JP",sans-serif';
+var THUMB_W=480, LEVELS=[1440,2880], PREVIEW_MAX=2880;   // 小さい絵は 480px（置き場の写真も持つので軽く）。試写の大きい絵は 2880px まで（書き出しは別に正確に作る）
+var HI_BUDGET=384*1024*1024, HI_MAX_ACTIVE=2;              // 大きい絵を覚える量（画素の合計）と、同時に作る数
+var ZIP_MAX=3.9e9, PJ_MAX_BYTES=20*1024*1024, PJ_MAX_PHOTOS=2000;
+var REDUCED=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+var LAYOUT=(function(){
+  var widths=GROUP_COLS.map(function(c){return c*TW+(c-1)*GAP;});
+  var total=widths.reduce(function(a,b){return a+b;},0)+GGAP*(GROUP_COLS.length-1), x=(W-total)/2, out=[];
+  GROUP_COLS.forEach(function(c,g){
+    var tiles=[];
+    for(var col=0;col<c;col++)for(var r=0;r<4;r++)tiles.push({g:g,i:col*4+r,col:col,row:r,x:x+col*(TW+GAP),y:ROWS[r]});
+    out.push({g:g,x:x,w:widths[g],cols:c,tiles:tiles});
+    x+=widths[g]+GGAP;
+  });
+  return out;
+})();
+function cellId(g,i){return "g"+g+"t"+i;}
+function parseCell(id){var m=/^g(\d)t(\d)$/.exec(id);return m?{g:+m[1],i:+m[2]}:null;}
+var ALL_CELLS=[];LAYOUT.forEach(function(G){if(G.g<PHOTO_GROUPS)G.tiles.forEach(function(tp){ALL_CELLS.push(cellId(tp.g,tp.i));});});
+function anchorView(g){var tp=LAYOUT[g].tiles[ANCHOR_I];return {x:tp.x+TW/2,y:tp.y+TH/2,z:W/TW};}
+
+/* ========== 動きの式（見本と同じ） ========== */
+function clamp(x,a,b){a=a==null?0:a;b=b==null?1:b;return x<a?a:(x>b?b:x);}
+function lerp(a,b,u){return a+(b-a)*u;}
+function seg(t,t0,d){return clamp((t-t0)/d);}
+function eIO(u){return u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;}
+function eOutQ(u){return 1-(1-u)*(1-u);}
+function eBack(u){var c1=1.2,c3=c1+1;return 1+c3*Math.pow(u-1,3)+c1*Math.pow(u-1,2);}
+function popS(u){return u<=0?0.55:0.55+0.45*eBack(clamp(u));}
+function fly(u,A,B,zMid){
+  var s=eIO(clamp(u)), la=Math.log(A.z), lb=Math.log(B.z), lz=lerp(la,lb,s);
+  if(zMid){var d=(la+lb)/2-Math.log(zMid);lz-=4*d*s*(1-s);}
+  var z=Math.exp(lz), w=s;
+  if(!zMid&&A.z!==B.z)w=clamp((1/A.z-1/z)/(1/A.z-1/B.z));
+  return {x:lerp(A.x,B.x,w),y:lerp(A.y,B.y,w),z:z};
+}
+function curEvent(t){for(var i=0;i<EVENTS.length;i++){if(t>=EVENTS[i].t&&t<EVENTS[i].end)return i;}return -1;}
+function timesAbs(){var s=state.times;return {wave:REST+s.wave,flip:REST+s.flip,blink:REST+s.blink,fade:REST+s.blink+3.68};}
+function previewEnd(){return timesAbs().fade+1.0;}
+
+/* ある秒の壁の様子。mode: play（見本と同じ動き）／still（並び終わった壁・k＝戻る写真に替わった行事の数）／clip（カメラを全体に止めた動き＝②③） */
+function sceneAt(t,mode,k,backG){
+  var tm=timesAbs(), full={x:960,y:540,z:1}, cam=full, fs=null;
+  if(mode==="play"){
+    var a0=anchorView(0), push={x:lerp(960,a0.x,0.25),y:540,z:1.06};
+    if(t<20.97)cam=fly(eIO(seg(t,17.6,3.37)),full,push);
+    else if(t<21.97)cam=fly(seg(t,20.97,1.0),push,a0);
+    else if(t<80.3){
+      var ei=curEvent(t), ev=EVENTS[ei], enterEnd=ei===0?21.97:ev.t+1.7;
+      if(ei>0&&t<enterEnd)cam=fly(seg(t,ev.t,1.7),anchorView(ei-1),anchorView(ei),1.7);
+      else{fs={ev:ei,t0:enterEnd,t1:ev.end};cam=anchorView(ei);}
+    }
+    else if(t<81.5)cam=fly(seg(t,80.3,1.2),anchorView(3),full);
+  }
+  var still=mode==="still", worldA=fs?0:(mode==="play"&&t>=tm.fade?1-seg(t,tm.fade,0.45):1), inDive=cam.z>2.5;
+  var labels=LAYOUT.map(function(G){return still?1:clamp(seg(t,GSTART[G.g],0.3)*3)*(1-seg(t,tm.flip,0.5))*(inDive?0:1);});
+  var tiles=[];
+  LAYOUT.forEach(function(G){G.tiles.forEach(function(tp){
+    var r={g:tp.g,i:tp.i,x:tp.x,y:tp.y,scale:1,sx:1,alpha:1,flip:false,bk:0,back:false};
+    if(still){r.back=tp.i===ANCHOR_I&&tp.g<PHOTO_GROUPS&&(tp.g<(k||0)||tp.g===backG);}
+    else{
+      var u=seg(t,GSTART[tp.g]+tp.i*0.08,0.3);
+      var w0=tm.wave+tp.g*0.25, wave=(t>=w0&&t<w0+0.5)?1+0.08*Math.sin(Math.PI*seg(t,w0,0.5)):1;
+      var fu=seg(t,tm.flip+tp.g*0.22+tp.i*0.03,0.5), ang=fu<0.5?fu*180:(fu-0.5)*180-90;
+      r.scale=popS(u)*wave;r.sx=Math.max(0.02,Math.abs(Math.cos(ang*Math.PI/180)));r.alpha=clamp(u*3);
+      r.flip=fu>=0.5;
+      if(r.flip){var ph=t>=tm.blink?((t-tm.blink)/BLINK)%1:1;r.bk=t>=tm.blink?clamp(Math.min(ph/0.15,(0.55-ph)/0.15)):0;}
+      r.back=tp.i===ANCHOR_I&&tp.g<PHOTO_GROUPS&&t>=EVENTS[tp.g].end;
+    }
+    tiles.push(r);
+  });});
+  return {t:t,cam:cam,worldA:worldA,labels:labels,tiles:tiles,fs:fs};
+}
+
+/* ========== 状態 ========== */
+var photos=new Map();   // id → {id,name,type,w,h,order,sample,blob,thumbBlob,thumb}
+var state=freshState();
+var nextOrder=1;
+function freshState(){return {v:1,labels:LABELS_DEFAULT.map(function(l){return {m:l.m,n:l.n};}),cells:{},backs:[null,null,null,null],times:Object.assign({},TIMES_DEFAULT),res:"4k",ex:{w:true,f:true,v2:true,v3:true,g:true}};}
+function num(v,d,lo,hi){v=Number(v);return isFinite(v)?clamp(v,lo,hi):d;}
+function normPl(pl){if(!pl||typeof pl.p!=="string"||!photos.has(pl.p))return null;return {p:pl.p,z:num(pl.z,1,1,4),cx:num(pl.cx,0.5,0,1),cy:num(pl.cy,0.5,0,1)};}
+function normalizeState(o){
+  var s=freshState();
+  if(!o||typeof o!=="object")return s;
+  if(Array.isArray(o.labels))for(var g=0;g<5;g++){var l=o.labels[g];if(l&&typeof l.m==="string"&&typeof l.n==="string")s.labels[g]={m:l.m.slice(0,8),n:l.n.slice(0,16)};}
+  if(o.cells&&typeof o.cells==="object")ALL_CELLS.forEach(function(id){var p=normPl(o.cells[id]);if(p)s.cells[id]=p;});
+  if(Array.isArray(o.backs))for(g=0;g<4;g++)s.backs[g]=normPl(o.backs[g]);
+  if(o.times)s.times={wave:num(o.times.wave,TIMES_DEFAULT.wave,0,60),flip:num(o.times.flip,TIMES_DEFAULT.flip,0,60),blink:num(o.times.blink,TIMES_DEFAULT.blink,0,60),len:num(o.times.len,TIMES_DEFAULT.len,1,60)};
+  if(!validTimes(s.times))s.times=Object.assign({},TIMES_DEFAULT);
+  if(o.res==="8k")s.res="8k";
+  if(o.ex)["w","f","v2","v3","g"].forEach(function(k){if(typeof o.ex[k]==="boolean")s.ex[k]=o.ex[k];});
+  return s;
+}
+function validTimes(tm){return tm.wave>=0&&tm.flip>tm.wave+0.5&&tm.blink>tm.flip+0.6&&tm.len>tm.blink&&tm.len<=60;}
+function referenced(){var set=new Set();Object.keys(state.cells).forEach(function(k){set.add(state.cells[k].p);});state.backs.forEach(function(b){if(b)set.add(b.p);});return set;}
+function trayPhotos(){var ref=referenced();return Array.from(photos.values()).filter(function(p){return !ref.has(p.id);}).sort(function(a,b){return a.order-b.order;});}
+// 写真が見つからない置き方は、どこでも「空き」として扱う（数え方・飛び込む・戻る・選んだ所）
+function livePl(pl){return pl&&photos.has(pl.p)?pl:null;}
+function filledCount(){return ALL_CELLS.filter(function(id){return !!livePl(state.cells[id]);}).length;}
+function diveOf(g){return livePl(state.cells[cellId(g,ANCHOR_I)]);}
+function backOf(g){return livePl(state.backs[g])||diveOf(g);}
+
+/* ========== 小道具 ========== */
+function $(id){return document.getElementById(id);}
+function mk(tag,cls,parent,text){var el=document.createElement(tag);if(cls)el.className=cls;if(text!=null)el.textContent=text;if(parent)parent.appendChild(el);return el;}
+function wait(ms){return new Promise(function(r){setTimeout(r,ms);});}
+/* 譲るだけの待ち。setTimeout と違い、タブが隠れても間引かれない（書き出し中に別の窓へ移っても進む） */
+function yieldNow(){return new Promise(function(r){var m=new MessageChannel();m.port1.onmessage=function(){m.port1.close();r();};m.port2.postMessage(0);});}
+function newId(){return "p"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+function natCmp(a,b){return a.localeCompare(b,"ja",{numeric:true,sensitivity:"base"});}
+function safeName(s){return String(s).replace(/[\\/:*?"<>|\u0000-\u001f]/g,"_").replace(/[. ]+$/,"").slice(0,80)||"_";}
+function pad2(n){return (n<10?"0":"")+n;}
+function stamp(d){return d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+"-"+pad2(d.getHours())+pad2(d.getMinutes());}
+function jpTime(d){return (d.getMonth()+1)+"月"+d.getDate()+"日 "+d.getHours()+":"+pad2(d.getMinutes());}
+function fmtSec(s){return s.toFixed(2).replace(/\.?0+$/,"");}
+function v3Frames(){return Math.round(state.times.len*FPS);}
+function fmtClock(t){t=Math.max(0,t);var m=Math.floor(t/60),s=Math.floor(t%60);return m+":"+pad2(s);}
+/* フォルダの名前から月を読む: 「5月」「2025年6月」「2025-06-10 運動会」「05」「May」「June」。Junior・Mayor のような語は月にしない */
+function monthNum(s){
+  s=String(s);
+  function ok(n){n=+n;return n>=1&&n<=12?n:0;}
+  var m=s.match(/(\d{1,2})\s*月/);if(m)return ok(m[1]);
+  m=s.match(/(?:^|[^0-9])(?:19|20)\d{2}\s*[-_.\/年]\s*(\d{1,2})(?:[-_.\/月\s]|$)/);if(m)return ok(m[1]);
+  m=s.match(/^\s*0?(\d{1,2})\s*$/);if(m)return ok(m[1]);
+  var en=s.toLowerCase().match(/(?:^|[^a-z])(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?![a-z])/);
+  return en?["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"].indexOf(en[1].slice(0,3))+1:0;
+}
+function UserError(msg){this.message=msg;this.user=true;}
+function toBlob(canvas,type,q){return new Promise(function(res,rej){canvas.toBlob(function(b){if(b)res(b);else rej(new UserError("画像を作れませんでした（大きすぎるかもしれません）。4K にするか、ほかのタブを閉じてからもう一度書き出してください。"));},type,q);});}
+function describeErr(e){if(e&&e.user)return e.message;return "思わぬ失敗です（"+(e&&(e.name||e.message)||"不明")+"）。ページを読み込み直してから、もう一度試してください。作業はこのブラウザに残っています。";}
+function rr(ctx,x,y,w,h,r){ctx.beginPath();if(ctx.roundRect){ctx.roundRect(x,y,w,h,r);}else{ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}}
+function mixHex(a,b,u){var pa=parseInt(a.slice(1),16),pb=parseInt(b.slice(1),16);return "rgb("+Math.round(lerp(pa>>16,pb>>16,u))+","+Math.round(lerp((pa>>8)&255,(pb>>8)&255,u))+","+Math.round(lerp(pa&255,pb&255,u))+")";}
+
+/* ========== 写真の絵（向きは撮ったときのまま＝EXIF を読む） ========== */
+async function decodeFull(blob){
+  var bmp;
+  try{bmp=await createImageBitmap(blob,{imageOrientation:"from-image"});}
+  catch(e){try{bmp=await createImageBitmap(blob);}catch(e2){throw new Error("decode");}}
+  if(!bmp.width||!bmp.height){bmp.close();throw new Error("decode");}
+  return bmp;
+}
+async function resizeBmp(bmp,w){
+  if(w>=bmp.width)return bmp;
+  var h=Math.max(1,Math.round(bmp.height*w/bmp.width));
+  try{return await createImageBitmap(bmp,{resizeWidth:w,resizeHeight:h,resizeQuality:"high"});}
+  catch(e){var c=document.createElement("canvas");c.width=w;c.height=h;var x=c.getContext("2d");x.imageSmoothingQuality="high";x.drawImage(bmp,0,0,w,h);return await createImageBitmap(c);}
+}
+/* 要る幅の絵を1回で開く（元の大きさで一度開かない＝メモリが少なくて済む。EXIF の向きは先に効く＝2回に分けたときと画素まで同じ） */
+async function levelBitmap(ph,L){
+  if(L>=ph.w)return await decodeFull(ph.blob);
+  var h=Math.max(1,Math.round(ph.h*L/ph.w));
+  try{return await createImageBitmap(ph.blob,{imageOrientation:"from-image",resizeWidth:L,resizeHeight:h,resizeQuality:"high"});}
+  catch(e){var full=await decodeFull(ph.blob);var out=await resizeBmp(full,Math.min(L,full.width));if(out!==full)full.close();return out;}
+}
+function cropRegion(ph,pl,aspect){
+  var a=ph.w/ph.h, rw, rh;
+  if(a>aspect){rh=ph.h;rw=rh*aspect;}else{rw=ph.w;rh=rw/aspect;}
+  var z=Math.max(1,pl.z||1);rw/=z;rh/=z;
+  var x=clamp(pl.cx*ph.w-rw/2,0,ph.w-rw), y=clamp(pl.cy*ph.h-rh/2,0,ph.h-rh);
+  return {x:x,y:y,w:rw,h:rh};
+}
+function clampPl(ph,pl){var r=cropRegion(ph,pl,16/9);return {p:pl.p,z:pl.z,cx:(r.x+r.w/2)/ph.w,cy:(r.y+r.h/2)/ph.h};}
+
+/* 試写で使う大きい絵は、要る大きさの物をあとから作って覚えておく。
+   覚える量は画素の合計で決め（HI_BUDGET）、いま描いている絵（frameNo が同じ）は捨てない＝作っては捨てるを繰り返さない。
+   作るのは同時に2つまで（順番待ち）。作れなかった絵は覚えておいて、作り直さない */
+var hiCache=new Map(), hiPending=new Set(), hiQueue=[], hiActive=0, hiFail=new Set(), hiBytes=0, frameNo=0, hiFailSaid=false, hiBuilt=0;
+function levelFor(ph,need){
+  if(need<=ph.thumb.width*1.1)return 0;
+  var L=PREVIEW_MAX;for(var i=0;i<LEVELS.length;i++){if(LEVELS[i]>=need*0.9){L=LEVELS[i];break;}}
+  return Math.min(L,PREVIEW_MAX,ph.w);
+}
+function srcPreview(ph,need){
+  var L=levelFor(ph,need);
+  if(!L||L<=ph.thumb.width)return ph.thumb;
+  var key=ph.id+"@"+L, hit=hiCache.get(key);
+  if(hit){hit.t=performance.now();hit.frame=frameNo;return hit.bmp;}
+  if(!hiPending.has(key)&&!hiFail.has(key)){hiPending.add(key);hiQueue.push({key:key,id:ph.id,L:L});pumpHi();}
+  var best=ph.thumb, bestE=null;
+  hiCache.forEach(function(v,k){if(k.indexOf(ph.id+"@")===0&&v.bmp.width>best.width){best=v.bmp;bestE=v;}});
+  if(bestE)bestE.frame=frameNo;
+  return best;
+}
+function pumpHi(){
+  while(hiActive<HI_MAX_ACTIVE&&hiQueue.length){
+    var job=hiQueue.shift(), ph=photos.get(job.id);
+    if(!ph){hiPending.delete(job.key);continue;}
+    hiActive++;
+    (function(job,ph){
+      levelBitmap(ph,job.L).then(function(b){
+        if(!photos.has(ph.id)||!hiPending.has(job.key)){b.close();return;}
+        hiBuilt++;var bytes=b.width*b.height*4;hiCache.set(job.key,{bmp:b,t:performance.now(),frame:frameNo,bytes:bytes});hiBytes+=bytes;trimCache();requestRender();
+      },function(){
+        hiFail.add(job.key);
+        if(!hiFailSaid){hiFailSaid=true;say("大きい写真を読み込めませんでした（元の写真が壊れているかもしれません）。試写では小さい絵のまま出しています。","warn");}
+      }).then(function(){hiPending.delete(job.key);hiActive--;pumpHi();});
+    })(job,ph);
+  }
+}
+function trimCache(){
+  if(hiBytes<=HI_BUDGET)return;
+  var arr=Array.from(hiCache.entries()).filter(function(e){return e[1].frame!==frameNo;}).sort(function(a,b){return a[1].t-b[1].t;});
+  while(hiBytes>HI_BUDGET&&arr.length){var e=arr.shift();e[1].bmp.close();hiBytes-=e[1].bytes;hiCache.delete(e[0]);}
+}
+function dropCacheFor(id){
+  hiCache.forEach(function(v,k){if(k.indexOf(id+"@")===0){v.bmp.close();hiBytes-=v.bytes;hiCache.delete(k);}});
+  hiFail.forEach(function(k){if(k.indexOf(id+"@")===0)hiFail.delete(k);});
+  hiPending.forEach(function(k){if(k.indexOf(id+"@")===0)hiPending.delete(k);});
+}
+function clearHi(){hiCache.forEach(function(v){v.bmp.close();});hiCache.clear();hiBytes=0;hiQueue.length=0;hiPending.clear();hiFail.clear();}
+
+/* ========== 描く（試写・書き出しの両方がここを通る） ========== */
+var measureCtx=document.createElement("canvas").getContext("2d");
+var labelCache={};
+function labelLayout(g){
+  var lab=state.labels[g], G=LAYOUT[g], base=G.cols===1?34:40, key=JSON.stringify([g,lab.m,lab.n]);
+  if(labelCache[key])return labelCache[key];
+  function measure(sz){measureCtx.font="700 "+sz+"px "+LABEL_FONT;var wm=measureCtx.measureText(lab.m).width, ws=lab.n&&lab.m?measureCtx.measureText(" ").width:0, wn=measureCtx.measureText(lab.n).width;return {wm:wm,ws:ws,wn:wn,total:wm+ws+wn};}
+  var size=base, m=measure(size), maxW=G.cols===1?G.w+20:G.w;
+  if(m.total>maxW){size=Math.max(24,Math.floor(size*maxW/m.total));m=measure(size);}
+  measureCtx.font="700 "+size+"px "+LABEL_FONT;
+  // 見本の DOM（line-height 1.8・上の端 244px）と同じ置き方。Chrome は字の高さを整数に丸め、上の余白を切り捨てる
+  var fm=measureCtx.measureText("月"), asc=Math.round(fm.fontBoundingBoxAscent||size*0.88), desc=Math.round(fm.fontBoundingBoxDescent||size*0.12);
+  var baseline=244+Math.floor((size*1.8-(asc+desc))/2)+asc, x=G.cols===1?G.x+(G.w-m.total)/2:G.x;
+  return (labelCache[key]={size:size,x:x,baseline:baseline,wm:m.wm,ws:m.ws,total:m.total,over:m.total>maxW+0.5,shrunk:size<base});
+}
+function drawLabel(ctx,g,alpha){
+  var L=labelLayout(g), lab=state.labels[g];
+  ctx.save();ctx.globalAlpha=alpha;ctx.font="700 "+L.size+"px "+LABEL_FONT;ctx.textBaseline="alphabetic";ctx.textAlign="left";
+  ctx.fillStyle="#F4CC60";ctx.fillText(lab.m,L.x,L.baseline);
+  ctx.fillStyle="#FFFFFF";ctx.fillText(lab.n,L.x+L.wm+L.ws,L.baseline);
+  ctx.restore();
+}
+/* 背景＝見本の radial-gradient(ellipse at 50% 45%, #223449 0%, #121C2A 55%, #0B121C 100%)（5760×3240 の面・farthest-corner の楕円） */
+var BG_RX=4548.1, BG_RY=2302.5;
+function drawBg(ctx){
+  ctx.save();ctx.translate(960,378);ctx.scale(1,BG_RY/BG_RX);
+  var gr=ctx.createRadialGradient(0,0,0,0,0,BG_RX);gr.addColorStop(0,"#223449");gr.addColorStop(0.55,"#121C2A");gr.addColorStop(1,"#0B121C");
+  ctx.fillStyle=gr;ctx.fillRect(-2880,-1458*BG_RX/BG_RY,5760,3240*BG_RX/BG_RY);
+  ctx.restore();
+}
+function drawPlacement(ctx,pl,dx,dy,dw,dh,dwDevice,src){
+  var ph=pl&&photos.get(pl.p);if(!ph)return;
+  // 縦と横の倍率は別々に（小さい絵の高さは丸めてあるので、横の倍率で縦を切ると下の端に紺の帯が出る）
+  var reg=cropRegion(ph,pl,dw/dh), bmp=src(ph,dwDevice*ph.w/reg.w), kx=bmp.width/ph.w, ky=bmp.height/ph.h;
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
+  ctx.drawImage(bmp,reg.x*kx,reg.y*ky,reg.w*kx,reg.h*ky,dx,dy,dw,dh);
+}
+function drawBlank(ctx,border,bk,px){
+  rr(ctx,0,0,TW,TH,6);ctx.fillStyle="#15202F";ctx.fill();
+  if(bk>0.01){
+    ctx.save();rr(ctx,4,4,TW-8,TH-8,2);ctx.clip();
+    ctx.shadowColor="rgba(234,241,250,"+(0.4*bk).toFixed(3)+")";ctx.shadowBlur=16*bk*px;
+    ctx.beginPath();ctx.rect(-80,-80,TW+160,TH+160);
+    if(ctx.roundRect)ctx.roundRect(4,4,TW-8,TH-8,2);else ctx.rect(4,4,TW-8,TH-8);
+    ctx.fillStyle="#000000";ctx.fill("evenodd");
+    ctx.restore();
+  }
+  // 点線は見本（Chrome の border:4px dashed）の実測に合わせて 点8・間4
+  ctx.save();ctx.lineWidth=4;ctx.strokeStyle=border;ctx.setLineDash([8,4]);rr(ctx,2,2,TW-4,TH-4,4);ctx.stroke();ctx.restore();
+}
+function placementFor(r){
+  if(r.g>=PHOTO_GROUPS)return null;
+  if(r.back)return backOf(r.g);
+  return state.cells[cellId(r.g,r.i)]||null;
+}
+function drawTile(ctx,r,pxWorld,src){
+  if(r.alpha<=0)return;
+  ctx.save();
+  ctx.globalAlpha=r.alpha;
+  ctx.translate(r.x+TW/2,r.y+TH/2);ctx.scale(r.scale*r.sx,r.scale);ctx.translate(-TW/2,-TH/2);
+  rr(ctx,0,0,TW,TH,6);ctx.clip();
+  ctx.fillStyle="#22324A";ctx.fillRect(0,0,TW,TH);
+  var px=pxWorld*r.scale;
+  if(r.g>=PHOTO_GROUPS)drawBlank(ctx,"#6F86A6",0,px);
+  else drawPlacement(ctx,placementFor(r),0,0,TW,TH,TW*px,src);
+  if(r.flip)drawBlank(ctx,mixHex("#5A6E8C","#F2F6FB",r.bk),r.bk,px);
+  ctx.restore();
+}
+function shotList(g){
+  var dive=diveOf(g), back=backOf(g), n=EVENTS[g].shots.length, others=[];
+  LAYOUT[g].tiles.forEach(function(tp){if(tp.i===ANCHOR_I)return;var pl=state.cells[cellId(g,tp.i)];if(pl)others.push(pl);});
+  var first=dive?[dive]:[], list=first.concat(others.slice(0,Math.max(0,n-1-first.length)));
+  if(back)list.push(back);
+  return list.slice(0,n);
+}
+/* 全画面の写真の重なり（見本の renderShots と同じ式）。下から順に描く */
+function shotStates(sc){
+  var out=[];if(!sc.fs)return out;
+  var g=sc.fs.ev, list=shotList(g), n=list.length, times=EVENTS[g].shots, t=sc.t, t0=sc.fs.t0, t1=sc.fs.t1;
+  if(!n||t<t0||t>=t1)return out;
+  var st=[];for(var k=0;k<n;k++)st.push(k===0?t0:Math.max(k===n-1?times[times.length-1]:times[k],t0+0.6));
+  for(k=0;k<n;k++){
+    var s0=st[k], s1=k<n-1?st[k+1]:t1;
+    if(t<s0-XF/2||(k<n-1&&t>=s1+XF/2))continue;
+    var o=k===0?1:clamp((t-(s0-XF/2))/XF), dir=k===0?1:(k===n-1?-1:(k%2?-1:1));
+    var u=clamp((t-s0)/Math.max(0.6,s1-s0)), kb=0.06*eOutQ(u), scl=dir>0?1+kb:1.06-kb, px=(k>0&&k<n-1)?((k%2?1:-1)*18*u):0;
+    out.push({k:k,pl:list[k],o:o,scl:scl,px:px});
+  }
+  return out;
+}
+function drawShots(ctx,S,sc,src){
+  shotStates(sc).forEach(function(s){
+    ctx.save();ctx.setTransform(S,0,0,S,0,0);ctx.globalAlpha=s.o;
+    ctx.translate(960+s.px,540);ctx.scale(s.scl,s.scl);ctx.translate(-960,-540);
+    drawPlacement(ctx,s.pl,0,0,W,H,W*S*s.scl,src);
+    ctx.restore();
+  });
+}
+var layerCanvas=null;
+function drawScene(ctx,S,sc,o){
+  var src=o.src, cw=ctx.canvas.width, ch=ctx.canvas.height, c=sc.cam;
+  ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.fillStyle="#0F1826";ctx.fillRect(0,0,cw,ch);
+  if(sc.worldA>0){
+    var tgt=ctx;
+    if(sc.worldA<1){  // 見本は壁全体をまとめて薄くする＝一度別の面に描いてから重ねる
+      if(!layerCanvas)layerCanvas=document.createElement("canvas");
+      if(layerCanvas.width!==cw||layerCanvas.height!==ch){layerCanvas.width=cw;layerCanvas.height=ch;}
+      tgt=layerCanvas.getContext("2d");tgt.setTransform(1,0,0,1,0,0);tgt.clearRect(0,0,cw,ch);
+    }
+    tgt.save();
+    tgt.setTransform(S*c.z,0,0,S*c.z,S*(960-c.x*c.z),S*(540-c.y*c.z));
+    drawBg(tgt);
+    var pops=o.pops||null, now=performance.now(), s=S*c.z, ox=S*(960-c.x*c.z), oy=S*(540-c.y*c.z);
+    sc.tiles.forEach(function(r){
+      if(pops){var p0=pops[cellId(r.g,r.i)];if(p0!=null){var u=(now-p0)/300;if(u<1){r.scale=popS(u);r.alpha=clamp(u*3);}}}
+      // 画面の外のマスは描かない（大きい絵も頼まない＝寄り切ったときに28マス分を作らない）
+      var mx=ox+(r.x+TW/2)*s, my=oy+(r.y+TH/2)*s, hw=TW/2*s*r.scale*1.1+2, hh=TH/2*s*r.scale*1.1+2;
+      if(mx+hw<0||mx-hw>cw||my+hh<0||my-hh>ch)return;
+      drawTile(tgt,r,s,src);
+    });
+    sc.labels.forEach(function(a,g){if(a>0)drawLabel(tgt,g,a);});
+    tgt.restore();
+    if(tgt!==ctx){ctx.save();ctx.globalAlpha=sc.worldA;ctx.drawImage(layerCanvas,0,0);ctx.restore();}
+  }
+  if(sc.fs)drawShots(ctx,S,sc,src);
+}
+
+/* ========== 壁の画面（並べる・試写） ========== */
+var cv=$("cv"), cvx=cv.getContext("2d",{alpha:false}), mode="edit", pops={}, popBusy=false;
+var play={t:T0,playing:false,tStart:T0,c0:0,started:false};
+function sizeCanvas(){
+  var r=$("stage").getBoundingClientRect(), dpr=window.devicePixelRatio||1;
+  var w=Math.max(320,Math.min(1920,Math.round(r.width*dpr))), h=Math.round(w*9/16);
+  if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}
+}
+var renderQueued=false;
+function requestRender(){if(renderQueued)return;renderQueued=true;requestAnimationFrame(function(){renderQueued=false;renderStage();if(cropView)cropView.draw();});}
+function renderStage(){
+  sizeCanvas();frameNo++;
+  var S=cv.width/W;
+  if(mode==="play"){drawScene(cvx,S,sceneAt(play.t,"play"),{src:srcPreview});return;}
+  var backG=sel&&sel.kind==="back"?sel.g:-1;
+  drawScene(cvx,S,sceneAt(0,"still",0,backG),{src:srcPreview,pops:REDUCED?null:pops});
+  var now=performance.now(), active=false;
+  Object.keys(pops).forEach(function(k){if(now-pops[k]<300)active=true;else delete pops[k];});
+  if(active)requestRender();
+}
+function popCells(ids){var now=performance.now();ids.forEach(function(id){pops[id]=now;});requestRender();}
+
+/* 重ねる部品（マス・見出しのボタン） */
+var cellBtns={}, labBtns=[], focusCell=ALL_CELLS[0];
+function pct(el,x,y,w,h){el.style.left=(x/W*100)+"%";el.style.top=(y/H*100)+"%";el.style.width=(w/W*100)+"%";el.style.height=(h/H*100)+"%";}
+/* 印の絵（SVG）は DOM で作る（innerHTML を使わない＝CSP の Trusted Types で文字列の差し込みを止めている） */
+function svgIcon(viewBox,shapes){
+  var NS="http://www.w3.org/2000/svg", svg=document.createElementNS(NS,"svg");svg.setAttribute("viewBox",viewBox);svg.setAttribute("aria-hidden","true");
+  shapes.forEach(function(s){var el=document.createElementNS(NS,s[0]);Object.keys(s[1]).forEach(function(k){el.setAttribute(k,s[1][k]);});svg.appendChild(el);});
+  return svg;
+}
+function iconPlus(){return svgIcon("0 0 22 22",[["path",{d:"M11 3v16M3 11h16",stroke:"currentColor","stroke-width":"2.5","stroke-linecap":"round",fill:"none"}]]);}
+function iconPlay(){return svgIcon("0 0 20 20",[["path",{d:"M5 3 L17 10 L5 17 Z",fill:"currentColor"}]]);}
+function iconPause(){return svgIcon("0 0 20 20",[["rect",{x:"4",y:"3",width:"4.5",height:"14",rx:"1",fill:"currentColor"}],["rect",{x:"11.5",y:"3",width:"4.5",height:"14",rx:"1",fill:"currentColor"}]]);}
+function buildOverlay(){
+  var ov=$("ov");
+  LAYOUT.forEach(function(G){
+    var lb=mk("button","lab",ov);lb.type="button";pct(lb,G.x-6,236,G.w+12,62);lb.dataset.g=String(G.g);labBtns.push(lb);
+    if(G.g>=PHOTO_GROUPS)return;
+    G.tiles.forEach(function(tp){
+      var b=mk("button","cell",ov), id=cellId(tp.g,tp.i);b.type="button";b.dataset.id=id;pct(b,tp.x,tp.y,TW,TH);
+      if(tp.i===ANCHOR_I)mk("span","badge",b,"飛び込む");
+      var p=mk("span","plus",b);p.appendChild(iconPlus());
+      b.tabIndex=id===focusCell?0:-1;
+      cellBtns[id]=b;
+    });
+  });
+}
+function cellName(g,i){
+  var G=LAYOUT[g], col=Math.floor(i/4), row=i%4;
+  return (G.cols===2?(col===0?"左の列・":"右の列・"):"")+"上から"+(row+1)+"つ目"+(i===ANCHOR_I?"（飛び込むマス）":"");
+}
+function renderOverlay(){
+  ALL_CELLS.forEach(function(id){
+    var b=cellBtns[id], c=parseCell(id), pl=state.cells[id], ph=pl&&photos.get(pl.p), lab=state.labels[c.g];
+    b.classList.toggle("has",!!ph);b.draggable=!!ph;
+    b.setAttribute("aria-label",lab.m+" "+lab.n+"・"+cellName(c.g,c.i)+"："+(ph?ph.name:"空き"));
+    b.setAttribute("aria-pressed",sel&&sel.kind==="cell"&&sel.id===id?"true":"false");
+    b.classList.toggle("swapfrom",!!swapFrom&&swapFrom===id);
+  });
+  labBtns.forEach(function(b,g){var l=state.labels[g];b.setAttribute("aria-label","列の名前："+l.m+" "+l.n+"（押すと直せます）");b.setAttribute("aria-pressed",sel&&sel.kind==="label"&&sel.g===g?"true":"false");});
+}
+
+/* ========== 画面の組み立て ========== */
+var sel=null, swapFrom=null, backFromWall=-1;
+/* 忙しい（書き出し・写真の読み込み・前回の作業の読み込み・確かめる窓）の間は、消す・開く・元に戻すを止める。入れる写真は順番待ちにする */
+var loading=true, dlgOpenFlag=false, canWrite=true;
+var BUSY_MSG="いまほかの作業をしています。終わってからもう一度押してください。";
+function isBusy(){return busy||importing||loading||dlgOpenFlag;}
+function guardWrite(){if(canWrite)return true;say("このタブでは、見る・試写・書き出しだけできます（上の知らせを見てください）。","warn");return false;}
+// 並べ替え・位置・名前を直すとき: 書き出し中と、前回の作業を読み込んでいる間は止める（写真の読み込み中は直してよい）
+function guardEdit(){if(!guardWrite())return false;if(busy||loading||dlgOpenFlag){say(BUSY_MSG,"warn");return false;}return true;}
+function showBanner(text,reload){$("bannerText").textContent=text;$("bannerReload").hidden=!reload;$("banner").hidden=false;}
+function showBusy(text,i,n){
+  var b=$("busybox"), bar=$("busyBar");$("busyText").textContent=n?text+" "+i+" / "+n:text+"…";
+  bar.hidden=!n;if(n){bar.max=n;bar.value=i;}
+  if(b.hidden){b.hidden=false;renderHint();}
+}
+function hideBusy(){$("busybox").hidden=true;renderHint();}
+function renderHint(){$("hint").hidden=photos.size>0||mode!=="edit"||loading||importing||!$("busybox").hidden;}
+function renderAll(){
+  var n=filledCount(), total=ALL_CELLS.length, b=isBusy();
+  $("count").textContent=total+"マスのうち "+n+"枚";
+  renderHint();
+  renderOverlay();renderBacks();renderTray();renderSel();renderExportInfo();renderSaveInfo();
+  $("btnUndo").disabled=!undoStack.length||b||!canWrite;$("btnRedo").disabled=!redoStack.length||b||!canWrite;
+  $("tab-play").classList.toggle("ready",n===total);
+  $("btnSampleOff").hidden=!Array.from(photos.values()).some(function(p){return p.sample;});$("btnSampleOff").disabled=b||!canWrite;
+  Array.prototype.forEach.call(document.querySelectorAll("[data-act]"),function(el){el.disabled=!canWrite;});
+  var lg=$("legend"), txt="黄色い「飛び込む」のマスは、その行事で最初に全画面になる写真です。"+(state.labels[4].m||"最後")+"の列は予定なので、空の枠のままです（写真は入りません）。";
+  lg.hidden=mode!=="edit";if(lg.dataset.t!==txt){lg.textContent=txt;lg.dataset.t=txt;typeset(lg);}
+  requestRender();
+}
+function thumbInto(canvas,pl){
+  var x=canvas.getContext("2d"), ph=pl&&photos.get(pl.p);
+  x.setTransform(1,0,0,1,0,0);x.fillStyle="#22324A";x.fillRect(0,0,canvas.width,canvas.height);
+  if(ph)drawPlacement(x,pl,0,0,canvas.width,canvas.height,canvas.width,function(p){return p.thumb;});
+}
+function renderBacks(){
+  var row=$("backRow");row.textContent="";
+  for(var g=0;g<PHOTO_GROUPS;g++){
+    var b=mk("button","back",row), bk=livePl(state.backs[g]), lab=state.labels[g];b.type="button";b.dataset.g=String(g);b.draggable=!!bk;
+    mk("span","bm",b,lab.m+" "+lab.n);
+    var c=mk("canvas","",b);c.width=384;c.height=216;thumbInto(c,bk||diveOf(g));
+    if(!bk)mk("span","bsame",b,diveOf(g)?"飛び込む写真と同じ":"まだありません");
+    var ph=bk&&photos.get(bk.p);
+    b.setAttribute("aria-label",lab.m+"の戻るときの写真："+(ph?ph.name:(diveOf(g)?"飛び込む写真と同じ":"まだありません")));
+    b.setAttribute("aria-pressed",sel&&sel.kind==="back"&&sel.g===g?"true":"false");
+  }
+}
+function renderTray(){
+  var list=$("tray"), items=trayPhotos();list.textContent="";
+  $("trayCount").textContent=items.length?"（"+items.length+"枚）":"";
+  if(!items.length){mk("p","note empty",list,"ここは空です。");return;}
+  items.forEach(function(ph){
+    var b=mk("button","titem",list);b.type="button";b.draggable=true;b.dataset.id=ph.id;b.title=ph.name;
+    b.setAttribute("aria-label","置き場の写真："+ph.name);
+    b.setAttribute("aria-pressed",sel&&sel.kind==="tray"&&sel.id===ph.id?"true":"false");
+    var c=mk("canvas","",b);c.width=256;c.height=144;thumbInto(c,{p:ph.id,z:1,cx:0.5,cy:0.5});
+    mk("span","tname",b,ph.name);
+  });
+}
+
+/* ========== 選んだ所（写真の位置・名前・置き場の写真） ========== */
+var cropView=null;
+function renderSel(){
+  renderSelBody();typeset($("selBody"));
+}
+function renderSelBody(){
+  var body=$("selBody");body.textContent="";cropView=null;
+  if(!sel){
+    mk("p","note just",body,"マスを押すと、写真の位置を直せます。黄色い「飛び込む」のマスは、その行事の最初に全画面になる写真です。列の上の名前を押すと、名前を直せます。");
+    return;
+  }
+  if(sel.kind==="label")return renderLabelEditor(body,sel.g);
+  if(sel.kind==="tray"){
+    var ph=photos.get(sel.id);if(!ph){sel=null;return renderSel();}
+    mk("p","",body,"置き場の写真を選んでいます。入れたいマスを押してください。");
+    var c=mk("canvas","",body);c.width=640;c.height=Math.round(640*Math.min(ph.h/ph.w,1));c.style.width="100%";c.style.borderRadius="6px";
+    var x=c.getContext("2d");x.fillStyle="#1A2433";x.fillRect(0,0,c.width,c.height);var f=fitRect(ph.w,ph.h,c.width,c.height);x.drawImage(ph.thumb,f.x,f.y,f.w,f.h);
+    mk("p","meta",body,ph.name+"（"+ph.w+"×"+ph.h+"）");
+    var bt=mk("div","btns",body), del=mk("button","btn danger",bt,"この写真を置き場から消す");del.type="button";
+    del.addEventListener("click",function(){deleteTrayPhoto(ph.id);});
+    return;
+  }
+  var isBack=sel.kind==="back", sid=isBack?null:sel.id, g=isBack?sel.g:parseCell(sid).g, lab=state.labels[g];
+  var pl=livePl(isBack?state.backs[g]:state.cells[sid]);
+  mk("p","",body,isBack?(lab.m+" "+lab.n+"・戻るときの写真"):(lab.m+" "+lab.n+"・"+cellName(g,parseCell(sid).i)));
+  if(!pl){
+    if(isBack){
+      mk("p","note just",body,diveOf(g)?"いまは飛び込む写真のまま戻ります。別の写真にするときは、ここへドラッグするか、選んでください。壁のマスの写真も使えます（壁の写真はそのまま残ります）。":"飛び込むマスに写真が入ると、その写真のまま戻ります。");
+      var bb=mk("div","btns",body), pick=mk("button","btn",bb,"写真を選ぶ");pick.type="button";pick.addEventListener("click",function(){if(!guardWrite())return;pickBackTarget=g;$("inBack").click();});
+      var fromWall=mk("button","btn",bb,backFromWall===g?"壁から選ぶのをやめる":"壁のマスから選ぶ");fromWall.type="button";
+      fromWall.addEventListener("click",function(){if(!guardEdit())return;backFromWall=backFromWall===g?-1:g;renderAll();if(backFromWall>=0)say("戻るときに見せる写真のマスを押してください（Esc でやめます）。");});    }else{
+      mk("p","note just",body,"空いているマスです。写真をドラッグするか、置き場の写真を押してからこのマスを押すと入ります。");
+    }
+    return;
+  }
+  var ph2=photos.get(pl.p);
+  cropView=makeCropView(body,function(){return isBack?state.backs[g]:state.cells[sid];},function(np){if(isBack)state.backs[g]=np;else state.cells[sid]=np;});
+  mk("p","meta",body,ph2.name+"（"+ph2.w+"×"+ph2.h+"）");
+  var q=mk("p","quality",body);cropView.quality=q;cropView.isWide=isBack||parseCell(sid).i===ANCHOR_I;
+  var btns=mk("div","btns",body);
+  var center=mk("button","btn",btns,"最初の見え方に戻す");center.type="button";
+  center.addEventListener("click",function(){change(function(){var cur=cropView.get();cropView.set(clampPl(photos.get(cur.p),{p:cur.p,z:1,cx:0.5,cy:0.5}));});});
+  if(!isBack){
+    var sw=mk("button","btn",btns,swapFrom?"入れ替えをやめる":"別のマスと入れ替える");sw.type="button";
+    sw.addEventListener("click",function(){if(!guardEdit())return;swapFrom=swapFrom?null:sid;renderAll();if(swapFrom)say("入れ替える相手のマスを押してください（Esc でやめます）。");});
+  }
+  var rm=mk("button","btn",btns,isBack?"飛び込む写真と同じにする":"置き場へ戻す");rm.type="button";
+  rm.addEventListener("click",function(){clearSelected();});
+  cropView.draw();
+}
+function fitRect(w,h,bw,bh){var s=Math.min(bw/w,bh/h);return {x:(bw-w*s)/2,y:(bh-h*s)/2,w:w*s,h:h*s,s:s};}
+function makeCropView(host,get,set){
+  var box=mk("div","crop",host), c=mk("canvas","",box), x=c.getContext("2d");
+  c.setAttribute("aria-hidden","true");
+  var sl=mk("div","sliders",host);
+  function slider(label,min,max,step){var row=mk("div","slider",sl), id="sl"+Math.random().toString(36).slice(2,7), lb=mk("label","",row,label);lb.htmlFor=id;var inp=mk("input","",row);inp.type="range";inp.id=id;inp.min=min;inp.max=max;inp.step=step;var out=mk("output","",row);out.htmlFor=id;return {row:row,inp:inp,out:out};}
+  var sZ=slider("大きさ",100,400,1), sY=slider("縦の位置",0,100,0.1), sX=slider("横の位置",0,100,0.1);
+  var note=mk("p","crop-note",host);
+  var view={get:get,set:function(np){set(np);},draw:draw,quality:null,isWide:false};
+  var fit=null, before=null;
+  function geom(){
+    var cw=Math.max(200,Math.round(box.clientWidth||300)), dpr=window.devicePixelRatio||1, pl=get(), ph=pl&&photos.get(pl.p);
+    if(!ph)return null;
+    var ch=Math.round(Math.min(cw*ph.h/ph.w,320));
+    if(c.width!==Math.round(cw*dpr)||c.height!==Math.round(ch*dpr)){c.width=Math.round(cw*dpr);c.height=Math.round(ch*dpr);c.style.height=ch+"px";}
+    fit=fitRect(ph.w,ph.h,c.width,c.height);return {pl:pl,ph:ph};
+  }
+  function draw(){
+    var g=geom();if(!g)return;
+    var ph=g.ph, pl=g.pl, reg=cropRegion(ph,pl,16/9);
+    x.setTransform(1,0,0,1,0,0);x.fillStyle="#1A2433";x.fillRect(0,0,c.width,c.height);
+    var bmp=srcPreview(ph,fit.w);x.imageSmoothingQuality="high";x.drawImage(bmp,fit.x,fit.y,fit.w,fit.h);
+    var rx=fit.x+reg.x*fit.s, ry=fit.y+reg.y*fit.s, rw=reg.w*fit.s, rh=reg.h*fit.s;
+    x.fillStyle="rgba(10,16,26,.62)";x.beginPath();x.rect(0,0,c.width,c.height);x.rect(rx,ry,rw,rh);x.fill("evenodd");
+    var d=window.devicePixelRatio||1;
+    x.strokeStyle="rgba(255,255,255,.35)";x.lineWidth=1*d;x.beginPath();
+    for(var i=1;i<3;i++){x.moveTo(rx+rw*i/3,ry);x.lineTo(rx+rw*i/3,ry+rh);x.moveTo(rx,ry+rh*i/3);x.lineTo(rx+rw,ry+rh*i/3);}x.stroke();
+    x.lineWidth=3*d;x.strokeStyle="#0B121C";x.strokeRect(rx-1.5*d,ry-1.5*d,rw+3*d,rh+3*d);
+    x.lineWidth=2*d;x.strokeStyle="#FFFFFF";x.strokeRect(rx,ry,rw,rh);
+    var freeY=ph.h-reg.h, freeX=ph.w-reg.w;
+    sZ.inp.value=String(Math.round(pl.z*100));sZ.out.textContent=Math.round(pl.z*100)+"%";
+    sY.inp.disabled=freeY<1;sY.row.classList.toggle("off",freeY<1);sY.inp.value=String(freeY<1?50:reg.y/freeY*100);sY.out.textContent=freeY<1?"—":Math.round(reg.y/freeY*100)+"%";
+    sX.inp.disabled=freeX<1;sX.row.classList.toggle("off",freeX<1);sX.inp.value=String(freeX<1?50:reg.x/freeX*100);sX.out.textContent=freeX<1?"—":Math.round(reg.x/freeX*100)+"%";
+    // 動かせない向きは理由を書く（灰色のつまみが壊れて見えないように）
+    var why=freeX<1&&freeY<1?" いまは写真ぴったりの大きさなので、位置は動きません（大きさを上げると動かせます）。":(freeX<1?" 横は写真の幅いっぱいです（大きさを上げると、横にも動かせます）。":(freeY<1?" 縦は写真の高さいっぱいです（大きさを上げると、縦にも動かせます）。":""));
+    var nt="白い枠の中が、壁と動画に出る所です。写真の上をドラッグすると枠が動き、ホイールで大きさが変わります。"+why;
+    if(note.textContent!==nt)note.textContent=nt;
+    if(view.quality){
+      var msgs=[];
+      if(view.isWide&&reg.w<1920)msgs.push("全画面にすると少し粗くなります（切り取った幅 "+Math.round(reg.w)+"px）。");
+      if(state.res==="8k"&&reg.w<832)msgs.push("8K の壁では、このマスが少し粗くなります。");
+      view.quality.textContent=msgs.join(" ");view.quality.hidden=!msgs.length;
+    }
+  }
+  // 途中の変更（ドラッグ・ホイール・つまみ）は、終わったときに「元に戻す」1回分として積む。元に戻すを押されたら先に確定させる（flush）
+  function begin(){if(!before){before=snap();pendingFlush=view.flush;}}
+  function end(){if(before){var b=before;before=null;if(pendingFlush===view.flush)pendingFlush=null;if(snap()!==b){pushUndo(b);afterChange();}}}
+  function live(np){var ph=photos.get(np.p);if(!ph)return;set(clampPl(ph,np));requestRender();renderBacks();scheduleSave();}
+  var drag=null, wheelT=null;
+  view.flush=function(){if(wheelT){clearTimeout(wheelT);wheelT=null;}if(drag){drag=null;box.classList.remove("dragging");}end();};
+  box.addEventListener("pointerdown",function(e){var pl=get();if(!pl||!fit)return;if(!guardEdit())return;begin();drag={x:e.clientX,y:e.clientY,cx:pl.cx,cy:pl.cy};box.classList.add("dragging");box.setPointerCapture(e.pointerId);e.preventDefault();});
+  box.addEventListener("pointermove",function(e){if(!drag)return;var pl=get(), d=window.devicePixelRatio||1;live({p:pl.p,z:pl.z,cx:drag.cx+(e.clientX-drag.x)*d/fit.w,cy:drag.cy+(e.clientY-drag.y)*d/fit.h});});
+  function up(){if(!drag)return;drag=null;box.classList.remove("dragging");end();}
+  box.addEventListener("pointerup",up);box.addEventListener("pointercancel",up);
+  box.addEventListener("wheel",function(e){var pl=get();if(!pl)return;e.preventDefault();if(!guardEdit())return;begin();live({p:pl.p,z:clamp(pl.z*Math.exp(-e.deltaY/600),1,4),cx:pl.cx,cy:pl.cy});clearTimeout(wheelT);wheelT=setTimeout(function(){wheelT=null;end();},400);},{passive:false});
+  function sliderGuard(){if(before||guardEdit())return true;draw();return false;}
+  sZ.inp.addEventListener("input",function(){if(!sliderGuard())return;var pl=get();begin();live({p:pl.p,z:Number(sZ.inp.value)/100,cx:pl.cx,cy:pl.cy});});
+  sY.inp.addEventListener("input",function(){if(!sliderGuard())return;var pl=get(), ph=photos.get(pl.p), reg=cropRegion(ph,pl,16/9);begin();live({p:pl.p,z:pl.z,cx:pl.cx,cy:(Number(sY.inp.value)/100*(ph.h-reg.h)+reg.h/2)/ph.h});});
+  sX.inp.addEventListener("input",function(){if(!sliderGuard())return;var pl=get(), ph=photos.get(pl.p), reg=cropRegion(ph,pl,16/9);begin();live({p:pl.p,z:pl.z,cx:(Number(sX.inp.value)/100*(ph.w-reg.w)+reg.w/2)/ph.w,cy:pl.cy});});
+  [sZ.inp,sY.inp,sX.inp].forEach(function(i){i.addEventListener("change",end);});
+  return view;
+}
+function renderLabelEditor(body,g){
+  var lab=state.labels[g];
+  mk("p","note just",body,"動画の壁の上に出る文字です。長いと、列の幅に入るまで小さくなります。");
+  var r1=mk("div","fieldrow",body), l1=mk("label","",r1,"月"), i1=mk("input","",r1);i1.type="text";i1.id="labM";l1.htmlFor="labM";i1.value=lab.m;i1.maxLength=8;i1.autocomplete="off";
+  var r2=mk("div","fieldrow",body), l2=mk("label","",r2,"行事の名前"), i2=mk("input","",r2);i2.type="text";i2.id="labN";l2.htmlFor="labN";i2.value=lab.n;i2.maxLength=16;i2.autocomplete="off";
+  var warn=mk("p","quality",body);
+  var before=null;
+  function upd(){
+    if(!before&&!guardEdit()){i1.value=state.labels[g].m;i2.value=state.labels[g].n;return;}
+    if(!before){before=snap();pendingFlush=commit;}
+    state.labels[g]={m:i1.value.trim(),n:i2.value.trim()};
+    var L=labelLayout(g);warn.textContent=L.over?"長すぎて列からはみ出します。短くしてください。":(L.shrunk?"文字を小さくして入れています（"+L.size+"px）。":"");
+    renderOverlay();renderBacks();renderExportInfo();requestRender();scheduleSave();
+  }
+  function commit(){if(before){var b=before;before=null;if(pendingFlush===commit)pendingFlush=null;if(snap()!==b){pushUndo(b);afterChange();}}}
+  i1.addEventListener("input",upd);i2.addEventListener("input",upd);i1.addEventListener("change",commit);i2.addEventListener("change",commit);
+  if(g<PHOTO_GROUPS)mk("p","note just",body,"月の数字は、フォルダから入れるときの目印にもなります（「5月」のフォルダ→この列）。");
+  var L0=labelLayout(g);warn.textContent=L0.over?"長すぎて列からはみ出します。短くしてください。":(L0.shrunk?"文字を小さくして入れています（"+L0.size+"px）。":"");
+}
+
+/* ========== 変更・元に戻す・自動で残す ========== */
+var undoStack=[], redoStack=[], pendingFlush=null;
+function snap(){return JSON.stringify({labels:state.labels,cells:state.cells,backs:state.backs});}
+function restoreSnap(s){var o=JSON.parse(s);state.labels=o.labels;state.cells={};Object.keys(o.cells).forEach(function(k){var p=normPl(o.cells[k]);if(p)state.cells[k]=p;});state.backs=o.backs.map(normPl);labelCache={};}
+function pushUndo(prev){undoStack.push(prev);if(undoStack.length>100)undoStack.shift();redoStack.length=0;}
+function flushPending(){if(pendingFlush){var f=pendingFlush;pendingFlush=null;f();}}
+function change(fn){if(!guardEdit())return;flushPending();var prev=snap();say("");fn();if(snap()!==prev){pushUndo(prev);afterChange();}}
+// 1回で終わる変更はすぐ残す（待つのは、ドラッグ・つまみ・名前を打っている途中だけ）
+function afterChange(quiet){saveState();renderAll();return celebrateIfFull(quiet);}
+function undo(){flushPending();if(!undoStack.length)return;if(!guardEdit())return;redoStack.push(snap());restoreSnap(undoStack.pop());fixSel();afterChange();say("元に戻しました。");}
+function redo(){flushPending();if(!redoStack.length)return;if(!guardEdit())return;undoStack.push(snap());restoreSnap(redoStack.pop());fixSel();afterChange();say("やり直しました。");}
+function fixSel(){if(sel&&sel.kind==="tray"&&!trayPhotos().some(function(p){return p.id===sel.id;}))sel=null;}
+var wasFull=false, FULL_MSG=ALL_CELLS.length+"マス、全部埋まりました。「試写」で動きを確かめられます。";
+function celebrateIfFull(quiet){var full=filledCount()===ALL_CELLS.length, just=full&&!wasFull;wasFull=full;if(just&&!quiet)say(FULL_MSG,"ok");return just;}
+
+/* ---------- このブラウザに残す（IndexedDB） ----------
+   並び（kv の state）には版の番号 rev を付け、自分の知らない版に書き換わっていたら書かない（ほかのタブの作業を上書きしない）。
+   写真を残せなかったときは、その写真を覚えておき、並びを残すたびにやり直す。全部残せるまで赤い知らせを消さない */
+var db=null, saveTimer=null, savedAt=null, stateSaveOK=true, unsaved=new Set(), saveBlocked=false, myRev=0, lastQuota=false, persistAsked=false;
+function idbOpen(){return new Promise(function(res,rej){var q;try{q=indexedDB.open("kabe",1);}catch(e){rej(e);return;}q.onupgradeneeded=function(){var d=q.result;if(!d.objectStoreNames.contains("photos"))d.createObjectStore("photos",{keyPath:"id"});if(!d.objectStoreNames.contains("kv"))d.createObjectStore("kv");};q.onsuccess=function(){res(q.result);};q.onerror=function(){rej(q.error);};q.onblocked=function(){rej(new Error("blocked"));};});}
+function idb(store,rw,fn){return new Promise(function(res,rej){if(!db){rej(new Error("nodb"));return;}var t;try{t=db.transaction(store,rw?"readwrite":"readonly");}catch(e){rej(e);return;}var r=fn(t.objectStore(store));if(rw&&t.commit){try{t.commit();}catch(e){}}t.oncomplete=function(){res(r&&r.result);};t.onerror=function(){rej(t.error);};t.onabort=function(){rej(t.error||new Error("abort"));};});}
+function noteStoreErr(e){if(e&&e.name==="QuotaExceededError")lastQuota=true;}
+function renderStoreErr(){
+  var box=$("storeErr"), parts=[], q=lastQuota?"（空き容量が足りないかもしれません）":"";
+  if(saveBlocked)parts.push("前回の作業を読み込めなかったので、このブラウザに残すのを止めています（このまま残すと、前回の作業を上書きしてしまうため）。ページを読み込み直すか、「作業ファイルを開く」で作業ファイルを開いてください。");
+  else{
+    if(!stateSaveOK)parts.push("このブラウザに並びを残せませんでした"+q+"。");
+    if(unsaved.size)parts.push("写真 "+unsaved.size+"枚を、このブラウザに残せていません"+q+"。");
+    if(parts.length)parts.push("いまの画面はそのまま使えます。閉じる前に「作業ファイルに保存」でファイルに残してください。");
+  }
+  box.textContent=parts.join(" ");box.hidden=!parts.length;
+}
+function scheduleSave(){if(!db||saveBlocked||!canWrite)return;clearTimeout(saveTimer);saveTimer=setTimeout(saveState,300);}
+function saveState(){
+  clearTimeout(saveTimer);saveTimer=null;
+  if(!db||saveBlocked||!canWrite)return Promise.resolve();
+  var copy=JSON.parse(JSON.stringify(state)), conflict=false;
+  return new Promise(function(res,rej){
+    var t;try{t=db.transaction("kv","readwrite");}catch(e){rej(e);return;}
+    var s=t.objectStore("kv"), g=s.get("state");
+    g.onsuccess=function(){var cur=g.result;if(cur&&(cur.rev||0)!==myRev){conflict=true;return;}s.put({state:copy,at:Date.now(),rev:myRev+1},"state");};
+    t.oncomplete=function(){res();};t.onerror=function(){rej(t.error);};t.onabort=function(){rej(t.error||new Error("abort"));};
+  }).then(function(){
+    if(conflict){onConflict();return;}
+    myRev++;savedAt=new Date();stateSaveOK=true;renderStoreErr();renderSaveInfo();
+    if(unsaved.size)return retryUnsaved();
+  },function(e){stateSaveOK=false;noteStoreErr(e);renderStoreErr();});
+}
+function putPhoto(rec){
+  if(!db||saveBlocked||!canWrite)return Promise.resolve(false);
+  if(!persistAsked&&navigator.storage&&navigator.storage.persist){persistAsked=true;navigator.storage.persist().catch(function(){});}   // 空きが減っても、ブラウザが黙って消さないように頼む
+  return idb("photos",true,function(s){return s.put({id:rec.id,name:rec.name,type:rec.type,size:rec.size,w:rec.w,h:rec.h,order:rec.order,sample:rec.sample,blob:rec.blob,thumbBlob:rec.thumbBlob});})
+    .then(function(){unsaved.delete(rec.id);renderStoreErr();return true;},function(e){unsaved.add(rec.id);noteStoreErr(e);renderStoreErr();return false;});
+}
+function retryUnsaved(){
+  var ids=Array.from(unsaved);
+  return ids.reduce(function(p,id){return p.then(function(){var r=photos.get(id);if(!r){unsaved.delete(id);return;}return putPhoto(r);});},Promise.resolve()).then(renderStoreErr);
+}
+function getPhotoDB(id){return idb("photos",false,function(s){return s.get(id);});}
+function delPhotoDB(id){unsaved.delete(id);renderStoreErr();if(!db||!canWrite||saveBlocked)return Promise.resolve();return idb("photos",true,function(s){return s.delete(id);}).catch(noteStoreErr);}
+function onConflict(){canWrite=false;showBanner("ほかのタブで作業が変わりました。このタブの変更は、このブラウザに残せません。読み込み直してから続けてください。",true);renderAll();}
+function renderSaveInfo(){
+  var n=photos.size, b=isBusy();
+  $("saveNote").textContent=!db?"このブラウザには作業を残せません。「作業ファイルに保存」で残してください。":((saveBlocked||!canWrite)?"このタブでは、このブラウザに作業を残していません。":"作業はこのブラウザに自動で残ります"+(savedAt?"（最後に残した時刻 "+pad2(savedAt.getHours())+":"+pad2(savedAt.getMinutes())+"）":"")+"。");
+  $("btnSave").disabled=!n||b;$("btnClear").disabled=!n||b||!canWrite;$("btnOpen").disabled=b||!canWrite;
+}
+async function loadFromDB(){
+  var recs=await idb("photos",false,function(s){return s.getAll();});
+  var kv=await idb("kv",false,function(s){return s.get("state");});
+  myRev=(kv&&kv.rev)||0;
+  recs=(recs||[]).sort(function(a,b){return a.order-b.order;});
+  var bad=[];
+  for(var i=0;i<recs.length;i++){
+    var r=recs[i], th=null, remade=false;
+    if(recs.length>1)showBusy("前回の作業を読み込んでいます",i+1,recs.length);
+    try{var bmp=await decodeFull(r.thumbBlob||r.blob);th=await resizeBmp(bmp,THUMB_W);if(th!==bmp)bmp.close();}
+    catch(e){  // 小さい絵が読めなければ、元の写真から作り直す
+      try{var b2=await decodeFull(r.blob);th=await resizeBmp(b2,THUMB_W);if(th!==b2)b2.close();remade=true;}catch(e2){th=null;}
+    }
+    if(!th){bad.push(r);continue;}
+    var rec={id:r.id,name:String(r.name||"写真"),type:r.type,size:r.size||(r.blob&&r.blob.size)||0,w:r.w,h:r.h,order:r.order||0,sample:!!r.sample,blob:r.blob,thumbBlob:r.thumbBlob,thumb:th};
+    if(remade){try{var tc=document.createElement("canvas");tc.width=th.width;tc.height=th.height;tc.getContext("2d").drawImage(th,0,0);rec.thumbBlob=await toBlob(tc,"image/jpeg",0.9);putPhoto(rec);}catch(e3){}}
+    photos.set(r.id,rec);nextOrder=Math.max(nextOrder,(r.order||0)+1);
+  }
+  // 並びが指していたのに見つからない写真は、場所を数えて知らせる（黙って消さない）
+  var raw=kv&&kv.state, lost=[];
+  if(raw&&typeof raw==="object"){
+    var labOf=function(g){return (raw.labels&&raw.labels[g]&&typeof raw.labels[g].m==="string")?raw.labels[g].m:state.labels[g].m;};
+    if(raw.cells&&typeof raw.cells==="object")ALL_CELLS.forEach(function(id){var pl=raw.cells[id];if(pl&&typeof pl.p==="string"&&!photos.has(pl.p))lost.push(labOf(parseCell(id).g));});
+    if(Array.isArray(raw.backs))raw.backs.forEach(function(b,g){if(g<4&&b&&typeof b.p==="string"&&!photos.has(b.p))lost.push(labOf(g)+"の戻るとき");});
+  }
+  state=normalizeState(raw);
+  savedAt=kv&&kv.at?new Date(kv.at):null;
+  if(recs.length||lost.length){
+    var parts=["前回の続きです（写真 "+photos.size+"枚"+(savedAt?"・"+jpTime(savedAt)+"に残した作業":"")+"）。"];
+    if(bad.length)parts.push("読み込めなかった写真が "+bad.length+"枚あります（"+bad.slice(0,3).map(function(x){return x.name;}).join("、")+(bad.length>3?" ほか":"")+"）。");
+    if(lost.length)parts.push("壁の "+lost.length+"か所（"+Array.from(new Set(lost)).slice(0,4).join("・")+"）の写真が、このブラウザに残っていませんでした。作業ファイルがあれば開いてください。");
+    say(parts.join(" "),bad.length||lost.length?"warn":"");
+  }else say("");
+  wasFull=filledCount()===ALL_CELLS.length;
+}
+
+/* ========== 写真を入れる ========== */
+var importing=false, pickBackTarget=-1, importQueue=[], sampleMaking=false;
+function isImage(f){return /^image\//.test(f.type||"")||/\.(jpe?g|png|webp|gif|bmp|avif|heic|heif|tiff?)$/i.test(f.name||"");}
+async function makeRecord(file,opts){
+  // 中身を写してから使う（元の写真ファイルを動かしても、試写・書き出し・作業ファイルの保存ができるように）
+  var data=await file.arrayBuffer(), blob=new Blob([data],{type:file.type||"image/jpeg"});
+  var bmp=await decodeFull(blob), w=bmp.width, h=bmp.height;
+  var th=await resizeBmp(bmp,THUMB_W);if(th!==bmp)bmp.close();
+  var tc=document.createElement("canvas");tc.width=th.width;tc.height=th.height;tc.getContext("2d").drawImage(th,0,0);
+  var thumbBlob=await toBlob(tc,"image/jpeg",0.9);
+  var rec={id:newId(),name:String(file.name||"写真").slice(0,200),type:blob.type,size:blob.size,w:w,h:h,order:nextOrder++,sample:!!(opts&&opts.sample),blob:blob,thumbBlob:thumbBlob,thumb:th};
+  photos.set(rec.id,rec);
+  // このブラウザに残せたら、残した写しに持ち替える（読み込んだ中身をメモリに持ち続けない）
+  if(await putPhoto(rec)){try{var back=await getPhotoDB(rec.id);if(back&&back.blob&&photos.get(rec.id)===rec)rec.blob=back.blob;}catch(e){}}
+  return rec;
+}
+/* 写真の置き場所のフォルダ名から列を決める。月が分かったのに列が無い（10月など）ときは -2＝置き場へ。月が分からないときは -1 */
+function groupForPath(path){
+  var segs=String(path||"").split("/");segs.pop();
+  for(var i=segs.length-1;i>=0;i--){var n=monthNum(segs[i]);if(n){for(var g=0;g<PHOTO_GROUPS;g++){if(monthNum(state.labels[g].m)===n)return g;}return -2;}}
+  return -1;
+}
+function emptyCells(g){return LAYOUT[g].tiles.map(function(tp){return cellId(g,tp.i);}).filter(function(id){return !livePl(state.cells[id]);});}
+function freshPl(id){return {p:id,z:1,cx:0.5,cy:0.5};}
+function assign(list,target){
+  var placed=[], noCol=0;
+  function put(id,rec){state.cells[id]=clampPl(rec,freshPl(rec.id));placed.push(id);}
+  if(target.kind==="cell"){
+    var c=parseCell(target.id);put(target.id,list[0].rec);
+    var em=emptyCells(c.g);list.slice(1).forEach(function(x){var id=em.shift();if(id)put(id,x.rec);});
+  }else if(target.kind==="group"){
+    var em2=emptyCells(target.g);list.forEach(function(x){var id=em2.shift();if(id)put(id,x.rec);});
+  }else if(target.kind==="back"){
+    state.backs[target.g]=clampPl(list[0].rec,freshPl(list[0].rec.id));
+  }else if(target.kind==="auto"){
+    var byG=[[],[],[],[]], loose=[];
+    list.forEach(function(x){var g=groupForPath(x.path);if(g>=0)byG[g].push(x);else if(g===-1)loose.push(x);else noCol++;});
+    byG.forEach(function(arr,g){var em=emptyCells(g);arr.forEach(function(x){var id=em.shift();if(id)put(id,x.rec);});});
+    var all=[];for(var g=0;g<PHOTO_GROUPS;g++)all=all.concat(emptyCells(g));
+    loose.forEach(function(x){var id=all.shift();if(id)put(id,x.rec);});
+  }
+  return {placed:placed,noCol:noCol};
+}
+function drainQueue(){if(importQueue.length&&!importing&&!busy&&!loading&&!dlgOpenFlag){var a=importQueue.shift();setTimeout(function(){importEntries(a[0],a[1],a[2]);},0);}}
+async function importEntries(entries,target,opts){
+  if(!guardWrite())return;
+  // ほかの作業の途中なら、順番待ちにして、終わったら続けて入れる（黙って捨てない）
+  if(importing||busy||loading||dlgOpenFlag){importQueue.push([entries,target,opts]);say("いまの作業が終わったら、続けて入れます（順番待ち "+importQueue.length+"）。");return;}
+  var imgs=[], skipped=0;
+  entries.forEach(function(e){if(isImage(e.file))imgs.push(e);else skipped++;});
+  if(!imgs.length){say(skipped?"写真のファイルが見つかりませんでした（ほかのファイル "+skipped+"個）。JPEG や PNG の写真を選んでください。":"写真が選ばれていません。","warn");drainQueue();return;}
+  imgs.sort(function(a,b){return natCmp(a.path||a.file.name,b.path||b.file.name);});
+  // 同じ写真（名前とバイト数が同じ）は二度入れない
+  var have=new Set(), dup=0;photos.forEach(function(p){have.add(p.name+"|"+p.size);});
+  imgs=imgs.filter(function(e){var k=String(e.file.name||"写真").slice(0,200)+"|"+e.file.size;if(have.has(k)){dup++;return false;}have.add(k);return true;});
+  if(!imgs.length){say("同じ写真がすでに入っていたので、入れませんでした（"+dup+"枚）。","warn");drainQueue();return;}
+  importing=true;renderAll();
+  var added=[], failed=[];
+  try{
+    for(var i=0;i<imgs.length;i++){
+      showBusy(opts&&opts.sample?"見本の写真を入れています":"写真を読み込んでいます",i+1,imgs.length);
+      try{var rec=await makeRecord(imgs[i].file,opts);added.push({rec:rec,path:imgs[i].path||imgs[i].file.name});}
+      catch(e){failed.push(imgs[i].file.name);}
+    }
+  }finally{importing=false;hideBusy();}
+  // 読み込みの間に消された写真と、その間に自分でマスに入れた写真は、ここでは並べない
+  var ref=referenced(), got=added.filter(function(x){return photos.has(x.rec.id);});
+  var toPlace=got.filter(function(x){return !ref.has(x.rec.id);});
+  var res={placed:[],noCol:0}, just=false;
+  if(toPlace.length&&canWrite){
+    var prev=snap();res=assign(toPlace,target);
+    if(snap()!==prev)pushUndo(prev);
+    popCells(res.placed);
+    if(sel&&sel.kind==="back"&&target.kind==="back")sel={kind:"back",g:target.g};
+    just=afterChange(true);
+  }else renderAll();
+  var parts=[];
+  if(got.length){
+    if(target.kind==="tray")parts.push(got.length+"枚を置き場に入れました。");
+    else{
+      var toTray=target.kind==="back"?Math.max(0,toPlace.length-1):toPlace.length-res.placed.length;
+      parts.push(got.length+"枚入りました"+(toTray>0?"（壁に入れなかった "+toTray+"枚は置き場へ"+(res.noCol?"。そのうち "+res.noCol+"枚は、壁に列の無い月のフォルダの写真です":"")+"）":"")+"。");
+    }
+    if(just)parts.push(FULL_MSG);
+  }
+  if(dup)parts.push("同じ写真がすでに入っていたので、"+dup+"枚は入れませんでした。");
+  if(failed.length){
+    var heic=failed.filter(function(n){return /\.hei[cf]$/i.test(n);}).length;
+    parts.push("読めなかった写真が "+failed.length+"枚あります（"+failed.slice(0,3).join("、")+(failed.length>3?" ほか":"")+"）。"+(heic?"HEIC 形式は Chrome では開けません。iPhone なら写真を「互換性優先」で撮るか、JPEG に書き出してから入れてください。":"壊れていないか、写真のファイルかを確かめてください。"));
+  }
+  if(skipped)parts.push("写真でないファイル "+skipped+"個は入れませんでした。");
+  say(parts.join(" "),failed.length?"err":(got.length?"ok":"warn"));
+  drainQueue();
+}
+function filesToEntries(list){return Array.from(list||[]).map(function(f){return {file:f,path:f.webkitRelativePath||f.name};});}
+async function entriesFromDrop(dt){
+  var items=dt.items?Array.from(dt.items):[], roots=[];
+  items.forEach(function(it){if(it.kind==="file"){var en=it.webkitGetAsEntry&&it.webkitGetAsEntry();if(en)roots.push(en);}});
+  if(!roots.length)return filesToEntries(dt.files);
+  var out=[];
+  async function walk(en,path){
+    if(en.isFile){var f=await new Promise(function(res,rej){en.file(res,rej);});out.push({file:f,path:path+en.name});}
+    else if(en.isDirectory){
+      var rd=en.createReader(), batch;
+      do{batch=await new Promise(function(res,rej){rd.readEntries(res,rej);});for(var i=0;i<batch.length;i++)await walk(batch[i],path+en.name+"/");}while(batch.length);
+    }
+  }
+  for(var i=0;i<roots.length;i++){try{await walk(roots[i],"");}catch(e){say("フォルダの中を読めませんでした。写真をまとめて選んで入れてください。","err");}}
+  return out;
+}
+async function pickFolder(){
+  if(!guardWrite())return;
+  if(!window.showDirectoryPicker){$("inFolder").click();return;}
+  var dir;
+  try{dir=await window.showDirectoryPicker({id:"kabe-photos",mode:"read"});}catch(e){if(e&&e.name==="AbortError")return;$("inFolder").click();return;}
+  var out=[];
+  async function walk(h,path){for await(var entry of h.values()){if(entry.kind==="file"){out.push({file:await entry.getFile(),path:path+entry.name});}else if(entry.kind==="directory"){await walk(entry,path+entry.name+"/");}}}
+  try{await walk(dir,dir.name+"/");}catch(e){say("フォルダの中を読めませんでした。写真をまとめて選んで入れてください。","err");return;}
+  await importEntries(out,{kind:"auto"});
+}
+
+/* ---------- 見本の写真（形だけの絵。AI の確かめもこれだけで行う） ---------- */
+async function makeSampleEntries(){
+  var spec=[
+    {w:1600,h:1067,sky:["#8EC9EE","#DDF1FA"],ground:"#6FB35F",shirt:["#E0584E","#3F7FD6","#F4CC60"]},
+    {w:1600,h:1200,sky:["#EFE6D6","#F8F2E8"],ground:"#C9A273",shirt:["#4FAE5C","#8B6FCF","#F29A38"]},
+    {w:1600,h:900,sky:["#F6D9A8","#FFF3DE"],ground:"#D98E5A",shirt:["#2FA7A0","#E0584E","#3F7FD6"]},
+    {w:1600,h:1200,sky:["#BFE3F2","#EEF8FC"],ground:"#8FB3D9",shirt:["#F4CC60","#4FAE5C","#8B6FCF"]}
+  ], counts=[8,8,8,4], out=[], total=28, done=0;
+  for(var g=0;g<PHOTO_GROUPS;g++){
+    for(var i=0;i<counts[g];i++){
+      showBusy("見本の写真を作っています",++done,total);
+      var s=spec[g], portrait=g===3&&i%2===0, w=portrait?1200:s.w, h=portrait?1600:s.h;
+      var c=document.createElement("canvas");c.width=w;c.height=h;var x=c.getContext("2d");
+      var gr=x.createLinearGradient(0,0,0,h);gr.addColorStop(0,s.sky[0]);gr.addColorStop(1,s.sky[1]);x.fillStyle=gr;x.fillRect(0,0,w,h);
+      var gy=h*(0.62+0.04*((i*7)%3));x.fillStyle=s.ground;x.fillRect(0,gy,w,h-gy);
+      x.fillStyle="rgba(255,255,255,.75)";x.beginPath();x.arc(w*(0.15+0.1*(i%4)),h*0.2,h*0.07,0,7);x.fill();
+      var n=2+(i%3);
+      for(var p=0;p<n;p++){
+        var px=w*(0.25+0.5*(p+0.5)/n)+((i*37)%40-20), hh=h*(0.26+0.04*((p+i)%3)), top=gy-hh;
+        x.fillStyle=s.shirt[(p+i)%3];rr(x,px-hh*0.2,top+hh*0.28,hh*0.4,hh*0.72,hh*0.08);x.fill();
+        x.fillStyle="#F2C9A6";x.beginPath();x.arc(px,top+hh*0.15,hh*0.15,0,7);x.fill();
+        x.fillStyle="#2E2A27";x.beginPath();x.arc(px,top+hh*0.1,hh*0.15,Math.PI,0);x.fill();
+      }
+      x.strokeStyle="rgba(16,28,44,.35)";x.lineWidth=Math.max(3,w/400);x.beginPath();x.arc(w/2,h/2,Math.min(w,h)*0.08,0,7);x.moveTo(w/2-Math.min(w,h)*0.12,h/2);x.lineTo(w/2+Math.min(w,h)*0.12,h/2);x.moveTo(w/2,h/2-Math.min(w,h)*0.12);x.lineTo(w/2,h/2+Math.min(w,h)*0.12);x.stroke();
+      var label="見本 "+state.labels[g].m+" "+(i+1);x.font="700 "+Math.round(h*0.075)+"px "+LABEL_FONT;
+      x.lineWidth=Math.round(h*0.012);x.strokeStyle="rgba(16,28,44,.8)";x.strokeText(label,w*0.05,h*0.2);x.fillStyle="#FFFFFF";x.fillText(label,w*0.05,h*0.2);
+      var blob=await toBlob(c,"image/jpeg",0.85), name="見本_"+safeName(state.labels[g].m)+"_"+pad2(i+1)+".jpg";
+      out.push({file:new File([blob],name,{type:"image/jpeg"}),path:"見本/"+state.labels[g].m+"/"+name});
+    }
+  }
+  return out;
+}
+async function loadSamples(){
+  if(!guardWrite()||sampleMaking)return;
+  sampleMaking=true;var es;
+  try{es=await makeSampleEntries();}catch(e){say(describeErr(e),"err");return;}finally{sampleMaking=false;hideBusy();}
+  await importEntries(es,{kind:"auto"},{sample:true});
+}
+async function removeSamples(){
+  if(isBusy()){say(BUSY_MSG,"warn");return;}
+  if(!guardWrite())return;
+  var ids=Array.from(photos.values()).filter(function(p){return p.sample;}).map(function(p){return p.id;});
+  if(!ids.length)return;
+  change(function(){Object.keys(state.cells).forEach(function(k){if(ids.indexOf(state.cells[k].p)>=0)delete state.cells[k];});state.backs=state.backs.map(function(b){return b&&ids.indexOf(b.p)>=0?null:b;});});
+  for(var i=0;i<ids.length;i++){var ph=photos.get(ids[i]);if(ph&&ph.thumb)ph.thumb.close();dropCacheFor(ids[i]);photos.delete(ids[i]);await delPhotoDB(ids[i]);}
+  undoStack.length=0;redoStack.length=0;sel=null;renderAll();say("見本の写真を片付けました。");
+}
+
+/* ========== マスの操作（入れる・入れ替える・空ける） ========== */
+function placeTrayPhoto(photoId,target){
+  var ok=false;
+  change(function(){
+    var ph=photos.get(photoId);if(!ph)return;ok=true;
+    if(target.kind==="cell"){state.cells[target.id]=clampPl(ph,freshPl(photoId));}
+    else if(target.kind==="back"){state.backs[target.g]=clampPl(ph,freshPl(photoId));}
+  });
+  if(ok&&target.kind==="cell")popCells([target.id]);
+}
+function swapCells(a,b){if(a===b)return;change(function(){var pa=state.cells[a], pb=state.cells[b];if(pa)state.cells[b]=pa;else delete state.cells[b];if(pb)state.cells[a]=pb;else delete state.cells[a];});popCells([a,b]);}
+function clearSelected(){
+  if(!sel)return;
+  if(sel.kind==="cell"&&state.cells[sel.id]){
+    var id=sel.id, pid=state.cells[id].p, name=(photos.get(pid)||{}).name||"写真";
+    change(function(){delete state.cells[id];});
+    if(!state.cells[id])say(referenced().has(pid)?"「"+name+"」を壁から外しました（戻るときの写真としては残っています）。":"「"+name+"」を置き場へ戻しました（元に戻すで戻せます）。");
+  }
+  else if(sel.kind==="back"&&state.backs[sel.g]){var g=sel.g;change(function(){state.backs[g]=null;});if(!state.backs[g])say("戻るときの写真を、飛び込む写真と同じにしました。");}
+}
+async function deleteTrayPhoto(id){
+  if(isBusy()){say(BUSY_MSG,"warn");return;}
+  if(!guardWrite())return;
+  var ph=photos.get(id);if(!ph)return;
+  var ok=await askConfirm("置き場から消しますか","「"+ph.name+"」をこの道具から消します。パソコンにある元の写真はそのまま残ります。消したあと、元に戻すでは戻りません。","消す");
+  if(!ok||isBusy()||!photos.has(id)||referenced().has(id))return;
+  if(ph.thumb)ph.thumb.close();dropCacheFor(id);photos.delete(id);await delPhotoDB(id);
+  sel=null;afterChange();say("「"+ph.name+"」を消しました。");
+}
+function select(s){sel=s;swapFrom=s&&s.kind==="cell"?swapFrom:null;if(!s||s.kind!=="back")backFromWall=-1;renderAll();}
+function onCellClick(id){
+  if(backFromWall>=0){
+    var bg=backFromWall, src=livePl(state.cells[id]);backFromWall=-1;
+    if(src){change(function(){state.backs[bg]=Object.assign({},src);});sel={kind:"back",g:bg};if(state.backs[bg])say("戻るときの写真を入れました。");}
+    else say("空いているマスです。写真の入ったマスを押してください。","warn");
+    renderAll();return;
+  }
+  if(swapFrom){var a=swapFrom;swapFrom=null;if(a!==id){var b0=snap();swapCells(a,id);sel={kind:"cell",id:id};if(snap()!==b0)say("入れ替えました。");}renderAll();return;}
+  if(sel&&sel.kind==="tray"){
+    var pid=sel.id, tray=trayPhotos(), idx=tray.findIndex(function(p){return p.id===pid;});
+    placeTrayPhoto(pid,{kind:"cell",id:id});
+    if(!livePl(state.cells[id])||state.cells[id].p!==pid){renderAll();return;}   // 止められた（書き出し中など）
+    var rest=trayPhotos();
+    if(rest.length){sel={kind:"tray",id:(rest[Math.min(Math.max(idx,0),rest.length-1)]||rest[0]).id};say("次の置き場の写真を選んでいます。入れたいマスを押してください（やめるときは Esc）。");}
+    else{sel={kind:"cell",id:id};say("置き場の写真を全部入れました。","ok");}
+    renderAll();return;
+  }
+  select({kind:"cell",id:id});
+}
+
+/* ---------- ドラッグ ---------- */
+var DT_TYPE="application/x-kabe";
+// ドラッグの中身は、この道具のマス・置き場・戻るの形のときだけ受け取る（よそのページから来た値で状態を書き換えさせない）
+function dragData(e){
+  try{
+    var s=e.dataTransfer.getData(DT_TYPE);if(!s)return null;var d=JSON.parse(s);if(!d||typeof d!=="object")return null;
+    if(d.kind==="cell"&&ALL_CELLS.indexOf(d.id)>=0)return {kind:"cell",id:d.id};
+    if(d.kind==="tray"&&typeof d.id==="string"&&photos.has(d.id))return {kind:"tray",id:d.id};
+    if(d.kind==="back"&&(d.g===0||d.g===1||d.g===2||d.g===3))return {kind:"back",g:d.g};
+    return null;
+  }catch(err){return null;}
+}
+function hasFiles(e){var t=e.dataTransfer&&e.dataTransfer.types;return !!t&&Array.prototype.indexOf.call(t,"Files")>=0;}
+function hasOurs(e){var t=e.dataTransfer&&e.dataTransfer.types;return !!t&&Array.prototype.indexOf.call(t,DT_TYPE)>=0;}
+function dropTarget(el,onDrop){
+  el.addEventListener("dragover",function(e){if(!(hasFiles(e)||hasOurs(e)))return;e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect=hasFiles(e)?"copy":"move";el.classList.add("drop");});
+  el.addEventListener("dragleave",function(){el.classList.remove("drop");});
+  el.addEventListener("drop",function(e){if(!(hasFiles(e)||hasOurs(e)))return;e.preventDefault();e.stopPropagation();el.classList.remove("drop");hideVeil();if(dlgOpenFlag)return;onDrop(e);});
+}
+async function handleDrop(e,target){
+  var d=dragData(e);
+  if(d){
+    if(target.kind==="cell"){
+      if(d.kind==="cell")swapCells(d.id,target.id);
+      else if(d.kind==="tray")placeTrayPhoto(d.id,target);
+      else if(d.kind==="back"){var bk=livePl(state.backs[d.g]);if(bk){change(function(){state.cells[target.id]=Object.assign({},bk);state.backs[d.g]=null;});popCells([target.id]);}}
+    }else if(target.kind==="back"){
+      if(d.kind==="tray")placeTrayPhoto(d.id,target);
+      else if(d.kind==="cell"){var pl=livePl(state.cells[d.id]);if(pl)change(function(){state.backs[target.g]=Object.assign({},pl);});}
+    }else if(target.kind==="tray"){
+      if(d.kind==="cell"){change(function(){delete state.cells[d.id];});}
+      else if(d.kind==="back"){change(function(){state.backs[d.g]=null;});}
+    }
+    return;
+  }
+  if(hasFiles(e)){var es=await entriesFromDrop(e.dataTransfer);await importEntries(es,target.kind==="tray"?{kind:"tray"}:target);}
+}
+function showVeil(){if(mode==="edit")$("veil").hidden=false;}
+function hideVeil(){$("veil").hidden=true;}
+
+/* ========== 試写 ========== */
+function chapters(){var L=state.labels, tm=timesAbs();return [["はじめ",14.0],[L[0].m,20.9],[L[1].m,43.5],[L[2].m,57.6],[L[3].m,69.4],[L[4].m,80.2],["来年",tm.wave-0.3]];}
+function buildChips(){
+  var box=$("chips");box.textContent="";
+  chapters().forEach(function(c){var b=mk("button","chip",box,c[0]);b.type="button";b.dataset.t=String(c[1]);b.addEventListener("click",function(){playFrom(Number(b.dataset.t));});});
+}
+function setPlayUI(){
+  var b=$("btnPlay"), want=play.playing?"pause":"play";
+  if(b.dataset.icon!==want){b.textContent="";b.appendChild(play.playing?iconPause():iconPlay());b.dataset.icon=want;}
+  b.setAttribute("aria-pressed",play.playing?"true":"false");b.setAttribute("aria-label",play.playing?"試写を止める":"試写を再生");
+  var end=previewEnd(), sk=$("seek");sk.max=String(end);sk.value=String(play.t);sk.setAttribute("aria-valuetext",fmtClock(play.t));
+  $("time").textContent=fmtClock(play.t)+" / "+fmtClock(end);
+  var ch=chapters(), cur=0;for(var i=0;i<ch.length;i++)if(play.t>=ch[i][1]-0.01)cur=i;
+  Array.prototype.forEach.call($("chips").children,function(el,i){el.setAttribute("aria-current",i===cur?"true":"false");});
+  // 始める前と、最後まで見終わったときに大きいボタン（見終わったら「もう一度見る」）
+  var ended=play.started&&!play.playing&&play.t>=end-0.01;
+  $("bigplay").hidden=mode!=="play"||(play.started&&!ended);
+  $("bigplayText").textContent=ended?"もう一度見る":"試写を始める";
+}
+function playFrom(t){play.started=true;play.t=clamp(t,T0,previewEnd());play.tStart=play.t;play.c0=performance.now();play.playing=true;setPlayUI();requestAnimationFrame(tick);}
+function pausePlay(){play.playing=false;setPlayUI();}
+function tick(){
+  if(!play.playing||mode!=="play")return;
+  var end=previewEnd(), t=play.tStart+(performance.now()-play.c0)/1000;
+  if(t>=end){t=end;play.playing=false;}
+  play.t=t;renderStage();setPlayUI();
+  if(play.playing)requestAnimationFrame(tick);
+}
+function setMode(m){
+  if(mode===m)return;
+  mode=m;if(m!=="play")play.playing=false;
+  $("tab-edit").setAttribute("aria-selected",m==="edit"?"true":"false");$("tab-play").setAttribute("aria-selected",m==="play"?"true":"false");
+  $("ov").hidden=m!=="edit";$("barEdit").hidden=m!=="edit";$("barPlay").hidden=m!=="play";$("legend").hidden=m!=="edit";
+  var st=$("stage");if(m==="play"){st.setAttribute("role","img");st.setAttribute("aria-label","試写：写真の壁の動き");buildChips();}else{st.removeAttribute("role");st.removeAttribute("aria-label");}
+  $("hint").hidden=photos.size>0||m!=="edit";
+  setPlayUI();requestRender();
+}
+
+/* ========== 書き出す ========== */
+var busy=false, cancelReq=false;
+// ファイル名の頭の番号は、画面の ①〜⑤ と同じ（1 壁・2 全画面・3 並ぶ・4 来年・5 目安）
+function wallName(k){var L=state.labels;return "1_壁_"+(k+1)+"_"+(k===0?safeName(L[0].m)+"に入る":(k<4?safeName(L[k-1].m)+"から"+safeName(L[k].m)+"へ":safeName(L[3].m)+"から全体へ"))+".png";}
+function fullName(g,which){return "2_全画面_"+(g+1)+"_"+safeName(state.labels[g].m)+"_"+which+".jpg";}
+function midRect(a,b){
+  var A=anchorView(a), B=anchorView(b), w=W/1.7, h=H/1.7, cx=clamp((A.x+B.x)/2,w/2,W-w/2), cy=clamp((A.y+B.y)/2,h/2,H-h/2);
+  return {x:cx-w/2,y:cy-h/2,w:w,h:h};
+}
+function cellRect(g){var tp=LAYOUT[g].tiles[ANCHOR_I];return {x:tp.x,y:tp.y,w:TW,h:TH};}
+function guideSteps(){
+  var L=state.labels, FULL={x:0,y:0,w:W,h:H}, out=[{k:0,a:FULL,b:cellRect(0),title:safeName(L[0].m)+"に寄る",sec:"4.4秒",ease:"イーズイン（ゆっくり始まって、最後に速く）"}];
+  for(var g=0;g<3;g++){
+    var mid=midRect(g,g+1);
+    out.push({k:g+1,a:cellRect(g),b:mid,title:safeName(L[g].m)+"から引く",sec:"0.85秒",ease:"イーズイン"});
+    out.push({k:g+1,a:mid,b:cellRect(g+1),title:safeName(L[g+1].m)+"に寄る",sec:"0.85秒",ease:"イーズアウト"});
+  }
+  out.push({k:4,a:cellRect(3),b:FULL,title:safeName(L[3].m)+"から全体へ",sec:"1.2秒",ease:"イーズイン・アウト"});
+  return out;
+}
+function readiness(){
+  var empty=ALL_CELLS.length-filledCount(), noDive=[], over=[];
+  for(var g=0;g<PHOTO_GROUPS;g++)if(!diveOf(g))noDive.push(state.labels[g].m);
+  for(g=0;g<LAYOUT.length;g++)if(labelLayout(g).over)over.push(state.labels[g].m||("列"+(g+1)));
+  return {empty:empty,noDive:noDive,over:over};
+}
+function renderExportInfo(){
+  $("v2len").textContent=fmtSec(CLIP2.frames/FPS);$("v3len").textContent=fmtSec(v3Frames()/FPS);
+  $("exW").checked=state.ex.w;$("exF").checked=state.ex.f;$("exV2").checked=state.ex.v2;$("exV3").checked=state.ex.v3;$("exG").checked=state.ex.g;
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="res"]'),function(r){r.checked=r.value===state.res;});
+  var r=readiness(), lines=[], wb=$("expWarn");
+  if(!photos.size){lines.push("写真を入れると書き出せます。");}
+  else{
+    if(r.empty)lines.push("空いているマスが "+r.empty+"個あります。写真の無い紺のマスのまま書き出します。");
+    if(r.noDive.length)lines.push(r.noDive.join("・")+"の飛び込むマスが空です。その月の全画面の写真は作りません。");
+    if(r.over.length)lines.push(r.over.join("・")+"の列の名前が長すぎて、列からはみ出します。名前を短くしてください。");
+  }
+  wb.textContent=lines.join(" ");wb.hidden=!lines.length;
+  $("btnExport").disabled=isBusy()||!photos.size;
+  $("exFields").disabled=busy;$("tmReset").disabled=busy;
+  var tb=["tmWave","tmFlip","tmBlink","tmLen"], keys=["wave","flip","blink","len"];
+  tb.forEach(function(id,i){var el=$(id);el.disabled=busy;if(document.activeElement!==el)el.value=String(state.times[keys[i]]);});
+}
+async function pickDestination(){
+  if(window.showDirectoryPicker){
+    var dir;
+    try{dir=await window.showDirectoryPicker({id:"kabe-export",mode:"readwrite"});}
+    catch(e){if(e&&e.name==="AbortError")return null;throw new UserError("フォルダを開けませんでした。もう一度「書き出す」を押して、別のフォルダを選んでください。");}
+    var name="写真の壁_"+stamp(new Date()), sub;
+    try{sub=await dir.getDirectoryHandle(name,{create:true});}catch(e){throw new UserError("選んだフォルダに書き込めませんでした。書き込みを許可するか、別のフォルダ（ドキュメントの中など）を選んでください。");}
+    return {label:"「"+dir.name+"」の中の「"+name+"」",write:async function(fn,blob){
+      var fh=await sub.getFileHandle(fn,{create:true}), w=await fh.createWritable();
+      try{await w.write(blob);await w.close();}
+      catch(e){
+        try{await w.abort();}catch(e2){}
+        var gone=false;try{await sub.removeEntry(fn);gone=true;}catch(e3){}   // 途中まで書いた（0バイトの）ファイルを残さない
+        throw new UserError("「"+fn+"」を保存できませんでした（空き容量が足りないかもしれません）。"+(gone?"":"フォルダに残った「"+fn+"」は途中までのファイルなので、消してください。")+"容量を空けてから、もう一度書き出してください。");
+      }
+    }};
+  }
+  return {label:"ダウンロードのフォルダ",write:async function(fn,blob){var a=document.createElement("a"),u=URL.createObjectURL(blob);a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u);},60000);await wait(250);}};
+}
+async function prefetch(pls,needFor,onStep){
+  var cache=new Map(), ids=[];
+  pls.forEach(function(pl){if(pl&&photos.has(pl.p)){var ph=photos.get(pl.p), need=needFor(ph,pl), cur=cache.get(ph.id);if(!cur||cur.need<need)cache.set(ph.id,{need:need});}});
+  cache.forEach(function(v,id){ids.push(id);});
+  try{
+    for(var i=0;i<ids.length;i++){
+      if(cancelReq)throw new UserError("CANCEL");
+      var ph=photos.get(ids[i]), v=cache.get(ids[i]);
+      if(!ph)continue;
+      try{v.bmp=v.need<=ph.thumb.width?ph.thumb:await levelBitmap(ph,Math.min(ph.w,Math.ceil(v.need)));}
+      catch(e){throw new UserError("「"+ph.name+"」を読めませんでした（壊れているかもしれません）。その写真を入れ直してから、もう一度書き出してください。");}
+      if(onStep)onStep((i+1)/ids.length);
+      await yieldNow();
+    }
+  }catch(e){closeAll();throw e;}
+  function closeAll(){cache.forEach(function(v,id){var ph=photos.get(id);if(v.bmp&&(!ph||v.bmp!==ph.thumb))v.bmp.close();v.bmp=null;});}
+  return {src:function(ph){var v=cache.get(ph.id);return v&&v.bmp?v.bmp:ph.thumb;},close:closeAll};
+}
+function wallPlacements(){var out=[];ALL_CELLS.forEach(function(id){var pl=livePl(state.cells[id]);if(pl)out.push(pl);});state.backs.forEach(function(b){if(livePl(b))out.push(b);});return out;}
+async function pickEncoderConfig(){
+  if(typeof VideoEncoder==="undefined")throw new UserError("このブラウザは動画（MP4）の書き出しに対応していません。パソコンの Chrome か Edge の新しい版で開いてください。静止画だけなら、③④のチェックを外すと書き出せます。");
+  var codecs=["avc1.640028","avc1.4d0028","avc1.42e028"];
+  for(var i=0;i<codecs.length;i++){
+    var cfg={codec:codecs[i],width:W,height:H,bitrate:24000000,framerate:FPS,avc:{format:"avc"},latencyMode:"quality"};
+    try{var s=await VideoEncoder.isConfigSupported(cfg);if(s&&s.supported)return cfg;}catch(e){}
+  }
+  throw new UserError("このブラウザでは H.264 の動画を作れません。パソコンの Chrome か Edge の新しい版で開いてください。");
+}
+/* エンコーダの待ち行列が空くのを待つ（タイマーでなく知らせで待つ＝タブが隠れても間引かれない） */
+function waitDequeue(enc,max){
+  if(!("ondequeue" in enc))return wait(4);
+  return new Promise(function(r){var done=false;function f(){if(done)return;done=true;enc.removeEventListener("dequeue",f);r();}enc.addEventListener("dequeue",f);if(enc.encodeQueueSize<=max)f();});
+}
+async function makeVideo(kind,onStep){
+  var cfg=await pickEncoderConfig(), N=kind==="v2"?CLIP2.frames:v3Frames(), t0=kind==="v2"?CLIP2.t0:REST;
+  var c=document.createElement("canvas");c.width=W;c.height=H;var x=c.getContext("2d",{alpha:false});
+  var chunks=[], meta=null, err=null;
+  var enc=new VideoEncoder({output:function(ch,md){var d=new Uint8Array(ch.byteLength);ch.copyTo(d);chunks.push({data:d,pts:ch.timestamp,key:ch.type==="key"});if(md&&md.decoderConfig&&!meta)meta=md.decoderConfig;},error:function(e){err=e;}});
+  enc.configure(cfg);
+  // 写真は壁の静止画と同じ細かさで描く（小さい絵のままだと、拡大したマスが静止画よりぼやけて、③の最後→壁_1・壁_5→④の最初の切り替えで見える）。
+  // 1.25 は、並ぶときに少し大きく出る分のゆとり
+  var pf=null;
+  try{
+    pf=await prefetch(wallPlacements(),function(ph,pl){return TW*1.25*ph.w/cropRegion(ph,pl,16/9).w;},function(u){onStep(u*0.1);});
+    for(var i=0;i<N;i++){
+      if(cancelReq)throw new UserError("CANCEL");
+      if(err)throw err;
+      drawScene(x,1,sceneAt(t0+i/FPS,"clip"),{src:pf.src});
+      var f=new VideoFrame(c,{timestamp:Math.round(i*1e6/FPS),duration:Math.round(1e6/FPS)});
+      try{enc.encode(f,{keyFrame:i%FPS===0});}finally{f.close();}
+      while(enc.encodeQueueSize>4)await waitDequeue(enc,4);
+      if(i%6===0){onStep(0.1+0.9*i/N);await yieldNow();}
+    }
+    await enc.flush();
+  }finally{try{enc.close();}catch(e){}if(pf)pf.close();}
+  if(err)throw err;
+  if(!meta||!meta.description||chunks.length!==N)throw new UserError("動画を作る途中で失敗しました（"+chunks.length+"/"+N+"コマ）。ほかのタブを閉じてから、もう一度書き出してください。");
+  return muxMP4({width:W,height:H,fps:FPS,chunks:chunks,description:new Uint8Array(meta.description),colorSpace:meta.colorSpace});
+}
+function drawGuide(ctx,step,idx,total){
+  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle="rgba(8,12,20,.38)";ctx.fillRect(0,0,W,H);
+  function box(r,color,label,inset){
+    ctx.save();ctx.lineWidth=8;ctx.strokeStyle="#0B121C";ctx.strokeRect(r.x+inset,r.y+inset,r.w-2*inset,r.h-2*inset);
+    ctx.lineWidth=5;ctx.strokeStyle=color;ctx.strokeRect(r.x+inset,r.y+inset,r.w-2*inset,r.h-2*inset);
+    ctx.font="700 30px "+LABEL_FONT;var tw=ctx.measureText(label).width+24, lx=clamp(r.x+inset,8,W-tw-8), ly=r.y+inset>60?r.y+inset-46:r.y+inset+10;
+    ctx.fillStyle=color;rr(ctx,lx,ly,tw,40,6);ctx.fill();ctx.fillStyle="#0B121C";ctx.fillText(label,lx+12,ly+30);ctx.restore();
+  }
+  var full=function(r){return r.w===W;};
+  box(step.a,"#34D07F","始まり",full(step.a)?6:0);
+  box(step.b,"#FF5A4E","終わり",full(step.b)?16:0);
+  ctx.save();ctx.font="700 44px "+LABEL_FONT;ctx.textBaseline="alphabetic";ctx.lineJoin="round";
+  var t1=idx+"/"+total+"　"+step.title, t2="長さの目安 "+step.sec+"・"+step.ease;
+  // 見出しは壁の下の空き（行の下の端 798px より下）に置く＝枠と札に重ならない
+  ctx.lineWidth=10;ctx.strokeStyle="#0B121C";ctx.strokeText(t1,96,940);ctx.fillStyle="#FFFFFF";ctx.fillText(t1,96,940);
+  ctx.font="700 30px "+LABEL_FONT;ctx.lineWidth=8;ctx.strokeText(t2,96,994);ctx.fillStyle="#DDE5EF";ctx.fillText(t2,96,994);
+  ctx.restore();
+}
+function readmeText(when,files,res,madeFull,skipFull){
+  var L=state.labels, tm=state.times, lines=[];res=res||state.res;madeFull=madeFull||[];skipFull=skipFull||[];
+  lines.push("写真の壁で書き出したファイル（"+when.getFullYear()+"年"+jpTime(when)+"）","");
+  if(files.w){
+    lines.push("■ 1_壁（5枚・"+(res==="8k"?"7680×4320":"3840×2160")+"）","  壁の静止画。ダイナミックズームで寄る・引くときに使います。");
+    for(var k=0;k<5;k++)lines.push("  "+wallName(k)+(k===0?" … 飛び込むマスは全部「飛び込む写真」":" … "+L[Math.min(k,4)-1].m+"までのマスが「戻るときの写真」"));
+    lines.push("  戻るときの写真を決めていない月は、前の壁と同じ絵になります（そのまま使えます）。","");
+  }
+  if(files.f&&madeFull.length){
+    lines.push("■ 2_全画面（"+madeFull.length*2+"枚・3840×2160）","  飛び込むマスと同じ切り方の写真。寄り切ったところでこれに切り替えます（入る＝最初の1枚、戻る＝最後の1枚）。名前の数字は列の番号です。","  戻るときの写真を決めていない月は、入ると戻るが同じ絵です。");
+    if(skipFull.length)lines.push("  "+skipFull.join("・")+"は、飛び込むマスが空なので作っていません。");
+    lines.push("");
+  }else if(files.f&&skipFull.length)lines.push("■ 2_全画面","  飛び込むマスが全部空なので、作っていません。","");
+  if(files.v2)lines.push("■ 3_並ぶ.mp4（1920×1080・24コマ/秒・"+fmtSec(CLIP2.frames/FPS)+"秒）","  写真が次々に並ぶ動き。最後のコマは「"+wallName(0)+"」と同じ絵です。行事の場面の 14.0秒から。","");
+  if(files.v3)lines.push("■ 4_来年.mp4（1920×1080・24コマ/秒・"+fmtSec(v3Frames()/FPS)+"秒）","  最初のコマは「"+wallName(4)+"」と同じ絵。"+fmtSec(tm.wave)+"秒で波、"+fmtSec(tm.flip)+"秒で裏返り、"+fmtSec(tm.blink)+"秒から空の枠が1秒ごとに点滅します。行事の場面の 84.2秒から。","");
+  if(files.g)lines.push("■ 5_目安（8枚）","  ダイナミックズームの枠の目安です（緑＝始まり、赤＝終わり）。動画には入れません。","");
+  lines.push("置く秒の目安（行事の場面の頭＝0秒）",
+    "  14.0〜18.8  3_並ぶ",
+    "  17.6〜22.0  "+L[0].m+"に寄る（1_壁_1）→ 22.0 から全画面",
+    "  43.6〜44.5  "+L[0].m+"から引く（1_壁_2）／44.5〜45.3 "+L[1].m+"に寄る（1_壁_2）",
+    "  57.7〜58.6  "+L[1].m+"から引く（1_壁_3）／58.6〜59.4 "+L[2].m+"に寄る（1_壁_3）",
+    "  69.5〜70.4  "+L[2].m+"から引く（1_壁_4）／70.4〜71.2 "+L[3].m+"に寄る（1_壁_4）",
+    "  80.3〜81.5  "+L[3].m+"から全体へ（1_壁_5）",
+    "  84.2〜      4_来年");
+  return "﻿"+lines.join("\r\n")+"\r\n";
+}
+async function doExport(){
+  if(isBusy()){say(BUSY_MSG,"warn");return;}
+  flushPending();
+  var ex=Object.assign({},state.ex), errBox=$("expErr");errBox.hidden=true;$("expDone").hidden=true;
+  if(!(ex.w||ex.f||ex.v2||ex.v3||ex.g)){say("書き出すものに、1つ以上チェックを入れてください。","warn");return;}
+  if(!filledCount()&&!state.backs.some(livePl)){say("写真を入れてから書き出してください。","warn");return;}
+  // 全画面だけを選んで、飛び込むマスが全部空だと、作る物が無い（読んでください.txt だけを出して「書き出しました」と言わない）
+  if(!(ex.w||ex.v2||ex.v3||ex.g)&&![0,1,2,3].some(function(g){return !!diveOf(g);})){say("② 全画面の写真は、飛び込むマスに写真が入っている列だけ作ります。いまは飛び込むマスが全部空です。飛び込むマスに写真を入れるか、ほかの書き出すものにもチェックを入れてください。","warn");return;}
+  if(ex.v2||ex.v3){try{await pickEncoderConfig();}catch(e){errBox.textContent=describeErr(e);errBox.hidden=false;return;}}
+  var dest;
+  try{dest=await pickDestination();}catch(e){errBox.textContent=describeErr(e);errBox.hidden=false;return;}
+  if(!dest)return;
+  if(isBusy()){say(BUSY_MSG,"warn");return;}
+  busy=true;cancelReq=false;pausePlay();
+  var list=$("expList");list.textContent="";$("expProg").hidden=false;renderAll();
+  var bar=$("expBar"), nowEl=$("expNow"), t00=performance.now(), done=0, tasks=[], shared={};
+  var when=new Date(), resAt=state.res, madeFull=[], skipFull=[];
+  for(var gg=0;gg<PHOTO_GROUPS;gg++){if(diveOf(gg))madeFull.push(gg);else skipFull.push(state.labels[gg].m);}
+  function task(name,weight,make){tasks.push({name:name,weight:weight,make:make});}
+  if(ex.w){
+    var S=resAt==="8k"?4:2;
+    for(var k=0;k<5;k++)(function(k){task(wallName(k),3,async function(step){
+      if(!shared.wall){
+        var pf=await prefetch(wallPlacements(),function(ph,pl){return TW*S*ph.w/cropRegion(ph,pl,16/9).w;},function(u){step(u*0.7);});
+        var c=document.createElement("canvas");c.width=W*S;c.height=H*S;shared.wall={pf:pf,c:c,x:c.getContext("2d",{alpha:false})};
+      }
+      drawScene(shared.wall.x,S,sceneAt(0,"still",k),{src:shared.wall.pf.src});
+      var b=await toBlob(shared.wall.c,"image/png");
+      if(k===4){shared.wall.pf.close();shared.wall.c.width=1;shared.wall=null;}
+      return b;
+    });})(k);
+  }
+  if(ex.f){
+    for(var g=0;g<PHOTO_GROUPS;g++)(function(g){
+      if(!diveOf(g))return;
+      [["入る",function(){return diveOf(g);}],["戻る",function(){return backOf(g);}]].forEach(function(p){
+        task(fullName(g,p[0]),1,async function(){
+          var pl=p[1](), fw=3840, fh=2160, pf=await prefetch([pl],function(ph,q){return fw*ph.w/cropRegion(ph,q,16/9).w;});
+          try{
+            var c=document.createElement("canvas");c.width=fw;c.height=fh;var x=c.getContext("2d",{alpha:false});x.fillStyle="#0F1826";x.fillRect(0,0,fw,fh);
+            drawPlacement(x,pl,0,0,fw,fh,fw,pf.src);
+            return await toBlob(c,"image/jpeg",0.95);
+          }finally{pf.close();}
+        });
+      });
+    })(g);
+  }
+  if(ex.v2)task("3_並ぶ.mp4",4,function(step){return makeVideo("v2",step);});
+  if(ex.v3)task("4_来年.mp4",8,function(step){return makeVideo("v3",step);});
+  if(ex.g){
+    guideSteps().forEach(function(st,i,arr){task("5_目安_"+(i+1)+"_"+st.title+".png",1,async function(){
+      var c=document.createElement("canvas");c.width=W;c.height=H;var x=c.getContext("2d",{alpha:false});
+      drawScene(x,1,sceneAt(0,"still",st.k),{src:function(ph){return ph.thumb;}});drawGuide(x,st,i+1,arr.length);
+      return await toBlob(c,"image/png");
+    });});
+  }
+  task("読んでください.txt",0.2,async function(){return new Blob([readmeText(when,ex,resAt,madeFull,skipFull)],{type:"text/plain;charset=utf-8"});});
+  var totalW=tasks.reduce(function(a,t){return a+t.weight;},0), doneW=0, failed=null;
+  try{
+    for(var i=0;i<tasks.length;i++){
+      var tk=tasks[i];
+      if(cancelReq)throw new UserError("CANCEL");
+      nowEl.textContent="作っています："+tk.name+"（"+(i+1)+" / "+tasks.length+"）。別の窓に移っても書き出しは続きます。";
+      var blob=await tk.make(function(u){bar.value=(doneW+tk.weight*clamp(u))/totalW;});
+      if(cancelReq)throw new UserError("CANCEL");
+      await dest.write(tk.name,blob);
+      doneW+=tk.weight;bar.value=doneW/totalW;done++;
+      mk("li","",list,tk.name+"（"+fmtSize(blob.size)+"）");
+      await yieldNow();
+    }
+  }catch(e){failed=e;}
+  finally{
+    if(shared.wall){shared.wall.pf.close();shared.wall.c.width=1;shared.wall=null;}
+    busy=false;$("expProg").hidden=true;renderAll();
+  }
+  var secs=Math.round((performance.now()-t00)/1000), dn=$("expDone");
+  if(failed&&failed.message==="CANCEL"){say("書き出しを止めました。できた "+done+"個のファイルは、"+dest.label+"に残っています（説明の「読んでください.txt」は作っていません）。","warn");}
+  else if(failed){errBox.textContent=describeErr(failed);errBox.hidden=false;say("書き出しの途中で止まりました（できたのは "+done+"個）。書き出す欄の説明を見てください。","err");mk("li","fail",list,"止まった所："+(tasks[done]?tasks[done].name:""));}
+  else{var okMsg="書き出しました（"+done+"個のファイル・"+secs+"秒）。保存先："+dest.label+"。";dn.textContent=okMsg;dn.hidden=false;say(okMsg,"ok");}
+  drainQueue();
+}
+function fmtSize(n){return n>=1073741824?(n/1073741824).toFixed(2)+"GB":(n>=1048576?(n/1048576).toFixed(1)+"MB":Math.max(1,Math.round(n/1024))+"KB");}
+
+/* ---------- MP4 に入れる（ftyp → mdat → moov。H.264 は WebCodecs の avc 形式のかたまり） ---------- */
+function muxMP4(o){
+  var fps=o.fps, TS=fps*1000, DELTA=1000, N=o.chunks.length;
+  function be32(n){return [(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255];}
+  function be16(n){return [(n>>>8)&255,n&255];}
+  function str(s){return Array.prototype.map.call(s,function(ch){return ch.charCodeAt(0);});}
+  function cat(parts){var len=0,i;for(i=0;i<parts.length;i++)len+=parts[i].length;var out=new Uint8Array(len),p=0;for(i=0;i<parts.length;i++){out.set(parts[i],p);p+=parts[i].length;}return out;}
+  function u8(a){return a instanceof Uint8Array?a:new Uint8Array(a);}
+  function box(type){var body=cat([].slice.call(arguments,1).map(u8));return cat([u8(be32(body.length+8)),u8(str(type)),body]);}
+  function full(type,ver,flags){return box.apply(null,[type,[ver,(flags>>16)&255,(flags>>8)&255,flags&255]].concat([].slice.call(arguments,3)));}
+  function flat(arr,f){var out=[];arr.forEach(function(v){Array.prototype.push.apply(out,f(v));});return out;}
+  var MATRIX=[].concat(be32(0x00010000),be32(0),be32(0),be32(0),be32(0x00010000),be32(0),be32(0),be32(0),be32(0x40000000));
+  var pts=o.chunks.map(function(ch){return Math.round(ch.pts*TS/1e6);}), mono=true, i;
+  for(i=1;i<N;i++)if(pts[i]<=pts[i-1]){mono=false;break;}
+  var shift=0, offs=null;
+  if(!mono){offs=[];for(i=0;i<N;i++)shift=Math.max(shift,i*DELTA-pts[i]);for(i=0;i<N;i++)offs.push(pts[i]-i*DELTA+shift);}
+  var mediaDur=N*DELTA, movieDur=Math.round(N*1000/fps);
+  var ftyp=box("ftyp",str("isom"),be32(0x200),str("isom"),str("iso2"),str("avc1"),str("mp41"));
+  var dataLen=0;o.chunks.forEach(function(ch){dataLen+=ch.data.length;});
+  var mdatHead=u8(be32(dataLen+8).concat(str("mdat")));
+  var offsets=[], p=ftyp.length+8;o.chunks.forEach(function(ch){offsets.push(p);p+=ch.data.length;});
+  var mvhd=full("mvhd",0,0,be32(0),be32(0),be32(1000),be32(movieDur),be32(0x00010000),be16(0x0100),[0,0],be32(0),be32(0),MATRIX,new Array(24).fill(0),be32(2));
+  var tkhd=full("tkhd",0,3,be32(0),be32(0),be32(1),be32(0),be32(movieDur),be32(0),be32(0),be16(0),be16(0),be16(0),[0,0],MATRIX,be32(o.width*65536),be32(o.height*65536));
+  var edts=mono?null:box("edts",full("elst",0,0,be32(1),be32(movieDur),be32(shift),be16(1),be16(0)));
+  var mdhd=full("mdhd",0,0,be32(0),be32(0),be32(TS),be32(mediaDur),be16(0x55C4),be16(0));
+  var hdlr=full("hdlr",0,0,be32(0),str("vide"),be32(0),be32(0),be32(0),str("VideoHandler"),[0]);
+  var vmhd=full("vmhd",0,1,be16(0),be16(0),be16(0),be16(0));
+  var dinf=box("dinf",full("dref",0,0,be32(1),full("url ",0,1)));
+  // 色の印: 曲線は sRGB（13）と言われても、ふつうの動画と同じ Rec.709（1）で書く（Resolve の色管理が自動のときに、静止画と読み方がずれないように）
+  var cs=o.colorSpace||{}, PRI={bt709:1,bt470bg:5,smpte170m:6,bt2020:9,smpte432:12}, TRC={bt709:1,smpte170m:6,"iec61966-2-1":1,linear:8,pq:16,hlg:18}, MAT={rgb:0,bt709:1,bt470bg:5,smpte170m:6,"bt2020-ncl":9};
+  var colr=box("colr",str("nclx"),be16(PRI[cs.primaries]||1),be16(TRC[cs.transfer]||1),be16(MAT[cs.matrix]!=null?MAT[cs.matrix]:1),[cs.fullRange?0x80:0]);
+  var avc1=box("avc1",[0,0,0,0,0,0],be16(1),new Array(16).fill(0),be16(o.width),be16(o.height),be32(0x00480000),be32(0x00480000),be32(0),be16(1),new Array(32).fill(0),be16(0x18),be16(0xFFFF),box("avcC",u8(o.description)),colr,box("pasp",be32(1),be32(1)));
+  var stsd=full("stsd",0,0,be32(1),avc1), stts=full("stts",0,0,be32(1),be32(N),be32(DELTA));
+  var keys=[];o.chunks.forEach(function(ch,j){if(ch.key)keys.push(j+1);});
+  var stss=keys.length===N?null:full("stss",0,0,be32(keys.length),flat(keys,be32));
+  var ctts=mono?null:full("ctts",0,0,be32(N),flat(offs,function(v){return be32(1).concat(be32(v));}));
+  var stsc=full("stsc",0,0,be32(1),be32(1),be32(1),be32(1));
+  var stsz=full("stsz",0,0,be32(0),be32(N),flat(o.chunks,function(ch){return be32(ch.data.length);}));
+  var stco=full("stco",0,0,be32(N),flat(offsets,be32));
+  var parts=[stsd,stts];if(stss)parts.push(stss);if(ctts)parts.push(ctts);parts.push(stsc,stsz,stco);
+  var stbl=box.apply(null,["stbl"].concat(parts)), minf=box("minf",vmhd,dinf,stbl), mdia=box("mdia",mdhd,hdlr,minf);
+  var trak=edts?box("trak",tkhd,edts,mdia):box("trak",tkhd,mdia), moov=box("moov",mvhd,trak);
+  return new Blob([ftyp,mdatHead].concat(o.chunks.map(function(ch){return ch.data;})).concat([moov]),{type:"video/mp4"});
+}
+
+/* ========== 作業ファイル（写真ごと1つの .zip。圧縮なし・4GB まで） ========== */
+var CRC_T=(function(){var t=new Uint32Array(256);for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(u8){var c=0xFFFFFFFF;for(var i=0;i<u8.length;i++)c=CRC_T[(c^u8[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function dosTime(d){return (d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1);}
+function dosDate(d){return ((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate();}
+var TOO_BIG="作業ファイルが大きすぎて作れません（4GB まで）。置き場の使っていない写真を消すと保存できます。";
+/* 1枚ずつ読んで CRC を出し、頭・名前・中身を順に書く（全部を1つの塊にしない＝大きくてもメモリを食わない） */
+async function writeZip(out,entries,onStep){
+  var enc=new TextEncoder(), now=new Date(), dt=dosTime(now), dd=dosDate(now), off=0, cd=[];
+  for(var i=0;i<entries.length;i++){
+    var e=entries[i], nameB=enc.encode(e.name), size=e.blob.size, crc=crc32(new Uint8Array(await e.blob.arrayBuffer()));
+    if(off+30+nameB.length+size>0xFFFFFFFF)throw new UserError(TOO_BIG);
+    var lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);lh.setUint16(8,0,true);lh.setUint16(10,dt,true);lh.setUint16(12,dd,true);
+    lh.setUint32(14,crc,true);lh.setUint32(18,size,true);lh.setUint32(22,size,true);lh.setUint16(26,nameB.length,true);lh.setUint16(28,0,true);
+    await out(new Uint8Array(lh.buffer));await out(nameB);await out(e.blob);
+    var c=new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(10,0,true);c.setUint16(12,dt,true);c.setUint16(14,dd,true);
+    c.setUint32(16,crc,true);c.setUint32(20,size,true);c.setUint32(24,size,true);c.setUint16(28,nameB.length,true);c.setUint16(30,0,true);c.setUint16(32,0,true);c.setUint16(34,0,true);c.setUint16(36,0,true);c.setUint32(38,0,true);c.setUint32(42,off,true);
+    cd.push(new Uint8Array(c.buffer),nameB);
+    off+=30+nameB.length+size;
+    if(onStep)onStep(i+1);
+    await yieldNow();
+  }
+  var cdSize=cd.reduce(function(a,b){return a+b.length;},0);
+  if(off+cdSize+22>0xFFFFFFFF)throw new UserError(TOO_BIG);
+  var eo=new DataView(new ArrayBuffer(22));
+  eo.setUint32(0,0x06054b50,true);eo.setUint16(8,entries.length,true);eo.setUint16(10,entries.length,true);eo.setUint32(12,cdSize,true);eo.setUint32(16,off,true);
+  for(var j=0;j<cd.length;j++)await out(cd[j]);
+  await out(new Uint8Array(eo.buffer));
+}
+async function zipBlob(entries){var parts=[];await writeZip(function(b){parts.push(b);return Promise.resolve();},entries);return new Blob(parts,{type:"application/zip"});}
+var BAD_PJ="このファイルは写真の壁の作業ファイルではないか、壊れています。「作業ファイルに保存」で作った .zip を選んでください。";
+async function unzipBlob(blob){
+  var bad=new UserError(BAD_PJ);
+  var tailLen=Math.min(blob.size,65557);if(tailLen<22)throw bad;
+  var tail=new DataView(await blob.slice(blob.size-tailLen).arrayBuffer()), eocd=-1;
+  for(var i=tailLen-22;i>=0;i--){if(tail.getUint32(i,true)===0x06054b50){eocd=i;break;}}
+  if(eocd<0)throw bad;
+  var n=tail.getUint16(eocd+10,true), cdSize=tail.getUint32(eocd+12,true), cdOff=tail.getUint32(eocd+16,true);
+  if(cdOff+cdSize>blob.size)throw bad;
+  // 中身の一覧は、名前が __proto__ などでも壊れない入れ物に入れる
+  var cd=new DataView(await blob.slice(cdOff,cdOff+cdSize).arrayBuffer()), p=0, dec=new TextDecoder(), out=Object.create(null);
+  for(var k=0;k<n;k++){
+    if(p+46>cd.byteLength||cd.getUint32(p,true)!==0x02014b50)throw bad;
+    var method=cd.getUint16(p+10,true), csize=cd.getUint32(p+20,true), nl=cd.getUint16(p+28,true), el=cd.getUint16(p+30,true), cl=cd.getUint16(p+32,true), lo=cd.getUint32(p+42,true);
+    if(p+46+nl>cd.byteLength)throw bad;
+    var name=dec.decode(new Uint8Array(cd.buffer,cd.byteOffset+p+46,nl));p+=46+nl+el+cl;
+    if(method!==0)throw bad;
+    var lh=new DataView(await blob.slice(lo,lo+30).arrayBuffer());if(lh.byteLength<30||lh.getUint32(0,true)!==0x04034b50)throw bad;
+    var start=lo+30+lh.getUint16(26,true)+lh.getUint16(28,true);
+    if(start+csize>blob.size)throw bad;
+    out[name]=blob.slice(start,start+csize);
+  }
+  return out;
+}
+function downloadBlob(blob,fn){var a=document.createElement("a"),u=URL.createObjectURL(blob);a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u);},60000);}
+async function saveProject(){
+  if(isBusy()){say(BUSY_MSG,"warn");return;}
+  if(!photos.size)return;
+  flushPending();
+  var list=Array.from(photos.values()).sort(function(a,b){return a.order-b.order;}), meta=[], entries=[];
+  list.forEach(function(ph,i){var ext=(/\.[a-z0-9]{2,5}$/i.exec(ph.name)||[".jpg"])[0].toLowerCase(), fn="photos/"+String(i+1).padStart(3,"0")+ext;meta.push({id:ph.id,name:ph.name,type:ph.type,w:ph.w,h:ph.h,order:ph.order,sample:ph.sample,file:fn});entries.push({name:fn,blob:ph.blob});});
+  var pj={app:"kabe",v:1,savedAt:new Date().toISOString(),state:JSON.parse(JSON.stringify(state)),photos:meta};
+  entries.unshift({name:"project.json",blob:new Blob([JSON.stringify(pj,null,1)],{type:"application/json"})});
+  var total=entries.reduce(function(a,e){return a+e.blob.size+76+e.name.length*6;},22);
+  if(total>ZIP_MAX){say("作業ファイルが大きすぎて作れません（いま約 "+fmtSize(total)+"・4GB まで）。置き場の使っていない写真を消すと保存できます。","err");return;}
+  var fn="写真の壁_作業_"+stamp(new Date())+".zip", fh=null;
+  if(window.showSaveFilePicker){
+    // 押した直後に保存の窓を出す（中身を作ってから出すと、時間がかかったときにブラウザが窓を止めるため）
+    try{fh=await window.showSaveFilePicker({suggestedName:fn,id:"kabe-project",types:[{description:"写真の壁の作業ファイル",accept:{"application/zip":[".zip"]}}]});}
+    catch(e){if(e&&e.name==="AbortError")return;say(describeErr(e),"err");return;}
+  }
+  if(isBusy()){say(BUSY_MSG,"warn");return;}
+  busy=true;$("saveDone").hidden=true;renderAll();showBusy("作業ファイルを作っています",0,entries.length);
+  try{
+    var step=function(i){showBusy("作業ファイルを作っています",i,entries.length);}, check;
+    if(fh){
+      var w=await fh.createWritable();
+      try{await writeZip(function(b){return w.write(b);},entries,step);await w.close();}
+      catch(e){
+        try{await w.abort();}catch(e2){}
+        // 保存の窓で選んだ場所には、中身の無いファイルができている。消せたら消し、消せなければそう書く
+        var gone=false;try{if(typeof fh.remove==="function"){await fh.remove();gone=true;}}catch(e3){}
+        var left=gone?"":"選んだ場所に中身の無いファイル（"+fh.name+"）が残っていたら、消してください。";
+        throw new UserError(((e&&e.user)?e.message:"作業ファイルを保存できませんでした（空き容量が足りないかもしれません）。別の場所を選んで、もう一度保存してください。")+left);
+      }
+      check=await unzipBlob(await fh.getFile());
+    }else{
+      var parts=[];await writeZip(function(b){parts.push(b);return Promise.resolve();},entries,step);
+      var zip=new Blob(parts,{type:"application/zip"});check=await unzipBlob(zip);
+      if(check["project.json"]&&Object.keys(check).length===entries.length)downloadBlob(zip,fn);
+    }
+    // 読み直して、開ける形になっているかを確かめてから「保存しました」と言う
+    if(!check["project.json"]||Object.keys(check).length!==entries.length)throw new UserError("作業ファイルを読み直して確かめたら、中身が合いませんでした。もう一度保存してください。");
+    var msg="作業ファイルに保存しました（写真 "+list.length+"枚・"+fmtSize(total)+"）。";$("saveDone").textContent=msg;$("saveDone").hidden=false;say(msg,"ok");
+  }catch(e){say(describeErr(e),"err");}
+  finally{busy=false;hideBusy();renderAll();drainQueue();}
+}
+async function openProject(file){
+  if(isBusy()){say(BUSY_MSG,"warn");return;}
+  if(!guardWrite())return;
+  busy=true;renderAll();showBusy("作業ファイルを読んでいます",0,0);
+  var fresh=new Map(), bad=0, pj=null;
+  function closeFresh(){fresh.forEach(function(r){if(r.thumb)r.thumb.close();});}
+  try{
+    var files=await unzipBlob(file), pjb=files["project.json"];
+    if(!pjb)throw new UserError("このファイルは写真の壁の作業ファイルではありません。「作業ファイルに保存」で作った .zip を選んでください。");
+    if(pjb.size>PJ_MAX_BYTES)throw new UserError(BAD_PJ);
+    try{pj=JSON.parse(await pjb.text());}catch(e){pj=null;}
+    if(!pj||typeof pj!=="object"||pj.app!=="kabe"||!Array.isArray(pj.photos)||pj.photos.length>PJ_MAX_PHOTOS)throw new UserError(BAD_PJ);
+    for(var i=0;i<pj.photos.length;i++){
+      var m=pj.photos[i];showBusy("作業ファイルの写真を読んでいます",i+1,pj.photos.length);
+      if(!m||typeof m!=="object"||typeof m.id!=="string"||m.id.length>64||typeof m.file!=="string"||fresh.has(m.id)){bad++;continue;}
+      var b=files[m.file];if(!b){bad++;continue;}
+      try{
+        // 中身を写してから使う（開いた .zip を動かしても消えないように）
+        var blob=new Blob([await b.arrayBuffer()],{type:typeof m.type==="string"&&/^image\/[\w.+-]+$/.test(m.type)?m.type:"image/jpeg"});
+        var bmp=await decodeFull(blob), w=bmp.width, h=bmp.height, th=await resizeBmp(bmp,THUMB_W);if(th!==bmp)bmp.close();
+        var tc=document.createElement("canvas");tc.width=th.width;tc.height=th.height;tc.getContext("2d").drawImage(th,0,0);
+        fresh.set(m.id,{id:m.id,name:String(m.name||"写真").slice(0,200),type:blob.type,size:blob.size,w:w,h:h,order:i+1,sample:!!m.sample,blob:blob,thumbBlob:await toBlob(tc,"image/jpeg",0.9),thumb:th});
+      }catch(e){bad++;}
+      await yieldNow();
+    }
+    if(!fresh.size)throw new UserError("作業ファイルの写真を1枚も読めませんでした。いまの作業はそのままです。");
+  }catch(e){closeFresh();busy=false;hideBusy();renderAll();say(describeErr(e),"err");drainQueue();return;}
+  busy=false;hideBusy();renderAll();
+  // 読めた中身を見せてから置き換える（読めないファイルで、いまの作業を先に消さない）
+  if(photos.size){
+    var ok=await askConfirm("作業ファイルを開きますか","いまの作業（写真 "+photos.size+"枚と並び）を、開くファイルの中身（写真 "+fresh.size+"枚"+(bad?"・読めない写真 "+bad+"枚":"")+"）に置き換えます。いまの作業を残したいときは、先に「作業ファイルに保存」を押してください。","置き換える");
+    if(!ok||isBusy()){closeFresh();drainQueue();return;}
+  }
+  busy=true;renderAll();showBusy("作業ファイルの中身を入れています",0,0);
+  try{
+    if(saveBlocked&&db){saveBlocked=false;try{var kv0=await idb("kv",false,function(s){return s.get("state");});myRev=(kv0&&kv0.rev)||0;}catch(e){}}
+    await clearAll(true);
+    fresh.forEach(function(r){photos.set(r.id,r);});nextOrder=fresh.size+1;
+    state=normalizeState(pj.state);labelCache={};
+    var n=0;
+    for(var rec of fresh.values()){showBusy("このブラウザに残しています",++n,fresh.size);if(await putPhoto(rec)){try{var back=await getPhotoDB(rec.id);if(back&&back.blob&&photos.get(rec.id)===rec)rec.blob=back.blob;}catch(e){}}}
+    await saveState();
+    undoStack.length=0;redoStack.length=0;sel=null;wasFull=filledCount()===ALL_CELLS.length;
+    say("作業ファイルを開きました（写真 "+fresh.size+"枚）。"+(bad?"読めなかった写真が "+bad+"枚あります。":""),bad?"warn":"ok");
+  }catch(e){say(describeErr(e),"err");}
+  finally{busy=false;hideBusy();renderAll();drainQueue();}
+}
+async function clearAll(silent){
+  photos.forEach(function(ph){if(ph.thumb)ph.thumb.close();});
+  clearHi();
+  photos.clear();state=freshState();labelCache={};sel=null;swapFrom=null;undoStack.length=0;redoStack.length=0;unsaved.clear();
+  if(db&&canWrite&&!saveBlocked){
+    try{
+      await idb("photos",true,function(s){return s.clear();});
+      // 並びは消さずに「空」を新しい版で書く（ほかのタブが古い並びで上書きしないように）
+      await new Promise(function(res,rej){var t=db.transaction("kv","readwrite");t.objectStore("kv").put({state:null,at:Date.now(),rev:myRev+1},"state");t.oncomplete=function(){myRev++;res();};t.onerror=function(){rej(t.error);};t.onabort=function(){rej(t.error||new Error("abort"));};});
+      stateSaveOK=true;
+    }catch(e){noteStoreErr(e);stateSaveOK=false;}
+  }
+  renderStoreErr();
+  if(!silent){renderAll();say("このブラウザから写真と作業を消しました。","ok");}
+}
+
+/* ========== 確かめる窓 ========== */
+function askConfirm(title,text,yes){
+  var d=$("dlg");
+  if(!d.showModal)return Promise.resolve(window.confirm(title+"\n\n"+text));
+  $("dlgTitle").textContent=title;$("dlgText").textContent=text;$("dlgYes").textContent=yes||"進める";typeset($("dlg"));
+  dlgOpenFlag=true;renderAll();
+  return new Promise(function(res){
+    function done(v){d.close();$("dlgYes").removeEventListener("click",y);$("dlgNo").removeEventListener("click",n);d.removeEventListener("cancel",n);dlgOpenFlag=false;renderAll();res(v);setTimeout(drainQueue,0);}
+    function y(){done(true);}function n(e){if(e)e.preventDefault();done(false);}
+    $("dlgYes").addEventListener("click",y);$("dlgNo").addEventListener("click",n);d.addEventListener("cancel",n);
+    d.showModal();$("dlgNo").focus();
+  });
+}
+
+/* ========== 知らせる ========== */
+function say(text,kind){var m=$("msg");m.textContent=text||"";m.className="msg"+(kind?" "+kind:"");}
+
+/* ========== つなぐ ========== */
+function bindUI(){
+  document.addEventListener("click",function(e){
+    var a=e.target.closest&&e.target.closest("[data-act]");if(!a)return;
+    var act=a.dataset.act;
+    if(act==="files"){if(guardWrite())$("inFiles").click();}else if(act==="folder")pickFolder();else if(act==="sample")loadSamples();
+  });
+  $("inFiles").addEventListener("change",function(){var es=filesToEntries(this.files);this.value="";importEntries(es,{kind:"auto"});});
+  $("inFolder").addEventListener("change",function(){var es=filesToEntries(this.files);this.value="";importEntries(es,{kind:"auto"});});
+  $("inBack").addEventListener("change",function(){var es=filesToEntries(this.files);this.value="";if(pickBackTarget>=0)importEntries(es,{kind:"back",g:pickBackTarget});});
+  $("inProject").addEventListener("change",function(){var f=this.files&&this.files[0];this.value="";if(f)openProject(f);});
+  $("btnUndo").addEventListener("click",undo);$("btnRedo").addEventListener("click",redo);
+  $("tab-edit").addEventListener("click",function(){setMode("edit");});$("tab-play").addEventListener("click",function(){setMode("play");});
+  $("btnPlay").addEventListener("click",function(){if(play.playing)pausePlay();else playFrom(play.t>=previewEnd()-0.05?T0:play.t);});
+  $("bigplay").addEventListener("click",function(){playFrom(T0);});
+  $("seek").addEventListener("input",function(){var v=Number(this.value);play.started=true;if(play.playing)playFrom(v);else{play.t=v;setPlayUI();requestRender();}});
+  $("btnExport").addEventListener("click",doExport);$("btnCancel").addEventListener("click",function(){cancelReq=true;$("expNow").textContent="止めています…";});
+  $("btnSave").addEventListener("click",saveProject);$("btnOpen").addEventListener("click",function(){if(isBusy()){say(BUSY_MSG,"warn");return;}if(guardWrite())$("inProject").click();});
+  $("bannerReload").addEventListener("click",function(){location.reload();});
+  $("btnSampleOff").addEventListener("click",removeSamples);
+  $("btnClear").addEventListener("click",async function(){if(!photos.size)return;if(isBusy()){say(BUSY_MSG,"warn");return;}if(!guardWrite())return;var ok=await askConfirm("このブラウザから消しますか","写真 "+photos.size+"枚と、壁の並び・名前・秒を、このブラウザから消します。パソコンにある元の写真と、保存した作業ファイルはそのまま残ります。消したあとは戻せません。","消す");if(ok&&!isBusy())await clearAll(false);});
+  [["exW","w"],["exF","f"],["exV2","v2"],["exV3","v3"],["exG","g"]].forEach(function(p){$(p[0]).addEventListener("change",function(){state.ex[p[1]]=this.checked;scheduleSave();});});
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="res"]'),function(r){r.addEventListener("change",function(){if(this.checked){state.res=this.value;scheduleSave();if(cropView)cropView.draw();}});});
+  var tmIds=[["tmWave","wave"],["tmFlip","flip"],["tmBlink","blink"],["tmLen","len"]];
+  tmIds.forEach(function(p){$(p[0]).addEventListener("input",function(){
+    if(!canWrite){guardWrite();renderExportInfo();return;}
+    var next=Object.assign({},state.times);tmIds.forEach(function(q){next[q[1]]=Number($(q[0]).value);});
+    var ok=tmIds.every(function(q){return isFinite(next[q[1]])&&$(q[0]).value!=="";})&&validTimes(next), eb=$("tmErr");
+    if(ok){state.times=next;eb.hidden=true;scheduleSave();renderExportInfo();if(mode==="play"){buildChips();setPlayUI();requestRender();}}
+    else{eb.hidden=false;eb.textContent="秒の順番が合いません。波 → 裏返す（波の0.5秒あと以降） → 点滅（裏返すの0.6秒あと以降） → 長さ（60秒まで）の順にしてください。書き出しには前の秒を使います。";}
+  });});
+  $("tmReset").addEventListener("click",function(){if(!guardWrite())return;state.times=Object.assign({},TIMES_DEFAULT);$("tmErr").hidden=true;renderExportInfo();scheduleSave();if(mode==="play"){buildChips();setPlayUI();requestRender();}});
+
+  var ov=$("ov");
+  ov.addEventListener("click",function(e){
+    var c=e.target.closest(".cell");if(c){onCellClick(c.dataset.id);return;}
+    var l=e.target.closest(".lab");if(l){var g=Number(l.dataset.g);select({kind:"label",g:g});setTimeout(function(){var i=$("labN");if(i)i.focus();},0);}
+  });
+  ov.addEventListener("dragstart",function(e){var c=e.target.closest&&e.target.closest(".cell");if(!c||!state.cells[c.dataset.id]){e.preventDefault();return;}e.dataTransfer.setData(DT_TYPE,JSON.stringify({kind:"cell",id:c.dataset.id}));e.dataTransfer.effectAllowed="move";});
+  ov.addEventListener("keydown",onGridKey);
+  ov.addEventListener("focusin",function(e){var c=e.target.closest&&e.target.closest(".cell");if(c)setFocusCell(c.dataset.id,false);});
+  Object.keys(cellBtns).forEach(function(id){dropTarget(cellBtns[id],function(e){handleDrop(e,{kind:"cell",id:id});});});
+  labBtns.forEach(function(b,g){if(g<PHOTO_GROUPS)dropTarget(b,function(e){if(hasFiles(e))handleDrop(e,{kind:"group",g:g});});});
+  var row=$("backRow");
+  row.addEventListener("click",function(e){var b=e.target.closest(".back");if(!b)return;var g=Number(b.dataset.g);
+    if(sel&&sel.kind==="tray"){placeTrayPhoto(sel.id,{kind:"back",g:g});sel={kind:"back",g:g};renderAll();return;}
+    select({kind:"back",g:g});});
+  row.addEventListener("dragover",function(e){var b=e.target.closest(".back");if(!b||!(hasFiles(e)||hasOurs(e)))return;e.preventDefault();e.stopPropagation();b.classList.add("drop");});
+  row.addEventListener("dragleave",function(e){var b=e.target.closest(".back");if(b)b.classList.remove("drop");});
+  row.addEventListener("drop",function(e){var b=e.target.closest(".back");if(!b)return;e.preventDefault();e.stopPropagation();b.classList.remove("drop");hideVeil();handleDrop(e,{kind:"back",g:Number(b.dataset.g)});});
+  row.addEventListener("dragstart",function(e){var b=e.target.closest(".back");if(!b||!state.backs[Number(b.dataset.g)]){e.preventDefault();return;}e.dataTransfer.setData(DT_TYPE,JSON.stringify({kind:"back",g:Number(b.dataset.g)}));});
+  var tray=$("tray");
+  tray.addEventListener("click",function(e){var b=e.target.closest(".titem");if(!b)return;select({kind:"tray",id:b.dataset.id});say("入れたいマスを押してください（やめるときは Esc）。");});
+  tray.addEventListener("dragstart",function(e){var b=e.target.closest(".titem");if(!b)return;e.dataTransfer.setData(DT_TYPE,JSON.stringify({kind:"tray",id:b.dataset.id}));e.dataTransfer.effectAllowed="move";});
+  dropTarget(tray,function(e){handleDrop(e,{kind:"tray"});});
+
+  // ページのどこに放しても、ブラウザが写真を開いて作業が消えないようにする
+  var depth=0;
+  document.addEventListener("dragenter",function(e){if(hasFiles(e)){depth++;showVeil();}});
+  document.addEventListener("dragleave",function(e){if(hasFiles(e)){depth=Math.max(0,depth-1);if(!depth)hideVeil();}});
+  document.addEventListener("dragover",function(e){if(hasFiles(e)||hasOurs(e)){e.preventDefault();e.dataTransfer.dropEffect=hasFiles(e)?"copy":"none";}});
+  document.addEventListener("drop",function(e){depth=0;hideVeil();if(!hasFiles(e))return;e.preventDefault();if(dlgOpenFlag)return;if(mode!=="edit"){say("写真は「並べる」の画面で入れてください。","warn");return;}entriesFromDrop(e.dataTransfer).then(function(es){importEntries(es,{kind:"auto"});});});
+
+  document.addEventListener("keydown",function(e){
+    var tag=(e.target&&e.target.tagName)||"", typing=tag==="INPUT"&&!/range|checkbox|radio/.test(e.target.type)||tag==="TEXTAREA";
+    if($("dlg").open)return;
+    if((e.ctrlKey||e.metaKey)&&!e.altKey&&!typing){
+      var k=e.key.toLowerCase();
+      if(k==="z"&&!e.shiftKey){e.preventDefault();undo();return;}
+      if(k==="y"||(k==="z"&&e.shiftKey)){e.preventDefault();redo();return;}
+    }
+    if(e.key==="Escape"&&(swapFrom||sel||backFromWall>=0)&&!typing){swapFrom=null;backFromWall=-1;sel=null;renderAll();say("");return;}
+    if(mode==="play"&&!typing&&tag!=="BUTTON"&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+      if(e.key===" "){e.preventDefault();if(play.playing)pausePlay();else playFrom(play.t>=previewEnd()-0.05?T0:play.t);}
+      else if(e.key==="ArrowRight"||e.key==="ArrowLeft"){if(tag==="INPUT")return;e.preventDefault();var v=clamp(play.t+(e.key==="ArrowRight"?5:-5),T0,previewEnd());play.started=true;if(play.playing)playFrom(v);else{play.t=v;setPlayUI();requestRender();}}
+    }
+  });
+  window.addEventListener("resize",requestRender);
+  if(window.ResizeObserver)new ResizeObserver(requestRender).observe($("stage"));
+  document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden"){if(saveTimer)saveState();if(play.playing)pausePlay();}});
+  window.addEventListener("pagehide",function(){if(saveTimer)saveState();});
+  // 読み込み中・書き出し中・このブラウザに残せていないときは、閉じる前に引き止める
+  window.addEventListener("beforeunload",function(e){if(importing||busy||(photos.size&&(unsaved.size||!stateSaveOK||!db||saveBlocked))){e.preventDefault();e.returnValue="";}});
+  (function watchDpr(){if(!window.matchMedia)return;var mq=window.matchMedia("(resolution: "+(window.devicePixelRatio||1)+"dppx)");var f=function(){mq.removeEventListener("change",f);requestRender();watchDpr();};if(mq.addEventListener)mq.addEventListener("change",f);})();
+}
+function setFocusCell(id,move){
+  if(cellBtns[focusCell])cellBtns[focusCell].tabIndex=-1;
+  focusCell=id;cellBtns[id].tabIndex=0;if(move)cellBtns[id].focus();
+}
+function onGridKey(e){
+  var c=e.target.closest&&e.target.closest(".cell");if(!c)return;
+  var id=c.dataset.id, dirs={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+  if(dirs[e.key]){
+    e.preventDefault();
+    var p=parseCell(id), tp=LAYOUT[p.g].tiles[p.i], d=dirs[e.key], best=null, bs=1e9;
+    ALL_CELLS.forEach(function(o){if(o===id)return;var q=parseCell(o), tq=LAYOUT[q.g].tiles[q.i], dx=tq.x-tp.x, dy=tq.y-tp.y, along=dx*d[0]+dy*d[1], across=Math.abs(dx*d[1])+Math.abs(dy*d[0]);if(along<=0)return;var sc=along+across*3;if(sc<bs){bs=sc;best=o;}});
+    if(best)setFocusCell(best,true);
+  }else if(e.key==="Delete"||e.key==="Backspace"){
+    if(state.cells[id]){e.preventDefault();sel={kind:"cell",id:id};clearSelected();}
+  }
+}
+
+/* ほかのタブで同じページを開いたとき: 先に開いたタブだけが書ける（Web Locks）。あとのタブは見るだけ。
+   鍵の仕組みが無いブラウザは、知らせだけ出す（保存の前の版の番号の確かめは、どちらでも効く） */
+function takeLock(){
+  if(!navigator.locks||!navigator.locks.request)return Promise.resolve(null);
+  return new Promise(function(res){
+    try{navigator.locks.request("kabe-edit",{ifAvailable:true},function(lock){if(!lock){res(false);return;}res(true);return new Promise(function(){});}).catch(function(){res(null);});}
+    catch(e){res(null);}
+  });
+}
+async function setupTabs(){
+  var got=await takeLock();
+  if(got===false){
+    canWrite=false;
+    showBanner("このページは、ほかのタブでも開いています。書き換えは、先に開いたタブだけでできます。このタブでは、見る・試写・書き出しだけできます（ほかのタブを閉じたら、読み込み直してください）。",false);
+    try{navigator.locks.request("kabe-edit",function(){showBanner("ほかのタブが閉じられました。読み込み直すと、このタブで続けられます。",true);return new Promise(function(){});});}catch(e){}
+  }else if(got===null&&window.BroadcastChannel){
+    var ch=new BroadcastChannel("kabe"), me=newId();
+    ch.onmessage=function(e){var d=e.data||{};if(d.from===me)return;if(d.type==="hello")ch.postMessage({type:"here",from:me});if(d.type==="hello"||d.type==="here")showBanner("このページが、ほかのタブでも開いています。片方のタブだけで作業してください（もう片方の変更が残らないことがあります）。",false);};
+    ch.postMessage({type:"hello",from:me});
+  }
+}
+
+/* 折らない塊と、最後の行の孤立文字よけ（見本.html・Resolve/使いはじめ.html と同じ規則）。
+   あとから作る文（選んだ所の説明・確かめる窓）にも、作ったあとで同じ処理をかける */
+function typeset(root){
+  root=root||document;
+  function pick(sel){var a=Array.prototype.slice.call(root.querySelectorAll(sel));if(root!==document&&root.matches&&root.matches(sel))a.unshift(root);return a;}
+  var RE=/[「『（〈《(]*(?:[「『（〈《(][^「『（〈《(」』）〉》)]{0,6}[」』）〉》)]|[ァ-ヶー]{2,})[、。，．！？」』）〉》)・]*/g;
+  var SKIP="script,style,svg,.stage,.ph,.tail,button,label,.panel .btns";
+  pick("header p,.note,.dlg-body p,#selBody p").forEach(function(el){
+    if(el.closest(".stage"))return;
+    var walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,{acceptNode:function(n){var p=n.parentElement;return (p.closest(SKIP)||/flex|grid/.test(getComputedStyle(p).display))?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT;}});
+    var nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+    nodes.forEach(function(node){
+      var s=node.nodeValue;RE.lastIndex=0;if(!RE.test(s))return;RE.lastIndex=0;
+      var frag=document.createDocumentFragment(),last=0,m;
+      while((m=RE.exec(s))){if(m.index>last)frag.appendChild(document.createTextNode(s.slice(last,m.index)));var sp=document.createElement("span");sp.className="ph";sp.textContent=m[0];frag.appendChild(sp);last=m.index+m[0].length;}
+      if(last<s.length)frag.appendChild(document.createTextNode(s.slice(last)));
+      node.parentNode.replaceChild(frag,node);
+    });
+  });
+  var TAIL=5;
+  pick("header p,p.note,.dlg-body p,#selBody p").forEach(function(el){
+    if(el.closest(".stage"))return;
+    var picked=[],count=0;
+    for(var n=el.lastChild;n&&count<TAIL;n=n.previousSibling){
+      if(n.nodeType===3){
+        var t=picked.length?n.nodeValue:n.nodeValue.replace(/\s+$/,"");if(!t)continue;
+        var need=TAIL-count;
+        if(t.length>need){var rest=document.createTextNode(t.slice(t.length-need));n.nodeValue=t.slice(0,t.length-need);n.parentNode.insertBefore(rest,n.nextSibling);picked.unshift(rest);count+=need;break;}
+        if(!picked.length)n.nodeValue=t;picked.unshift(n);count+=t.length;
+      }else if(n.nodeType===1&&n.classList.contains("ph")){picked.unshift(n);count+=n.textContent.length;}
+      else break;
+    }
+    if(count<TAIL||!picked.length||!picked[0].previousSibling)return;
+    var span=document.createElement("span");span.className="tail";picked[0].parentNode.insertBefore(span,picked[0]);picked.forEach(function(x){span.appendChild(x);});
+  });
+}
+
+/* ========== はじめる ========== */
+async function init(){
+  buildOverlay();bindUI();typeset();setPlayUI();
+  loading=true;renderAll();showBusy("前回の作業を読み込んでいます",0,0);
+  if(typeof createImageBitmap==="undefined"){loading=false;hideBusy();renderAll();say("このブラウザでは写真を扱えません。パソコンの Chrome か Edge の新しい版で開いてください。","err");return;}
+  await setupTabs();
+  try{db=await idbOpen();}catch(e){db=null;}
+  if(db){try{await loadFromDB();}catch(e){saveBlocked=true;say("前回の作業を読み込めませんでした。ページを読み込み直すか、「作業ファイルを開く」で作業ファイルを開いてください。","err");}}
+  loading=false;hideBusy();labelCache={};renderStoreErr();renderAll();drainQueue();
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){labelCache={};requestRender();});
+}
+/* 確かめ用の出入り口（書き出しと同じ関数で1920×1080に描いた絵・写真の一覧）。写真の中身は外へ出さない */
+window.__kabe={sceneAt:sceneAt,shotsAt:function(t){return shotStates(sceneAt(t,"play")).map(function(s){return {k:s.k,o:s.o,scl:s.scl,px:s.px};});},anchorView:anchorView,
+  renderAt:function(t,m,k){var c=document.createElement("canvas");c.width=W;c.height=H;drawScene(c.getContext("2d",{alpha:false}),1,sceneAt(t,m||"play",k||0),{src:function(ph){return ph.thumb;}});return c.toDataURL("image/png");},
+  photoList:function(){return Array.from(photos.values()).map(function(p){return {id:p.id,name:p.name,w:p.w,h:p.h,sample:p.sample};});},LAYOUT:LAYOUT,cropRegion:cropRegion,labelLayout:labelLayout,guideSteps:guideSteps,midRect:midRect,state:function(){return state;},photoCount:function(){return photos.size;},filled:filledCount,busy:isBusy,canWrite:function(){return canWrite;},monthNum:monthNum,hiStats:function(){return {built:hiBuilt,cached:hiCache.size,bytes:hiBytes,fail:hiFail.size};},mux:muxMP4,zip:zipBlob,unzip:unzipBlob,render:requestRender,setMode:setMode};
+init();
+})();
+</script>
+</body>
+</html>
