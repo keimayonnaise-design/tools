@@ -8,10 +8,11 @@
 <meta name="robots" content="noindex, nofollow">
 <title>写真の壁</title>
 <!--
-  写真の壁 v1（2026-09-29）
+  写真の壁 v1.2（2026-09-29・v1.2＝「次に移る」マス）
   学校紹介2026 の行事の章「B 写真の壁から1枚に飛び込む」を、自分の写真で作る道具。
   正はこのファイル（動画制作/学校紹介2026/行事の見せ方/写真の壁.html）。公開の写しは GitHub の tools/kabe/index.html（そのまま写す）。
   動きと寸法は 見本.html の OPT_B と同じ値（B_TW・B_Y・B_GROUPS・EVENTS の秒）。ここを変えると見本とずれる。
+  ただし全画面の最後と、次の行事へ移る所だけは見本と違う（9/29 本人の指摘）: 飛び込むマスの右隣（8月は下）の「次に移る」マスの写真で全画面を終え、そのマスから次の飛び込むマスへ移る。次に移るマスが空の月は見本と同じ（飛び込む写真に戻ってから移る）。
   写真は通信しない（CSP で connect-src 'none'）。AI の確かめは「見本の写真で試す」の絵だけで行う。
   直したら python 動画制作/tools/kabe_check.py（見本との突き合わせ・操作・書き出し）を流す。
 
@@ -43,6 +44,8 @@ h1{font-size:32px;line-height:1.35;margin:0}
 h2{font-size:20px;line-height:1.45;margin:0}
 h3{font-size:16px;line-height:1.5;margin:0}
 p{margin:0}
+/* hidden を付けた物は、display を決めた部品でも必ず隠す（試写に切り替えても「写真を選ぶ」の列が残っていた） */
+[hidden]{display:none!important}
 .wrap{max-width:1480px;margin:0 auto;padding:var(--sp5) 16px var(--sp7)}
 header.top{display:grid;gap:var(--sp2);margin-bottom:var(--sp6);max-width:46em}
 .lead{font-size:17px}
@@ -77,6 +80,8 @@ header.top{display:grid;gap:var(--sp2);margin-bottom:var(--sp6);max-width:46em}
 .cell:focus-visible,.lab:focus-visible{outline:3px solid #FFFFFF;outline-offset:2px}
 .cell.drop,.lab.drop{box-shadow:0 0 0 3px #FFFFFF,inset 0 0 0 300px rgba(244,204,96,.28)}
 .cell .badge{position:absolute;left:3px;top:3px;font-size:14px;line-height:1.35;padding:0 6px;border-radius:4px;background:var(--accent);color:var(--accent-ink);font-weight:700;pointer-events:none;white-space:nowrap}
+/* 次に移る＝飛び込むと同じ形で、色だけ白（入口の黄色と見分ける） */
+.cell .badge.next{background:#FFFFFF;color:#0B121C;box-shadow:0 0 0 1px rgba(11,18,28,.35)}
 .cell .plus{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;color:rgba(255,255,255,.62);pointer-events:none}
 .cell.has .plus{display:none}
 .hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(600px,calc(100% - 24px));display:grid;gap:var(--sp3);justify-items:center;text-align:center;padding:var(--sp5);border-radius:var(--r-l);background:rgba(11,18,28,.93);color:#FFFFFF;border:2px dashed #8FA3C0}
@@ -140,13 +145,6 @@ header.top{display:grid;gap:var(--sp2);margin-bottom:var(--sp6);max-width:46em}
 
 .shelf{display:grid;gap:var(--sp2)}
 .shelf-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--sp2) var(--sp3)}
-.back-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--sp3)}
-.back{position:relative;display:grid;gap:4px;justify-items:stretch;padding:8px;border-radius:var(--r-m);border:1px solid var(--line);background:var(--card);cursor:pointer;text-align:left;min-height:44px}
-.back canvas{width:100%;aspect-ratio:16/9;height:auto;border-radius:4px;background:#22324A;display:block}
-.back .bm{font-size:14px;font-weight:700}
-.back .bsame{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);max-width:calc(100% - 24px);padding:2px 10px;border-radius:999px;background:rgba(11,18,28,.82);color:#FFFFFF;font-size:14px;line-height:1.5;pointer-events:none;text-align:center;width:max-content}
-.back[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--accent)}
-.back.drop{box-shadow:0 0 0 3px var(--accent)}
 .tray-list{display:flex;flex-wrap:wrap;gap:var(--sp2);min-height:44px;padding:var(--sp2);border-radius:var(--r-m);border:1px dashed var(--line);background:rgba(255,255,255,.5)}
 .tray-list.drop{border-color:var(--ink);background:#FFF8E1}
 .tray-list .empty{align-self:center;padding:0 var(--sp2)}
@@ -213,7 +211,6 @@ footer.foot{margin-top:var(--sp7);font-size:14px;color:var(--muted);display:grid
   .stage{min-width:740px}
   .hint{padding:var(--sp4)}
   .hint .note{text-align:left}
-  .back-row{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media (max-width:640px){
   .just{text-align:left}
@@ -289,14 +286,6 @@ footer.foot{margin-top:var(--sp7);font-size:14px;color:var(--muted);display:grid
 
     <p class="msg" id="msg" role="status" aria-live="polite"></p>
 
-    <section class="shelf" aria-labelledby="h-backs">
-      <div class="shelf-head">
-        <h3 id="h-backs">戻るときの写真</h3>
-        <p class="note">全画面の最後に見せて、壁へ戻る写真です。空いていれば、飛び込む写真のまま戻ります。枠を押すと、写真を選べます。</p>
-      </div>
-      <div class="back-row" id="backRow"></div>
-    </section>
-
     <section class="shelf" aria-labelledby="h-tray">
       <div class="shelf-head">
         <h3 id="h-tray">置き場<span id="trayCount"></span></h3>
@@ -317,18 +306,18 @@ footer.foot{margin-top:var(--sp7);font-size:14px;color:var(--muted);display:grid
       <p class="note just">保存するフォルダを選ぶと、その中に「写真の壁_日付」のフォルダを作って入れます。</p>
       <fieldset class="items" id="exFields">
         <legend class="sr">書き出すもの</legend>
-        <label class="item"><input type="checkbox" id="exW" checked><span><b>① 壁の静止画</b> 5枚<span class="sub">寄る・引くとき（ダイナミックズーム）に使う</span></span></label>
+        <label class="item"><input type="checkbox" id="exW" checked><span><b>① 壁の静止画</b> 1枚<span class="sub"><span class="ph">寄る・引くとき</span><span class="ph">（ダイナミックズーム）は、</span><span class="ph">全部この1枚で</span></span></span></label>
         <div class="res" role="radiogroup" aria-label="壁の静止画の大きさ">
           <label><input type="radio" name="res" value="4k" checked>4K（3840×2160）</label>
           <label><input type="radio" name="res" value="8k">8K（7680×4320）</label>
         </div>
         <p class="note just res-note">まず 4K で試して、寄り切った所のぼやけが気になったら 8K にします。8K はファイルが大きく、書き出しにも時間がかかります。</p>
-        <label class="item"><input type="checkbox" id="exF" checked><span><b>② 全画面の写真</b> 8枚<span class="sub">飛び込むマスと同じ切り方（寄り切ったら切り替える）</span></span></label>
+        <label class="item"><input type="checkbox" id="exF" checked><span><b>② 全画面の写真</b> 8枚<span class="sub"><span class="ph">飛び込む・次に移るマスと</span><span class="ph">同じ切り方</span><span class="ph">（寄り切ったら切り替える）</span></span></span></label>
         <label class="item"><input type="checkbox" id="exV2" checked><span><b>③ 写真が並ぶ動き</b> MP4<span class="sub">1920×1080・24コマ/秒・<span id="v2len"></span>秒</span></span></label>
         <label class="item"><input type="checkbox" id="exV3" checked><span><b>④ 来年の動き</b> MP4<span class="sub">波→裏返る→空の枠が点滅・<span id="v3len"></span>秒</span></span></label>
         <label class="item"><input type="checkbox" id="exG" checked><span><b>⑤ ズームの目安</b> 8枚<span class="sub">枠の始まりと終わり（動画には入れない）</span></span></label>
       </fieldset>
-      <p class="note just">使い方の説明（読んでください.txt）も一緒に入ります。戻るときの写真を決めていない月は、壁の静止画も全画面の写真も、前と同じ絵になります（そのまま使えます）。</p>
+      <p class="note just">使い方の説明（読んでください.txt）も一緒に入ります。次に移るマスが空の月は、全画面の「次に移る」も飛び込む写真になります。</p>
       <details class="more" id="timesBox">
         <summary>④ 来年の動きの秒を変える（声に合わせるとき）</summary>
         <div class="more-body">
@@ -374,14 +363,13 @@ footer.foot{margin-top:var(--sp7);font-size:14px;color:var(--muted);display:grid
 </main>
 
 <footer class="foot">
-  <p>写真の壁 v1（2026年9月29日）。動きの秒は、学校紹介の動画の「行事」の場面に合わせてあります（④の秒は変えられます）。</p>
+  <p>写真の壁 v1.2（2026年9月29日）。動きの秒は、学校紹介の動画の「行事」の場面に合わせてあります（④の秒は変えられます）。</p>
   <p>写真と作業の記憶は、このブラウザの中にだけあります。別のブラウザや別のパソコンには移りません（移すときは作業ファイル）。</p>
 </footer>
 </div>
 
 <input type="file" id="inFiles" accept="image/*,.heic,.heif" multiple hidden>
 <input type="file" id="inFolder" webkitdirectory multiple hidden>
-<input type="file" id="inBack" accept="image/*,.heic,.heif" hidden>
 <input type="file" id="inProject" accept=".zip,application/zip" hidden>
 <dialog class="dlg" id="dlg" aria-labelledby="dlgTitle">
   <div class="dlg-body">
@@ -439,6 +427,11 @@ function cellId(g,i){return "g"+g+"t"+i;}
 function parseCell(id){var m=/^g(\d)t(\d)$/.exec(id);return m?{g:+m[1],i:+m[2]}:null;}
 var ALL_CELLS=[];LAYOUT.forEach(function(G){if(G.g<PHOTO_GROUPS)G.tiles.forEach(function(tp){ALL_CELLS.push(cellId(tp.g,tp.i));});});
 function anchorView(g){var tp=LAYOUT[g].tiles[ANCHOR_I];return {x:tp.x+TW/2,y:tp.y+TH/2,z:W/TW};}
+// 次に移るマス＝全画面の最後の写真。ここから次の行事の飛び込むマスへ移る。2列の月は飛び込むの右隣、1列の月（8月）は飛び込むのすぐ下
+function exitIndex(g){return LAYOUT[g].cols===2?4+ANCHOR_I:ANCHOR_I+1;}
+function tileView(g,i){var tp=LAYOUT[g].tiles[i];return {x:tp.x+TW/2,y:tp.y+TH/2,z:W/TW};}
+// 次に移るマスが空の月は、今までどおり飛び込むマスから次へ移る
+function exitView(g){return exitOf(g)?tileView(g,exitIndex(g)):anchorView(g);}
 
 /* ========== 動きの式（見本と同じ） ========== */
 function clamp(x,a,b){a=a==null?0:a;b=b==null?1:b;return x<a?a:(x>b?b:x);}
@@ -459,8 +452,8 @@ function curEvent(t){for(var i=0;i<EVENTS.length;i++){if(t>=EVENTS[i].t&&t<EVENT
 function timesAbs(){var s=state.times;return {wave:REST+s.wave,flip:REST+s.flip,blink:REST+s.blink,fade:REST+s.blink+3.68};}
 function previewEnd(){return timesAbs().fade+1.0;}
 
-/* ある秒の壁の様子。mode: play（見本と同じ動き）／still（並び終わった壁・k＝戻る写真に替わった行事の数）／clip（カメラを全体に止めた動き＝②③） */
-function sceneAt(t,mode,k,backG){
+/* ある秒の壁の様子。mode: play（見本と同じ動き）／still（並び終わった壁。マスの絵は途中で変わらないので、静止画は1枚）／clip（カメラを全体に止めた動き＝③④） */
+function sceneAt(t,mode){
   var tm=timesAbs(), full={x:960,y:540,z:1}, cam=full, fs=null;
   if(mode==="play"){
     var a0=anchorView(0), push={x:lerp(960,a0.x,0.25),y:540,z:1.06};
@@ -468,25 +461,23 @@ function sceneAt(t,mode,k,backG){
     else if(t<21.97)cam=fly(seg(t,20.97,1.0),push,a0);
     else if(t<80.3){
       var ei=curEvent(t), ev=EVENTS[ei], enterEnd=ei===0?21.97:ev.t+1.7;
-      if(ei>0&&t<enterEnd)cam=fly(seg(t,ev.t,1.7),anchorView(ei-1),anchorView(ei),1.7);
+      if(ei>0&&t<enterEnd)cam=fly(seg(t,ev.t,1.7),exitView(ei-1),anchorView(ei),1.7);
       else{fs={ev:ei,t0:enterEnd,t1:ev.end};cam=anchorView(ei);}
     }
-    else if(t<81.5)cam=fly(seg(t,80.3,1.2),anchorView(3),full);
+    else if(t<81.5)cam=fly(seg(t,80.3,1.2),exitView(3),full);
   }
   var still=mode==="still", worldA=fs?0:(mode==="play"&&t>=tm.fade?1-seg(t,tm.fade,0.45):1), inDive=cam.z>2.5;
   var labels=LAYOUT.map(function(G){return still?1:clamp(seg(t,GSTART[G.g],0.3)*3)*(1-seg(t,tm.flip,0.5))*(inDive?0:1);});
   var tiles=[];
   LAYOUT.forEach(function(G){G.tiles.forEach(function(tp){
-    var r={g:tp.g,i:tp.i,x:tp.x,y:tp.y,scale:1,sx:1,alpha:1,flip:false,bk:0,back:false};
-    if(still){r.back=tp.i===ANCHOR_I&&tp.g<PHOTO_GROUPS&&(tp.g<(k||0)||tp.g===backG);}
-    else{
+    var r={g:tp.g,i:tp.i,x:tp.x,y:tp.y,scale:1,sx:1,alpha:1,flip:false,bk:0};
+    if(!still){
       var u=seg(t,GSTART[tp.g]+tp.i*0.08,0.3);
       var w0=tm.wave+tp.g*0.25, wave=(t>=w0&&t<w0+0.5)?1+0.08*Math.sin(Math.PI*seg(t,w0,0.5)):1;
       var fu=seg(t,tm.flip+tp.g*0.22+tp.i*0.03,0.5), ang=fu<0.5?fu*180:(fu-0.5)*180-90;
       r.scale=popS(u)*wave;r.sx=Math.max(0.02,Math.abs(Math.cos(ang*Math.PI/180)));r.alpha=clamp(u*3);
       r.flip=fu>=0.5;
       if(r.flip){var ph=t>=tm.blink?((t-tm.blink)/BLINK)%1:1;r.bk=t>=tm.blink?clamp(Math.min(ph/0.15,(0.55-ph)/0.15)):0;}
-      r.back=tp.i===ANCHOR_I&&tp.g<PHOTO_GROUPS&&t>=EVENTS[tp.g].end;
     }
     tiles.push(r);
   });});
@@ -497,7 +488,7 @@ function sceneAt(t,mode,k,backG){
 var photos=new Map();   // id → {id,name,type,w,h,order,sample,blob,thumbBlob,thumb}
 var state=freshState();
 var nextOrder=1;
-function freshState(){return {v:1,labels:LABELS_DEFAULT.map(function(l){return {m:l.m,n:l.n};}),cells:{},backs:[null,null,null,null],times:Object.assign({},TIMES_DEFAULT),res:"4k",ex:{w:true,f:true,v2:true,v3:true,g:true}};}
+function freshState(){return {v:2,labels:LABELS_DEFAULT.map(function(l){return {m:l.m,n:l.n};}),cells:{},times:Object.assign({},TIMES_DEFAULT),res:"4k",ex:{w:true,f:true,v2:true,v3:true,g:true}};}
 function num(v,d,lo,hi){v=Number(v);return isFinite(v)?clamp(v,lo,hi):d;}
 function normPl(pl){if(!pl||typeof pl.p!=="string"||!photos.has(pl.p))return null;return {p:pl.p,z:num(pl.z,1,1,4),cx:num(pl.cx,0.5,0,1),cy:num(pl.cy,0.5,0,1)};}
 function normalizeState(o){
@@ -505,7 +496,17 @@ function normalizeState(o){
   if(!o||typeof o!=="object")return s;
   if(Array.isArray(o.labels))for(var g=0;g<5;g++){var l=o.labels[g];if(l&&typeof l.m==="string"&&typeof l.n==="string")s.labels[g]={m:l.m.slice(0,8),n:l.n.slice(0,16)};}
   if(o.cells&&typeof o.cells==="object")ALL_CELLS.forEach(function(id){var p=normPl(o.cells[id]);if(p)s.cells[id]=p;});
-  if(Array.isArray(o.backs))for(g=0;g<4;g++)s.backs[g]=normPl(o.backs[g]);
+  // 9/29 まであった「戻るときの写真」は、次に移るマスが空で、壁のほかのマスに入っていない写真なら、そこへ移す。
+  // 移せない写真も消さない（壁に入っていればそのまま、入っていなければ置き場に出る）。結果は読み込んだあとに1回だけ知らせる
+  if(Array.isArray(o.backs)){
+    var moved=[], left=0, onWall=new Set(Object.keys(s.cells).map(function(k){return s.cells[k].p;}));
+    for(g=0;g<4;g++){
+      var b=normPl(o.backs[g]);if(!b)continue;
+      var xid=cellId(g,exitIndex(g));
+      if(!s.cells[xid]&&!onWall.has(b.p)){s.cells[xid]=b;onWall.add(b.p);moved.push(s.labels[g].m);}else left++;
+    }
+    if(moved.length||left)lastMigration={moved:moved,left:left};
+  }
   if(o.times)s.times={wave:num(o.times.wave,TIMES_DEFAULT.wave,0,60),flip:num(o.times.flip,TIMES_DEFAULT.flip,0,60),blink:num(o.times.blink,TIMES_DEFAULT.blink,0,60),len:num(o.times.len,TIMES_DEFAULT.len,1,60)};
   if(!validTimes(s.times))s.times=Object.assign({},TIMES_DEFAULT);
   if(o.res==="8k")s.res="8k";
@@ -513,13 +514,18 @@ function normalizeState(o){
   return s;
 }
 function validTimes(tm){return tm.wave>=0&&tm.flip>tm.wave+0.5&&tm.blink>tm.flip+0.6&&tm.len>tm.blink&&tm.len<=60;}
-function referenced(){var set=new Set();Object.keys(state.cells).forEach(function(k){set.add(state.cells[k].p);});state.backs.forEach(function(b){if(b)set.add(b.p);});return set;}
+function referenced(){var set=new Set();Object.keys(state.cells).forEach(function(k){set.add(state.cells[k].p);});return set;}
+var lastMigration=null;
+function migrationNote(){
+  var m=lastMigration;lastMigration=null;if(!m)return "";
+  return (m.moved.length?"前の「戻るときの写真」を、次に移るマスへ移しました（"+m.moved.join("・")+"）。":"")+(m.left?"前の「戻るときの写真」のうち "+m.left+"枚は、次に移るマスが埋まっていたので、壁か置き場にあります。":"");
+}
 function trayPhotos(){var ref=referenced();return Array.from(photos.values()).filter(function(p){return !ref.has(p.id);}).sort(function(a,b){return a.order-b.order;});}
-// 写真が見つからない置き方は、どこでも「空き」として扱う（数え方・飛び込む・戻る・選んだ所）
+// 写真が見つからない置き方は、どこでも「空き」として扱う（数え方・飛び込む・次に移る・選んだ所）
 function livePl(pl){return pl&&photos.has(pl.p)?pl:null;}
 function filledCount(){return ALL_CELLS.filter(function(id){return !!livePl(state.cells[id]);}).length;}
 function diveOf(g){return livePl(state.cells[cellId(g,ANCHOR_I)]);}
-function backOf(g){return livePl(state.backs[g])||diveOf(g);}
+function exitOf(g){return livePl(state.cells[cellId(g,exitIndex(g))]);}
 
 /* ========== 小道具 ========== */
 function $(id){return document.getElementById(id);}
@@ -682,7 +688,6 @@ function drawBlank(ctx,border,bk,px){
 }
 function placementFor(r){
   if(r.g>=PHOTO_GROUPS)return null;
-  if(r.back)return backOf(r.g);
   return state.cells[cellId(r.g,r.i)]||null;
 }
 function drawTile(ctx,r,pxWorld,src){
@@ -698,11 +703,12 @@ function drawTile(ctx,r,pxWorld,src){
   if(r.flip)drawBlank(ctx,mixHex("#5A6E8C","#F2F6FB",r.bk),r.bk,px);
   ctx.restore();
 }
+/* 全画面で見せる順: 飛び込む → ほかのマス → 次に移る（最後）。次に移るマスが空なら、最後は飛び込む写真（見本と同じ） */
 function shotList(g){
-  var dive=diveOf(g), back=backOf(g), n=EVENTS[g].shots.length, others=[];
-  LAYOUT[g].tiles.forEach(function(tp){if(tp.i===ANCHOR_I)return;var pl=state.cells[cellId(g,tp.i)];if(pl)others.push(pl);});
+  var dive=diveOf(g), last=exitOf(g)||dive, xi=exitIndex(g), n=EVENTS[g].shots.length, others=[];
+  LAYOUT[g].tiles.forEach(function(tp){if(tp.i===ANCHOR_I||tp.i===xi)return;var pl=livePl(state.cells[cellId(g,tp.i)]);if(pl)others.push(pl);});
   var first=dive?[dive]:[], list=first.concat(others.slice(0,Math.max(0,n-1-first.length)));
-  if(back)list.push(back);
+  if(last)list.push(last);
   return list.slice(0,n);
 }
 /* 全画面の写真の重なり（見本の renderShots と同じ式）。下から順に描く */
@@ -771,8 +777,7 @@ function renderStage(){
   sizeCanvas();frameNo++;
   var S=cv.width/W;
   if(mode==="play"){drawScene(cvx,S,sceneAt(play.t,"play"),{src:srcPreview});return;}
-  var backG=sel&&sel.kind==="back"?sel.g:-1;
-  drawScene(cvx,S,sceneAt(0,"still",0,backG),{src:srcPreview,pops:REDUCED?null:pops});
+  drawScene(cvx,S,sceneAt(0,"still"),{src:srcPreview,pops:REDUCED?null:pops});
   var now=performance.now(), active=false;
   Object.keys(pops).forEach(function(k){if(now-pops[k]<300)active=true;else delete pops[k];});
   if(active)requestRender();
@@ -799,6 +804,7 @@ function buildOverlay(){
     G.tiles.forEach(function(tp){
       var b=mk("button","cell",ov), id=cellId(tp.g,tp.i);b.type="button";b.dataset.id=id;pct(b,tp.x,tp.y,TW,TH);
       if(tp.i===ANCHOR_I)mk("span","badge",b,"飛び込む");
+      else if(tp.i===exitIndex(tp.g))mk("span","badge next",b,"次に移る");
       var p=mk("span","plus",b);p.appendChild(iconPlus());
       b.tabIndex=id===focusCell?0:-1;
       cellBtns[id]=b;
@@ -807,7 +813,7 @@ function buildOverlay(){
 }
 function cellName(g,i){
   var G=LAYOUT[g], col=Math.floor(i/4), row=i%4;
-  return (G.cols===2?(col===0?"左の列・":"右の列・"):"")+"上から"+(row+1)+"つ目"+(i===ANCHOR_I?"（飛び込むマス）":"");
+  return (G.cols===2?(col===0?"左の列・":"右の列・"):"")+"上から"+(row+1)+"つ目"+(i===ANCHOR_I?"（飛び込むマス）":(i===exitIndex(g)?"（次に移るマス）":""));
 }
 function renderOverlay(){
   ALL_CELLS.forEach(function(id){
@@ -821,7 +827,7 @@ function renderOverlay(){
 }
 
 /* ========== 画面の組み立て ========== */
-var sel=null, swapFrom=null, backFromWall=-1;
+var sel=null, swapFrom=null;
 /* 忙しい（書き出し・写真の読み込み・前回の作業の読み込み・確かめる窓）の間は、消す・開く・元に戻すを止める。入れる写真は順番待ちにする */
 var loading=true, dlgOpenFlag=false, canWrite=true;
 var BUSY_MSG="いまほかの作業をしています。終わってからもう一度押してください。";
@@ -841,12 +847,12 @@ function renderAll(){
   var n=filledCount(), total=ALL_CELLS.length, b=isBusy();
   $("count").textContent=total+"マスのうち "+n+"枚";
   renderHint();
-  renderOverlay();renderBacks();renderTray();renderSel();renderExportInfo();renderSaveInfo();
+  renderOverlay();renderTray();renderSel();renderExportInfo();renderSaveInfo();
   $("btnUndo").disabled=!undoStack.length||b||!canWrite;$("btnRedo").disabled=!redoStack.length||b||!canWrite;
   $("tab-play").classList.toggle("ready",n===total);
   $("btnSampleOff").hidden=!Array.from(photos.values()).some(function(p){return p.sample;});$("btnSampleOff").disabled=b||!canWrite;
   Array.prototype.forEach.call(document.querySelectorAll("[data-act]"),function(el){el.disabled=!canWrite;});
-  var lg=$("legend"), txt="黄色い「飛び込む」のマスは、その行事で最初に全画面になる写真です。"+(state.labels[4].m||"最後")+"の列は予定なので、空の枠のままです（写真は入りません）。";
+  var lg=$("legend"), txt="黄色い「飛び込む」のマスは、その行事で最初に全画面になる写真です。白い「次に移る」のマスは最後に全画面になる写真で、ここから次の行事へ移ります。"+(state.labels[4].m||"最後")+"の列は予定なので、空の枠のままです（写真は入りません）。";
   lg.hidden=mode!=="edit";if(lg.dataset.t!==txt){lg.textContent=txt;lg.dataset.t=txt;typeset(lg);}
   requestRender();
 }
@@ -854,19 +860,6 @@ function thumbInto(canvas,pl){
   var x=canvas.getContext("2d"), ph=pl&&photos.get(pl.p);
   x.setTransform(1,0,0,1,0,0);x.fillStyle="#22324A";x.fillRect(0,0,canvas.width,canvas.height);
   if(ph)drawPlacement(x,pl,0,0,canvas.width,canvas.height,canvas.width,function(p){return p.thumb;});
-}
-function renderBacks(){
-  var row=$("backRow");row.textContent="";
-  for(var g=0;g<PHOTO_GROUPS;g++){
-    var b=mk("button","back",row), bk=livePl(state.backs[g]), lab=state.labels[g];b.type="button";b.dataset.g=String(g);b.draggable=!!bk;
-    mk("span","bm",b,lab.m+" "+lab.n);
-    var c=mk("canvas","",b);c.width=384;c.height=216;thumbInto(c,bk||diveOf(g));
-    // 狭いときは「飛び込む／写真と同じ」の切れ目で折る（「同じ」だけが次の行に落ちないように）
-    if(!bk){var bs=mk("span","bsame",b);if(diveOf(g)){mk("span","ph",bs,"飛び込む");mk("span","ph",bs,"写真と同じ");}else bs.textContent="まだありません";}
-    var ph=bk&&photos.get(bk.p);
-    b.setAttribute("aria-label",lab.m+"の戻るときの写真："+(ph?ph.name:(diveOf(g)?"飛び込む写真と同じ":"まだありません")));
-    b.setAttribute("aria-pressed",sel&&sel.kind==="back"&&sel.g===g?"true":"false");
-  }
 }
 function renderTray(){
   var list=$("tray"), items=trayPhotos();list.textContent="";
@@ -889,7 +882,7 @@ function renderSel(){
 function renderSelBody(){
   var body=$("selBody");body.textContent="";cropView=null;
   if(!sel){
-    mk("p","note just",body,"マスを押すと、写真の位置を直せます。黄色い「飛び込む」のマスは、その行事の最初に全画面になる写真です。列の上の名前を押すと、名前を直せます。");
+    mk("p","note just",body,"マスを押すと、写真の位置を直せます。黄色い「飛び込む」は行事の最初に、白い「次に移る」は最後に全画面になる写真です。列の上の名前を押すと、名前を直せます。");
     return;
   }
   if(sel.kind==="label")return renderLabelEditor(body,sel.g);
@@ -903,31 +896,23 @@ function renderSelBody(){
     del.addEventListener("click",function(){deleteTrayPhoto(ph.id);});
     return;
   }
-  var isBack=sel.kind==="back", sid=isBack?null:sel.id, g=isBack?sel.g:parseCell(sid).g, lab=state.labels[g];
-  var pl=livePl(isBack?state.backs[g]:state.cells[sid]);
-  mk("p","",body,isBack?(lab.m+" "+lab.n+"・戻るときの写真"):(lab.m+" "+lab.n+"・"+cellName(g,parseCell(sid).i)));
+  var sid=sel.id, c=parseCell(sid), g=c.g, lab=state.labels[g], isExit=c.i===exitIndex(g);
+  var pl=livePl(state.cells[sid]);
+  mk("p","",body,lab.m+" "+lab.n+"・"+cellName(g,c.i));
   if(!pl){
-    if(isBack){
-      mk("p","note just",body,diveOf(g)?"いまは飛び込む写真のまま戻ります。別の写真にするときは、ここへドラッグするか、選んでください。壁のマスの写真も使えます（壁の写真はそのまま残ります）。":"飛び込むマスに写真が入ると、その写真のまま戻ります。");
-      var bb=mk("div","btns",body), pick=mk("button","btn",bb,"写真を選ぶ");pick.type="button";pick.addEventListener("click",function(){if(!guardWrite())return;pickBackTarget=g;$("inBack").click();});
-      var fromWall=mk("button","btn",bb,backFromWall===g?"壁から選ぶのをやめる":"壁のマスから選ぶ");fromWall.type="button";
-      fromWall.addEventListener("click",function(){if(!guardEdit())return;backFromWall=backFromWall===g?-1:g;renderAll();if(backFromWall>=0)say("戻るときに見せる写真のマスを押してください（Esc でやめます）。");});    }else{
-      mk("p","note just",body,"空いているマスです。写真をドラッグするか、置き場の写真を押してからこのマスを押すと入ります。");
-    }
+    mk("p","note just",body,isExit?"空いている「次に移る」マスです。ここに入れた写真が、この行事の最後に全画面になり、ここから次の行事へ移ります（空のままなら、飛び込む写真に戻ってから移ります）。写真をドラッグするか、置き場の写真を押してからこのマスを押すと入ります。":"空いているマスです。写真をドラッグするか、置き場の写真を押してからこのマスを押すと入ります。");
     return;
   }
   var ph2=photos.get(pl.p);
-  cropView=makeCropView(body,function(){return isBack?state.backs[g]:state.cells[sid];},function(np){if(isBack)state.backs[g]=np;else state.cells[sid]=np;});
+  cropView=makeCropView(body,function(){return state.cells[sid];},function(np){state.cells[sid]=np;});
   mk("p","meta",body,ph2.name+"（"+ph2.w+"×"+ph2.h+"）");
-  var q=mk("p","quality",body);cropView.quality=q;cropView.isWide=isBack||parseCell(sid).i===ANCHOR_I;
+  var q=mk("p","quality",body);cropView.quality=q;cropView.isWide=c.i===ANCHOR_I||isExit;
   var btns=mk("div","btns",body);
   var center=mk("button","btn",btns,"最初の見え方に戻す");center.type="button";
   center.addEventListener("click",function(){change(function(){var cur=cropView.get();cropView.set(clampPl(photos.get(cur.p),{p:cur.p,z:1,cx:0.5,cy:0.5}));});});
-  if(!isBack){
-    var sw=mk("button","btn",btns,swapFrom?"入れ替えをやめる":"別のマスと入れ替える");sw.type="button";
-    sw.addEventListener("click",function(){if(!guardEdit())return;swapFrom=swapFrom?null:sid;renderAll();if(swapFrom)say("入れ替える相手のマスを押してください（Esc でやめます）。");});
-  }
-  var rm=mk("button","btn",btns,isBack?"飛び込む写真と同じにする":"置き場へ戻す");rm.type="button";
+  var sw=mk("button","btn",btns,swapFrom?"入れ替えをやめる":"別のマスと入れ替える");sw.type="button";
+  sw.addEventListener("click",function(){if(!guardEdit())return;swapFrom=swapFrom?null:sid;renderAll();if(swapFrom)say("入れ替える相手のマスを押してください（Esc でやめます）。");});
+  var rm=mk("button","btn",btns,"置き場へ戻す");rm.type="button";
   rm.addEventListener("click",function(){clearSelected();});
   cropView.draw();
 }
@@ -978,7 +963,7 @@ function makeCropView(host,get,set){
   // 途中の変更（ドラッグ・ホイール・つまみ）は、終わったときに「元に戻す」1回分として積む。元に戻すを押されたら先に確定させる（flush）
   function begin(){if(!before){before=snap();pendingFlush=view.flush;}}
   function end(){if(before){var b=before;before=null;if(pendingFlush===view.flush)pendingFlush=null;if(snap()!==b){pushUndo(b);afterChange();}}}
-  function live(np){var ph=photos.get(np.p);if(!ph)return;set(clampPl(ph,np));requestRender();renderBacks();scheduleSave();}
+  function live(np){var ph=photos.get(np.p);if(!ph)return;set(clampPl(ph,np));requestRender();scheduleSave();}
   var drag=null, wheelT=null;
   view.flush=function(){if(wheelT){clearTimeout(wheelT);wheelT=null;}if(drag){drag=null;box.classList.remove("dragging");}end();};
   box.addEventListener("pointerdown",function(e){var pl=get();if(!pl||!fit)return;if(!guardEdit())return;begin();drag={x:e.clientX,y:e.clientY,cx:pl.cx,cy:pl.cy};box.classList.add("dragging");box.setPointerCapture(e.pointerId);e.preventDefault();});
@@ -1005,7 +990,7 @@ function renderLabelEditor(body,g){
     if(!before){before=snap();pendingFlush=commit;}
     state.labels[g]={m:i1.value.trim(),n:i2.value.trim()};
     var L=labelLayout(g);warn.textContent=L.over?"長すぎて列からはみ出します。短くしてください。":(L.shrunk?"文字を小さくして入れています（"+L.size+"px）。":"");
-    renderOverlay();renderBacks();renderExportInfo();requestRender();scheduleSave();
+    renderOverlay();renderExportInfo();requestRender();scheduleSave();
   }
   function commit(){if(before){var b=before;before=null;if(pendingFlush===commit)pendingFlush=null;if(snap()!==b){pushUndo(b);afterChange();}}}
   i1.addEventListener("input",upd);i2.addEventListener("input",upd);i1.addEventListener("change",commit);i2.addEventListener("change",commit);
@@ -1015,8 +1000,8 @@ function renderLabelEditor(body,g){
 
 /* ========== 変更・元に戻す・自動で残す ========== */
 var undoStack=[], redoStack=[], pendingFlush=null;
-function snap(){return JSON.stringify({labels:state.labels,cells:state.cells,backs:state.backs});}
-function restoreSnap(s){var o=JSON.parse(s);state.labels=o.labels;state.cells={};Object.keys(o.cells).forEach(function(k){var p=normPl(o.cells[k]);if(p)state.cells[k]=p;});state.backs=o.backs.map(normPl);labelCache={};}
+function snap(){return JSON.stringify({labels:state.labels,cells:state.cells});}
+function restoreSnap(s){var o=JSON.parse(s);state.labels=o.labels;state.cells={};Object.keys(o.cells).forEach(function(k){var p=normPl(o.cells[k]);if(p)state.cells[k]=p;});labelCache={};}
 function pushUndo(prev){undoStack.push(prev);if(undoStack.length>100)undoStack.shift();redoStack.length=0;}
 function flushPending(){if(pendingFlush){var f=pendingFlush;pendingFlush=null;f();}}
 function change(fn){if(!guardEdit())return;flushPending();var prev=snap();say("");fn();if(snap()!==prev){pushUndo(prev);afterChange();}}
@@ -1102,21 +1087,23 @@ async function loadFromDB(){
   if(raw&&typeof raw==="object"){
     var labOf=function(g){return (raw.labels&&raw.labels[g]&&typeof raw.labels[g].m==="string")?raw.labels[g].m:state.labels[g].m;};
     if(raw.cells&&typeof raw.cells==="object")ALL_CELLS.forEach(function(id){var pl=raw.cells[id];if(pl&&typeof pl.p==="string"&&!photos.has(pl.p))lost.push(labOf(parseCell(id).g));});
-    if(Array.isArray(raw.backs))raw.backs.forEach(function(b,g){if(g<4&&b&&typeof b.p==="string"&&!photos.has(b.p))lost.push(labOf(g)+"の戻るとき");});
   }
   state=normalizeState(raw);
+  var mig=migrationNote();
   savedAt=kv&&kv.at?new Date(kv.at):null;
   if(recs.length||lost.length){
     var parts=["前回の続きです（写真 "+photos.size+"枚"+(savedAt?"・"+jpTime(savedAt)+"に残した作業":"")+"）。"];
     if(bad.length)parts.push("読み込めなかった写真が "+bad.length+"枚あります（"+bad.slice(0,3).map(function(x){return x.name;}).join("、")+(bad.length>3?" ほか":"")+"）。");
     if(lost.length)parts.push("壁の "+lost.length+"か所（"+Array.from(new Set(lost)).slice(0,4).join("・")+"）の写真が、このブラウザに残っていませんでした。作業ファイルがあれば開いてください。");
+    if(mig)parts.push(mig);
     say(parts.join(" "),bad.length||lost.length?"warn":"");
   }else say("");
+  if(mig)scheduleSave();   // 移したあとの並びを残す（次に開いたとき、同じ知らせを出さない）
   wasFull=filledCount()===ALL_CELLS.length;
 }
 
 /* ========== 写真を入れる ========== */
-var importing=false, pickBackTarget=-1, importQueue=[], sampleMaking=false;
+var importing=false, importQueue=[], sampleMaking=false;
 function isImage(f){return /^image\//.test(f.type||"")||/\.(jpe?g|png|webp|gif|bmp|avif|heic|heif|tiff?)$/i.test(f.name||"");}
 async function makeRecord(file,opts){
   // 中身を写してから使う（元の写真ファイルを動かしても、試写・書き出し・作業ファイルの保存ができるように）
@@ -1147,8 +1134,6 @@ function assign(list,target){
     var em=emptyCells(c.g);list.slice(1).forEach(function(x){var id=em.shift();if(id)put(id,x.rec);});
   }else if(target.kind==="group"){
     var em2=emptyCells(target.g);list.forEach(function(x){var id=em2.shift();if(id)put(id,x.rec);});
-  }else if(target.kind==="back"){
-    state.backs[target.g]=clampPl(list[0].rec,freshPl(list[0].rec.id));
   }else if(target.kind==="auto"){
     var byG=[[],[],[],[]], loose=[];
     list.forEach(function(x){var g=groupForPath(x.path);if(g>=0)byG[g].push(x);else if(g===-1)loose.push(x);else noCol++;});
@@ -1188,14 +1173,13 @@ async function importEntries(entries,target,opts){
     var prev=snap();res=assign(toPlace,target);
     if(snap()!==prev)pushUndo(prev);
     popCells(res.placed);
-    if(sel&&sel.kind==="back"&&target.kind==="back")sel={kind:"back",g:target.g};
     just=afterChange(true);
   }else renderAll();
   var parts=[];
   if(got.length){
     if(target.kind==="tray")parts.push(got.length+"枚を置き場に入れました。");
     else{
-      var toTray=target.kind==="back"?Math.max(0,toPlace.length-1):toPlace.length-res.placed.length;
+      var toTray=toPlace.length-res.placed.length;
       parts.push(got.length+"枚入りました"+(toTray>0?"（壁に入れなかった "+toTray+"枚は置き場へ"+(res.noCol?"。そのうち "+res.noCol+"枚は、壁に列の無い月のフォルダの写真です":"")+"）":"")+"。");
     }
     if(just)parts.push(FULL_MSG);
@@ -1279,7 +1263,7 @@ async function removeSamples(){
   if(!guardWrite())return;
   var ids=Array.from(photos.values()).filter(function(p){return p.sample;}).map(function(p){return p.id;});
   if(!ids.length)return;
-  change(function(){Object.keys(state.cells).forEach(function(k){if(ids.indexOf(state.cells[k].p)>=0)delete state.cells[k];});state.backs=state.backs.map(function(b){return b&&ids.indexOf(b.p)>=0?null:b;});});
+  change(function(){Object.keys(state.cells).forEach(function(k){if(ids.indexOf(state.cells[k].p)>=0)delete state.cells[k];});});
   for(var i=0;i<ids.length;i++){var ph=photos.get(ids[i]);if(ph&&ph.thumb)ph.thumb.close();dropCacheFor(ids[i]);photos.delete(ids[i]);await delPhotoDB(ids[i]);}
   undoStack.length=0;redoStack.length=0;sel=null;renderAll();say("見本の写真を片付けました。");
 }
@@ -1290,7 +1274,6 @@ function placeTrayPhoto(photoId,target){
   change(function(){
     var ph=photos.get(photoId);if(!ph)return;ok=true;
     if(target.kind==="cell"){state.cells[target.id]=clampPl(ph,freshPl(photoId));}
-    else if(target.kind==="back"){state.backs[target.g]=clampPl(ph,freshPl(photoId));}
   });
   if(ok&&target.kind==="cell")popCells([target.id]);
 }
@@ -1300,9 +1283,8 @@ function clearSelected(){
   if(sel.kind==="cell"&&state.cells[sel.id]){
     var id=sel.id, pid=state.cells[id].p, name=(photos.get(pid)||{}).name||"写真";
     change(function(){delete state.cells[id];});
-    if(!state.cells[id])say(referenced().has(pid)?"「"+name+"」を壁から外しました（戻るときの写真としては残っています）。":"「"+name+"」を置き場へ戻しました（元に戻すで戻せます）。");
+    if(!state.cells[id])say(referenced().has(pid)?"「"+name+"」をこのマスから外しました（壁のほかのマスにも入っています）。":"「"+name+"」を置き場へ戻しました（元に戻すで戻せます）。");
   }
-  else if(sel.kind==="back"&&state.backs[sel.g]){var g=sel.g;change(function(){state.backs[g]=null;});if(!state.backs[g])say("戻るときの写真を、飛び込む写真と同じにしました。");}
 }
 async function deleteTrayPhoto(id){
   if(isBusy()){say(BUSY_MSG,"warn");return;}
@@ -1313,14 +1295,8 @@ async function deleteTrayPhoto(id){
   if(ph.thumb)ph.thumb.close();dropCacheFor(id);photos.delete(id);await delPhotoDB(id);
   sel=null;afterChange();say("「"+ph.name+"」を消しました。");
 }
-function select(s){sel=s;swapFrom=s&&s.kind==="cell"?swapFrom:null;if(!s||s.kind!=="back")backFromWall=-1;renderAll();}
+function select(s){sel=s;swapFrom=s&&s.kind==="cell"?swapFrom:null;renderAll();}
 function onCellClick(id){
-  if(backFromWall>=0){
-    var bg=backFromWall, src=livePl(state.cells[id]);backFromWall=-1;
-    if(src){change(function(){state.backs[bg]=Object.assign({},src);});sel={kind:"back",g:bg};if(state.backs[bg])say("戻るときの写真を入れました。");}
-    else say("空いているマスです。写真の入ったマスを押してください。","warn");
-    renderAll();return;
-  }
   if(swapFrom){var a=swapFrom;swapFrom=null;if(a!==id){var b0=snap();swapCells(a,id);sel={kind:"cell",id:id};if(snap()!==b0)say("入れ替えました。");}renderAll();return;}
   if(sel&&sel.kind==="tray"){
     var pid=sel.id, tray=trayPhotos(), idx=tray.findIndex(function(p){return p.id===pid;});
@@ -1336,13 +1312,12 @@ function onCellClick(id){
 
 /* ---------- ドラッグ ---------- */
 var DT_TYPE="application/x-kabe";
-// ドラッグの中身は、この道具のマス・置き場・戻るの形のときだけ受け取る（よそのページから来た値で状態を書き換えさせない）
+// ドラッグの中身は、この道具のマス・置き場の形のときだけ受け取る（よそのページから来た値で状態を書き換えさせない）
 function dragData(e){
   try{
     var s=e.dataTransfer.getData(DT_TYPE);if(!s)return null;var d=JSON.parse(s);if(!d||typeof d!=="object")return null;
     if(d.kind==="cell"&&ALL_CELLS.indexOf(d.id)>=0)return {kind:"cell",id:d.id};
     if(d.kind==="tray"&&typeof d.id==="string"&&photos.has(d.id))return {kind:"tray",id:d.id};
-    if(d.kind==="back"&&(d.g===0||d.g===1||d.g===2||d.g===3))return {kind:"back",g:d.g};
     return null;
   }catch(err){return null;}
 }
@@ -1359,13 +1334,8 @@ async function handleDrop(e,target){
     if(target.kind==="cell"){
       if(d.kind==="cell")swapCells(d.id,target.id);
       else if(d.kind==="tray")placeTrayPhoto(d.id,target);
-      else if(d.kind==="back"){var bk=livePl(state.backs[d.g]);if(bk){change(function(){state.cells[target.id]=Object.assign({},bk);state.backs[d.g]=null;});popCells([target.id]);}}
-    }else if(target.kind==="back"){
-      if(d.kind==="tray")placeTrayPhoto(d.id,target);
-      else if(d.kind==="cell"){var pl=livePl(state.cells[d.id]);if(pl)change(function(){state.backs[target.g]=Object.assign({},pl);});}
     }else if(target.kind==="tray"){
       if(d.kind==="cell"){change(function(){delete state.cells[d.id];});}
-      else if(d.kind==="back"){change(function(){state.backs[d.g]=null;});}
     }
     return;
   }
@@ -1415,28 +1385,31 @@ function setMode(m){
 /* ========== 書き出す ========== */
 var busy=false, cancelReq=false;
 // ファイル名の頭の番号は、画面の ①〜⑤ と同じ（1 壁・2 全画面・3 並ぶ・4 来年・5 目安）
-function wallName(k){var L=state.labels;return "1_壁_"+(k+1)+"_"+(k===0?safeName(L[0].m)+"に入る":(k<4?safeName(L[k-1].m)+"から"+safeName(L[k].m)+"へ":safeName(L[3].m)+"から全体へ"))+".png";}
+var WALL_FILE="1_壁.png";   // 壁の静止画は1枚（マスの絵は途中で変わらないので、寄る・引くは全部この1枚で）
 function fullName(g,which){return "2_全画面_"+(g+1)+"_"+safeName(state.labels[g].m)+"_"+which+".jpg";}
+// 引いて寄るときの真ん中の枠（試写の fly の真ん中＝大きさ 1.7 倍）。始まりは次に移るマス（空なら飛び込むマス）
 function midRect(a,b){
-  var A=anchorView(a), B=anchorView(b), w=W/1.7, h=H/1.7, cx=clamp((A.x+B.x)/2,w/2,W-w/2), cy=clamp((A.y+B.y)/2,h/2,H-h/2);
+  var A=exitView(a), B=anchorView(b), w=W/1.7, h=H/1.7, cx=clamp((A.x+B.x)/2,w/2,W-w/2), cy=clamp((A.y+B.y)/2,h/2,H-h/2);
   return {x:cx-w/2,y:cy-h/2,w:w,h:h};
 }
-function cellRect(g){var tp=LAYOUT[g].tiles[ANCHOR_I];return {x:tp.x,y:tp.y,w:TW,h:TH};}
+function tileRect(g,i){var tp=LAYOUT[g].tiles[i];return {x:tp.x,y:tp.y,w:TW,h:TH};}
+function cellRect(g){return tileRect(g,ANCHOR_I);}
+function exitRect(g){return exitOf(g)?tileRect(g,exitIndex(g)):cellRect(g);}
 function guideSteps(){
-  var L=state.labels, FULL={x:0,y:0,w:W,h:H}, out=[{k:0,a:FULL,b:cellRect(0),title:safeName(L[0].m)+"に寄る",sec:"4.4秒",ease:"イーズイン（ゆっくり始まって、最後に速く）"}];
+  var L=state.labels, FULL={x:0,y:0,w:W,h:H}, out=[{a:FULL,b:cellRect(0),title:safeName(L[0].m)+"に寄る",sec:"4.4秒",ease:"イーズイン（ゆっくり始まって、最後に速く）"}];
   for(var g=0;g<3;g++){
     var mid=midRect(g,g+1);
-    out.push({k:g+1,a:cellRect(g),b:mid,title:safeName(L[g].m)+"から引く",sec:"0.85秒",ease:"イーズイン"});
-    out.push({k:g+1,a:mid,b:cellRect(g+1),title:safeName(L[g+1].m)+"に寄る",sec:"0.85秒",ease:"イーズアウト"});
+    out.push({a:exitRect(g),b:mid,title:safeName(L[g].m)+"から引く",sec:"0.85秒",ease:"イーズイン"});
+    out.push({a:mid,b:cellRect(g+1),title:safeName(L[g+1].m)+"に寄る",sec:"0.85秒",ease:"イーズアウト"});
   }
-  out.push({k:4,a:cellRect(3),b:FULL,title:safeName(L[3].m)+"から全体へ",sec:"1.2秒",ease:"イーズイン・アウト"});
+  out.push({a:exitRect(3),b:FULL,title:safeName(L[3].m)+"から全体へ",sec:"1.2秒",ease:"イーズイン・アウト"});
   return out;
 }
 function readiness(){
-  var empty=ALL_CELLS.length-filledCount(), noDive=[], over=[];
-  for(var g=0;g<PHOTO_GROUPS;g++)if(!diveOf(g))noDive.push(state.labels[g].m);
+  var empty=ALL_CELLS.length-filledCount(), noDive=[], noExit=[], over=[];
+  for(var g=0;g<PHOTO_GROUPS;g++){if(!diveOf(g))noDive.push(state.labels[g].m);else if(!exitOf(g))noExit.push(state.labels[g].m);}
   for(g=0;g<LAYOUT.length;g++)if(labelLayout(g).over)over.push(state.labels[g].m||("列"+(g+1)));
-  return {empty:empty,noDive:noDive,over:over};
+  return {empty:empty,noDive:noDive,noExit:noExit,over:over};
 }
 function renderExportInfo(){
   $("v2len").textContent=fmtSec(CLIP2.frames/FPS);$("v3len").textContent=fmtSec(v3Frames()/FPS);
@@ -1447,6 +1420,7 @@ function renderExportInfo(){
   else{
     if(r.empty)lines.push("空いているマスが "+r.empty+"個あります。写真の無い紺のマスのまま書き出します。");
     if(r.noDive.length)lines.push(r.noDive.join("・")+"の飛び込むマスが空です。その月の全画面の写真は作りません。");
+    if(r.noExit.length)lines.push(r.noExit.join("・")+"の次に移るマスが空です。その月は、飛び込む写真に戻ってから次へ移ります。");
     if(r.over.length)lines.push(r.over.join("・")+"の列の名前が長すぎて、列からはみ出します。名前を短くしてください。");
   }
   wb.textContent=lines.join(" ");wb.hidden=!lines.length;
@@ -1492,7 +1466,7 @@ async function prefetch(pls,needFor,onStep){
   function closeAll(){cache.forEach(function(v,id){var ph=photos.get(id);if(v.bmp&&(!ph||v.bmp!==ph.thumb))v.bmp.close();v.bmp=null;});}
   return {src:function(ph){var v=cache.get(ph.id);return v&&v.bmp?v.bmp:ph.thumb;},close:closeAll};
 }
-function wallPlacements(){var out=[];ALL_CELLS.forEach(function(id){var pl=livePl(state.cells[id]);if(pl)out.push(pl);});state.backs.forEach(function(b){if(livePl(b))out.push(b);});return out;}
+function wallPlacements(){var out=[];ALL_CELLS.forEach(function(id){var pl=livePl(state.cells[id]);if(pl)out.push(pl);});return out;}
 async function pickEncoderConfig(){
   if(typeof VideoEncoder==="undefined")throw new UserError("このブラウザは動画（MP4）の書き出しに対応していません。パソコンの Chrome か Edge の新しい版で開いてください。静止画だけなら、③④のチェックを外すと書き出せます。");
   var codecs=["avc1.640028","avc1.4d0028","avc1.42e028"];
@@ -1551,29 +1525,29 @@ function drawGuide(ctx,step,idx,total){
   ctx.font="700 30px "+LABEL_FONT;ctx.lineWidth=8;ctx.strokeText(t2,96,994);ctx.fillStyle="#DDE5EF";ctx.fillText(t2,96,994);
   ctx.restore();
 }
-function readmeText(when,files,res,madeFull,skipFull){
-  var L=state.labels, tm=state.times, lines=[];res=res||state.res;madeFull=madeFull||[];skipFull=skipFull||[];
+function readmeText(when,files,res,madeFull,skipFull,sameExit){
+  var L=state.labels, tm=state.times, lines=[];res=res||state.res;madeFull=madeFull||[];skipFull=skipFull||[];sameExit=sameExit||[];
   lines.push("写真の壁で書き出したファイル（"+when.getFullYear()+"年"+jpTime(when)+"）","");
   if(files.w){
-    lines.push("■ 1_壁（5枚・"+(res==="8k"?"7680×4320":"3840×2160")+"）","  壁の静止画。ダイナミックズームで寄る・引くときに使います。");
-    for(var k=0;k<5;k++)lines.push("  "+wallName(k)+(k===0?" … 飛び込むマスは全部「飛び込む写真」":" … "+L[Math.min(k,4)-1].m+"までのマスが「戻るときの写真」"));
-    lines.push("  戻るときの写真を決めていない月は、前の壁と同じ絵になります（そのまま使えます）。","");
+    lines.push("■ "+WALL_FILE+"（"+(res==="8k"?"7680×4320":"3840×2160")+"）","  壁の静止画。ダイナミックズームで寄る・引くときは、全部この1枚を使います（枠の位置は 5_目安）。","");
   }
   if(files.f&&madeFull.length){
-    lines.push("■ 2_全画面（"+madeFull.length*2+"枚・3840×2160）","  飛び込むマスと同じ切り方の写真。寄り切ったところでこれに切り替えます（入る＝最初の1枚、戻る＝最後の1枚）。名前の数字は列の番号です。","  戻るときの写真を決めていない月は、入ると戻るが同じ絵です。");
+    lines.push("■ 2_全画面（"+madeFull.length*2+"枚・3840×2160）","  飛び込むマス・次に移るマスと同じ切り方の写真です。飛び込む＝その月の最初の1枚（寄り切ったらこれに切り替える）、次に移る＝最後の1枚（これから壁に切り替えて引く）。名前の数字は列の番号です。");
+    if(sameExit.length)lines.push("  "+sameExit.join("・")+"は次に移るマスが空なので、「次に移る」も飛び込む写真です（飛び込むマスから引きます）。");
     if(skipFull.length)lines.push("  "+skipFull.join("・")+"は、飛び込むマスが空なので作っていません。");
     lines.push("");
   }else if(files.f&&skipFull.length)lines.push("■ 2_全画面","  飛び込むマスが全部空なので、作っていません。","");
-  if(files.v2)lines.push("■ 3_並ぶ.mp4（1920×1080・24コマ/秒・"+fmtSec(CLIP2.frames/FPS)+"秒）","  写真が次々に並ぶ動き。最後のコマは「"+wallName(0)+"」と同じ絵です。行事の場面の 14.0秒から。","");
-  if(files.v3)lines.push("■ 4_来年.mp4（1920×1080・24コマ/秒・"+fmtSec(v3Frames()/FPS)+"秒）","  最初のコマは「"+wallName(4)+"」と同じ絵。"+fmtSec(tm.wave)+"秒で波、"+fmtSec(tm.flip)+"秒で裏返り、"+fmtSec(tm.blink)+"秒から空の枠が1秒ごとに点滅します。行事の場面の 84.2秒から。","");
+  if(files.v2)lines.push("■ 3_並ぶ.mp4（1920×1080・24コマ/秒・"+fmtSec(CLIP2.frames/FPS)+"秒）","  写真が次々に並ぶ動き。最後のコマは「"+WALL_FILE+"」と同じ絵です。行事の場面の 14.0秒から。","");
+  if(files.v3)lines.push("■ 4_来年.mp4（1920×1080・24コマ/秒・"+fmtSec(v3Frames()/FPS)+"秒）","  最初のコマは「"+WALL_FILE+"」と同じ絵。"+fmtSec(tm.wave)+"秒で波、"+fmtSec(tm.flip)+"秒で裏返り、"+fmtSec(tm.blink)+"秒から空の枠が1秒ごとに点滅します。行事の場面の 84.2秒から。","");
   if(files.g)lines.push("■ 5_目安（8枚）","  ダイナミックズームの枠の目安です（緑＝始まり、赤＝終わり）。動画には入れません。","");
   lines.push("置く秒の目安（行事の場面の頭＝0秒）",
     "  14.0〜18.8  3_並ぶ",
-    "  17.6〜22.0  "+L[0].m+"に寄る（1_壁_1）→ 22.0 から全画面",
-    "  43.6〜44.5  "+L[0].m+"から引く（1_壁_2）／44.5〜45.3 "+L[1].m+"に寄る（1_壁_2）",
-    "  57.7〜58.6  "+L[1].m+"から引く（1_壁_3）／58.6〜59.4 "+L[2].m+"に寄る（1_壁_3）",
-    "  69.5〜70.4  "+L[2].m+"から引く（1_壁_4）／70.4〜71.2 "+L[3].m+"に寄る（1_壁_4）",
-    "  80.3〜81.5  "+L[3].m+"から全体へ（1_壁_5）",
+    "  17.6〜22.0  "+L[0].m+"に寄る（飛び込むマスへ）→ 22.0 から全画面（飛び込む → … → 次に移る）",
+    "  43.6〜44.5  "+L[0].m+"から引く（次に移るマスから）／44.5〜45.3 "+L[1].m+"に寄る（飛び込むマスへ）",
+    "  57.7〜58.6  "+L[1].m+"から引く（次に移るマスから）／58.6〜59.4 "+L[2].m+"に寄る（飛び込むマスへ）",
+    "  69.5〜70.4  "+L[2].m+"から引く（次に移るマスから）／70.4〜71.2 "+L[3].m+"に寄る（飛び込むマスへ）",
+    "  80.3〜81.5  "+L[3].m+"から全体へ（次に移るマスから）",
+    "  寄る・引くは、どれも "+WALL_FILE+" を使います。",
     "  84.2〜      4_来年");
   return "﻿"+lines.join("\r\n")+"\r\n";
 }
@@ -1582,7 +1556,7 @@ async function doExport(){
   flushPending();
   var ex=Object.assign({},state.ex), errBox=$("expErr");errBox.hidden=true;$("expDone").hidden=true;
   if(!(ex.w||ex.f||ex.v2||ex.v3||ex.g)){say("書き出すものに、1つ以上チェックを入れてください。","warn");return;}
-  if(!filledCount()&&!state.backs.some(livePl)){say("写真を入れてから書き出してください。","warn");return;}
+  if(!filledCount()){say("写真を入れてから書き出してください。","warn");return;}
   // 全画面だけを選んで、飛び込むマスが全部空だと、作る物が無い（読んでください.txt だけを出して「書き出しました」と言わない）
   if(!(ex.w||ex.v2||ex.v3||ex.g)&&![0,1,2,3].some(function(g){return !!diveOf(g);})){say("② 全画面の写真は、飛び込むマスに写真が入っている列だけ作ります。いまは飛び込むマスが全部空です。飛び込むマスに写真を入れるか、ほかの書き出すものにもチェックを入れてください。","warn");return;}
   if(ex.v2||ex.v3){try{await pickEncoderConfig();}catch(e){errBox.textContent=describeErr(e);errBox.hidden=false;return;}}
@@ -1592,27 +1566,23 @@ async function doExport(){
   if(isBusy()){say(BUSY_MSG,"warn");return;}
   busy=true;cancelReq=false;pausePlay();
   var list=$("expList");list.textContent="";$("expProg").hidden=false;renderAll();
-  var bar=$("expBar"), nowEl=$("expNow"), t00=performance.now(), done=0, tasks=[], shared={};
-  var when=new Date(), resAt=state.res, madeFull=[], skipFull=[];
-  for(var gg=0;gg<PHOTO_GROUPS;gg++){if(diveOf(gg))madeFull.push(gg);else skipFull.push(state.labels[gg].m);}
+  var bar=$("expBar"), nowEl=$("expNow"), t00=performance.now(), done=0, tasks=[];
+  var when=new Date(), resAt=state.res, madeFull=[], skipFull=[], sameExit=[];
+  for(var gg=0;gg<PHOTO_GROUPS;gg++){if(diveOf(gg)){madeFull.push(gg);if(!exitOf(gg))sameExit.push(state.labels[gg].m);}else skipFull.push(state.labels[gg].m);}
   function task(name,weight,make){tasks.push({name:name,weight:weight,make:make});}
   if(ex.w){
     var S=resAt==="8k"?4:2;
-    for(var k=0;k<5;k++)(function(k){task(wallName(k),3,async function(step){
-      if(!shared.wall){
-        var pf=await prefetch(wallPlacements(),function(ph,pl){return TW*S*ph.w/cropRegion(ph,pl,16/9).w;},function(u){step(u*0.7);});
-        var c=document.createElement("canvas");c.width=W*S;c.height=H*S;shared.wall={pf:pf,c:c,x:c.getContext("2d",{alpha:false})};
-      }
-      drawScene(shared.wall.x,S,sceneAt(0,"still",k),{src:shared.wall.pf.src});
-      var b=await toBlob(shared.wall.c,"image/png");
-      if(k===4){shared.wall.pf.close();shared.wall.c.width=1;shared.wall=null;}
-      return b;
-    });})(k);
+    task(WALL_FILE,3,async function(step){
+      var pf=await prefetch(wallPlacements(),function(ph,pl){return TW*S*ph.w/cropRegion(ph,pl,16/9).w;},function(u){step(u*0.7);});
+      var c=document.createElement("canvas");c.width=W*S;c.height=H*S;
+      try{drawScene(c.getContext("2d",{alpha:false}),S,sceneAt(0,"still"),{src:pf.src});return await toBlob(c,"image/png");}
+      finally{pf.close();c.width=1;}   // 8K の絵は大きいので、止めたときも失敗したときも、すぐに手元から外す
+    });
   }
   if(ex.f){
     for(var g=0;g<PHOTO_GROUPS;g++)(function(g){
       if(!diveOf(g))return;
-      [["入る",function(){return diveOf(g);}],["戻る",function(){return backOf(g);}]].forEach(function(p){
+      [["飛び込む",function(){return diveOf(g);}],["次に移る",function(){return exitOf(g)||diveOf(g);}]].forEach(function(p){
         task(fullName(g,p[0]),1,async function(){
           var pl=p[1](), fw=3840, fh=2160, pf=await prefetch([pl],function(ph,q){return fw*ph.w/cropRegion(ph,q,16/9).w;});
           try{
@@ -1629,11 +1599,11 @@ async function doExport(){
   if(ex.g){
     guideSteps().forEach(function(st,i,arr){task("5_目安_"+(i+1)+"_"+st.title+".png",1,async function(){
       var c=document.createElement("canvas");c.width=W;c.height=H;var x=c.getContext("2d",{alpha:false});
-      drawScene(x,1,sceneAt(0,"still",st.k),{src:function(ph){return ph.thumb;}});drawGuide(x,st,i+1,arr.length);
+      drawScene(x,1,sceneAt(0,"still"),{src:function(ph){return ph.thumb;}});drawGuide(x,st,i+1,arr.length);
       return await toBlob(c,"image/png");
     });});
   }
-  task("読んでください.txt",0.2,async function(){return new Blob([readmeText(when,ex,resAt,madeFull,skipFull)],{type:"text/plain;charset=utf-8"});});
+  task("読んでください.txt",0.2,async function(){return new Blob([readmeText(when,ex,resAt,madeFull,skipFull,sameExit)],{type:"text/plain;charset=utf-8"});});
   var totalW=tasks.reduce(function(a,t){return a+t.weight;},0), doneW=0, failed=null;
   try{
     for(var i=0;i<tasks.length;i++){
@@ -1649,7 +1619,6 @@ async function doExport(){
     }
   }catch(e){failed=e;}
   finally{
-    if(shared.wall){shared.wall.pf.close();shared.wall.c.width=1;shared.wall=null;}
     busy=false;$("expProg").hidden=true;renderAll();
   }
   var secs=Math.round((performance.now()-t00)/1000), dn=$("expDone");
@@ -1842,12 +1811,12 @@ async function openProject(file){
     if(saveBlocked&&db){saveBlocked=false;try{var kv0=await idb("kv",false,function(s){return s.get("state");});myRev=(kv0&&kv0.rev)||0;}catch(e){/* 読めなければ前の番号のまま。食い違えば、保存のときに知らせの帯が出る */}}
     await clearAll(true);
     fresh.forEach(function(r){photos.set(r.id,r);});nextOrder=fresh.size+1;
-    state=normalizeState(pj.state);labelCache={};
+    state=normalizeState(pj.state);labelCache={};var mig=migrationNote();
     var n=0;
     for(var rec of fresh.values()){showBusy("このブラウザに残しています",++n,fresh.size);if(await putPhoto(rec)){try{var back=await getPhotoDB(rec.id);if(back&&back.blob&&photos.get(rec.id)===rec)rec.blob=back.blob;}catch(e){/* 読み直せなくても、作業ファイルから写した中身で続けられる */}}}
     await saveState();
     undoStack.length=0;redoStack.length=0;sel=null;wasFull=filledCount()===ALL_CELLS.length;
-    say("作業ファイルを開きました（写真 "+fresh.size+"枚）。"+(bad?"読めなかった写真が "+bad+"枚あります。":""),bad?"warn":"ok");
+    say("作業ファイルを開きました（写真 "+fresh.size+"枚）。"+(bad?"読めなかった写真が "+bad+"枚あります。":"")+mig,bad?"warn":"ok");
   }catch(e){say(describeErr(e),"err");}
   finally{busy=false;hideBusy();renderAll();drainQueue();}
 }
@@ -1882,7 +1851,7 @@ function askConfirm(title,text,yes){
 }
 
 /* ========== 知らせる ========== */
-function say(text,kind){var m=$("msg");m.textContent=text||"";m.className="msg"+(kind?" "+kind:"");}
+function say(text,kind){var m=$("msg");m.textContent=text||"";m.className="msg"+(kind?" "+kind:"");if(text)typeset(m);}
 
 /* ========== つなぐ ========== */
 function bindUI(){
@@ -1893,7 +1862,6 @@ function bindUI(){
   });
   $("inFiles").addEventListener("change",function(){var es=filesToEntries(this.files);this.value="";importEntries(es,{kind:"auto"});});
   $("inFolder").addEventListener("change",function(){var es=filesToEntries(this.files);this.value="";importEntries(es,{kind:"auto"});});
-  $("inBack").addEventListener("change",function(){var es=filesToEntries(this.files);this.value="";if(pickBackTarget>=0)importEntries(es,{kind:"back",g:pickBackTarget});});
   $("inProject").addEventListener("change",function(){var f=this.files&&this.files[0];this.value="";if(f)openProject(f);});
   $("btnUndo").addEventListener("click",undo);$("btnRedo").addEventListener("click",redo);
   $("tab-edit").addEventListener("click",function(){setMode("edit");});$("tab-play").addEventListener("click",function(){setMode("play");});
@@ -1927,14 +1895,6 @@ function bindUI(){
   ov.addEventListener("focusin",function(e){var c=e.target.closest&&e.target.closest(".cell");if(c)setFocusCell(c.dataset.id,false);});
   Object.keys(cellBtns).forEach(function(id){dropTarget(cellBtns[id],function(e){handleDrop(e,{kind:"cell",id:id});});});
   labBtns.forEach(function(b,g){if(g<PHOTO_GROUPS)dropTarget(b,function(e){if(hasFiles(e))handleDrop(e,{kind:"group",g:g});});});
-  var row=$("backRow");
-  row.addEventListener("click",function(e){var b=e.target.closest(".back");if(!b)return;var g=Number(b.dataset.g);
-    if(sel&&sel.kind==="tray"){placeTrayPhoto(sel.id,{kind:"back",g:g});sel={kind:"back",g:g};renderAll();return;}
-    select({kind:"back",g:g});});
-  row.addEventListener("dragover",function(e){var b=e.target.closest(".back");if(!b||!(hasFiles(e)||hasOurs(e)))return;e.preventDefault();e.stopPropagation();b.classList.add("drop");});
-  row.addEventListener("dragleave",function(e){var b=e.target.closest(".back");if(b)b.classList.remove("drop");});
-  row.addEventListener("drop",function(e){var b=e.target.closest(".back");if(!b)return;e.preventDefault();e.stopPropagation();b.classList.remove("drop");hideVeil();handleDrop(e,{kind:"back",g:Number(b.dataset.g)});});
-  row.addEventListener("dragstart",function(e){var b=e.target.closest(".back");if(!b||!state.backs[Number(b.dataset.g)]){e.preventDefault();return;}e.dataTransfer.setData(DT_TYPE,JSON.stringify({kind:"back",g:Number(b.dataset.g)}));});
   var tray=$("tray");
   tray.addEventListener("click",function(e){var b=e.target.closest(".titem");if(!b)return;select({kind:"tray",id:b.dataset.id});say("入れたいマスを押してください（やめるときは Esc）。");});
   tray.addEventListener("dragstart",function(e){var b=e.target.closest(".titem");if(!b)return;e.dataTransfer.setData(DT_TYPE,JSON.stringify({kind:"tray",id:b.dataset.id}));e.dataTransfer.effectAllowed="move";});
@@ -1955,7 +1915,7 @@ function bindUI(){
       if(k==="z"&&!e.shiftKey){e.preventDefault();undo();return;}
       if(k==="y"||(k==="z"&&e.shiftKey)){e.preventDefault();redo();return;}
     }
-    if(e.key==="Escape"&&(swapFrom||sel||backFromWall>=0)&&!typing){swapFrom=null;backFromWall=-1;sel=null;renderAll();say("");return;}
+    if(e.key==="Escape"&&(swapFrom||sel)&&!typing){swapFrom=null;sel=null;renderAll();say("");return;}
     if(mode==="play"&&!typing&&tag!=="BUTTON"&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
       if(e.key===" "){e.preventDefault();if(play.playing)pausePlay();else playFrom(play.t>=previewEnd()-0.05?T0:play.t);}
       else if(e.key==="ArrowRight"||e.key==="ArrowLeft"){if(tag==="INPUT")return;e.preventDefault();var v=clamp(play.t+(e.key==="ArrowRight"?5:-5),T0,previewEnd());play.started=true;if(play.playing)playFrom(v);else{play.t=v;setPlayUI();requestRender();}}
@@ -2015,7 +1975,7 @@ function typeset(root){
   function pick(sel){var a=Array.prototype.slice.call(root.querySelectorAll(sel));if(root!==document&&root.matches&&root.matches(sel))a.unshift(root);return a;}
   var RE=/[「『（〈《(]*(?:[「『（〈《(][^「『（〈《(」』）〉》)]{0,6}[」』）〉》)]|[ァ-ヶー]{2,})[、。，．！？」』）〉》)・]*/g;
   var SKIP="script,style,svg,.stage,.ph,.tail,button,label,.panel .btns";
-  pick("header p,.note,.dlg-body p,#selBody p").forEach(function(el){
+  pick("header p,.note,.dlg-body p,#selBody p,.foot p,#msg").forEach(function(el){
     if(el.closest(".stage"))return;
     var walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,{acceptNode:function(n){var p=n.parentElement;return (p.closest(SKIP)||/flex|grid/.test(getComputedStyle(p).display))?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT;}});
     var nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
@@ -2028,7 +1988,7 @@ function typeset(root){
     });
   });
   var TAIL=5;
-  pick("header p,p.note,.dlg-body p,#selBody p").forEach(function(el){
+  pick("header p,p.note,.dlg-body p,#selBody p,.foot p,#msg").forEach(function(el){
     if(el.closest(".stage"))return;
     var picked=[],count=0;
     for(var n=el.lastChild;n&&count<TAIL;n=n.previousSibling){
@@ -2057,8 +2017,8 @@ async function init(){
   if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){labelCache={};requestRender();});
 }
 /* 確かめ用の出入り口（書き出しと同じ関数で1920×1080に描いた絵・写真の一覧）。写真の中身は外へ出さない */
-window.__kabe={sceneAt:sceneAt,shotsAt:function(t){return shotStates(sceneAt(t,"play")).map(function(s){return {k:s.k,o:s.o,scl:s.scl,px:s.px};});},anchorView:anchorView,
-  renderAt:function(t,m,k){var c=document.createElement("canvas");c.width=W;c.height=H;drawScene(c.getContext("2d",{alpha:false}),1,sceneAt(t,m||"play",k||0),{src:function(ph){return ph.thumb;}});return c.toDataURL("image/png");},
+window.__kabe={sceneAt:sceneAt,shotsAt:function(t){return shotStates(sceneAt(t,"play")).map(function(s){return {k:s.k,o:s.o,scl:s.scl,px:s.px};});},anchorView:anchorView,exitIndex:exitIndex,exitView:exitView,shotIds:function(g){return shotList(g).map(function(pl){return pl.p;});},normalize:function(o){var st=normalizeState(o);return {state:st,note:migrationNote()};},
+  renderAt:function(t,m,k){var c=document.createElement("canvas");c.width=W;c.height=H;drawScene(c.getContext("2d",{alpha:false}),1,sceneAt(t,m||"play"),{src:function(ph){return ph.thumb;}});return c.toDataURL("image/png");},
   photoList:function(){return Array.from(photos.values()).map(function(p){return {id:p.id,name:p.name,w:p.w,h:p.h,sample:p.sample};});},LAYOUT:LAYOUT,cropRegion:cropRegion,labelLayout:labelLayout,guideSteps:guideSteps,midRect:midRect,state:function(){return state;},photoCount:function(){return photos.size;},filled:filledCount,busy:isBusy,canWrite:function(){return canWrite;},monthNum:monthNum,hiStats:function(){return {built:hiBuilt,cached:hiCache.size,bytes:hiBytes,fail:hiFail.size};},mux:muxMP4,zip:zipBlob,unzip:unzipBlob,render:requestRender,setMode:setMode};
 init();
 })();
