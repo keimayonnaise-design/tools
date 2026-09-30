@@ -8,12 +8,13 @@
 <meta name="robots" content="noindex, nofollow">
 <title>写真の壁</title>
 <!--
-  写真の壁 v1.4（2026-09-30・v1.2＝「次に移る」マス・v1.3＝⑥ 試写の通しの動画・v1.4＝5月を14.13秒に）
+  写真の壁 v1.5（2026-09-30・v1.2＝「次に移る」マス・v1.3＝⑥ 試写の通しの動画・v1.4＝5月を14.13秒に・v1.5＝行事の秒を本番の声に合わせた）
   学校紹介2026 の行事の章「B 写真の壁から1枚に飛び込む」を、自分の写真で作る道具。
   正はこのファイル（動画制作/学校紹介2026/行事の見せ方/写真の壁.html）。公開の写しは GitHub の tools/kabe/index.html（そのまま写す）。
   動きと寸法は 見本.html の OPT_B と同じ値（B_TW・B_Y・B_GROUPS・EVENTS の秒）。ここを変えると見本とずれる。
   ただし全画面の最後と、次の行事へ移る所だけは見本と違う（9/29 本人の指摘）: 飛び込むマスの右隣（8月は下）の「次に移る」マスの写真で全画面を終え、そのマスから次の飛び込むマスへ移る。次に移るマスが空の月は見本と同じ（飛び込む写真に戻ってから移る）。
-  行事の長さも5月だけ見本と違う（9/30 本人: 校外学習を14秒くらいに＝14.13秒）。後ろの行事は同じ長さのまま前へ詰めた（EVENT_LEN）。
+  行事の秒は本番の声（岡田くん）に合わせた（9/30 本人: 校外学習は全体の所から話し始めて13秒ほど・テンポよく・写真を1枚減らす）。決まりは見本と同じ
+  ＝声が月の名前を言う少し前に次の月へ動き、写真は言葉のまとまりで替える（下の EVENTS の説明）。見本の秒は kabe_check の見本との突き合わせに残してある。
   写真は通信しない（CSP で connect-src 'none'）。AI の確かめは「見本の写真で試す」の絵だけで行う。
   直したら python 動画制作/tools/kabe_check.py（見本との突き合わせ・操作・書き出し）を流す。
 
@@ -366,7 +367,7 @@ footer.foot{margin-top:var(--sp7);font-size:14px;color:var(--muted);display:grid
 </main>
 
 <footer class="foot">
-  <p>写真の壁 v1.4（2026年9月30日）。動きの秒は、学校紹介の動画の「行事」の場面に合わせてあります（④の秒は変えられます）。</p>
+  <p>写真の壁 v1.5（2026年9月30日）。動きの秒は、学校紹介の動画の「行事」の場面に合わせてあります（④の秒は変えられます）。</p>
   <p>写真と作業の記憶は、このブラウザの中にだけあります。別のブラウザや別のパソコンには移りません（移すときは作業ファイル）。</p>
 </footer>
 </div>
@@ -397,30 +398,26 @@ var W=1920, H=1080;
 var TW=208, TH=117, GAP=10, GGAP=30, ROWS=[300,427,554,681], BLINK=1.0, XF=0.35;
 var GROUP_COLS=[2,2,2,1,1];                 // 5月・6月・7月・8月・10月（10月は空の枠だけ）
 var PHOTO_GROUPS=4, ANCHOR_I=1;             // 飛び込むマス＝左の列の上から2つ目（見本の tiles[1]）
-/* 行事ごとの秒。見本の秒（EVENT_BASE）を、行事ごとの長さ（EVENT_LEN）に合わせて作り直す。
-   9/30 本人「校外学習を14秒くらいに・学年フェスと同じくらいで次に切り替わる」（台本を短くした）→ 5月だけ 22.63秒 → 14.13秒。
-   ほかの行事は長さを変えずに前へ詰める。全画面の写真を替える秒は、その行事の全画面の長さに合わせて同じ割合で縮める */
-var EVENT_BASE=[
-  {t:20.97,end:43.6,shots:[20.97,25.79,29.8,34.54,38.9]},
-  {t:43.6,end:57.7,shots:[43.6,47.96,51.48,53.68,55.28]},
-  {t:57.7,end:69.5,shots:[57.7,60.6,63.14,66.09]},
-  {t:69.5,end:80.3,shots:[69.5,73.28,74.1,75.3]}
+/* 行事ごとの秒＝本番の声（岡田くん）に合わせた（9/30）。声の秒は 生徒ナレーション/出力/5_行事_岡田_字幕.json（字幕の頭）と
+   asr/5 岡田.hint.json（字幕の途中で替える語の頭）。見本と同じ決まり＝声が月の名前を言う字幕の頭の 0.1秒前に次の月へ動き始め、
+   写真は字幕の頭（長い字幕は途中の語）で替える。声の秒 → 行事の場面の秒は VOICE_OFF（本人の Resolve で、⑥ の 4.58秒＝行事の場面の 18.58秒に、
+   声の 20.04秒＝「5月。校外学習。」の前の間が来ている。声の「5月」は 18.97秒・語りの終わりは 32.08秒＝本人の画面と合う）。
+   5月だけ写真は4枚（本人「映す画像を一枚減らした方がいい」・見本は5枚）。5月に飛び込み始める秒（20.97）と、その前の並ぶ・寄るは見本のまま
+   （本人「全体が映ってる段階から、校外学習の話をして」）。見本の秒は 5月 20.97〜43.6・6月 〜57.7・7月 〜69.5・8月 〜80.3 */
+var VOICE_OFF=-1.457;
+function vt(x){return +(x+VOICE_OFF).toFixed(2);}
+var EVENTS=[
+  {t:20.97,          end:vt(33.525), shots:[20.97,vt(24.917),vt(27.75),vt(29.417)]},              // 5月: 「せっかく縁があって」「もっと仲良くなりたい」「お互いのことを知りたい」
+  {t:vt(33.525),     end:vt(48.692), shots:[vt(33.525),vt(39.042),vt(41.792),vt(44.4),vt(46.292)]},  // 6月: 「種目は」「2週間かけて」「ルールを」「作戦会議」
+  {t:vt(48.692),     end:vt(60.858), shots:[vt(48.692),vt(51.417),vt(53.78),vt(56.792)]},          // 7月: 「カードゲームの」「体育館で」「目標は」
+  {t:vt(60.858),     end:vt(70.858), shots:[vt(60.858),vt(64.25),vt(65.28),vt(66.74)]}             // 8月: 「工作か」「動画鑑賞か」「体を動かすか」／終わり＝「今後は10月に」
 ];
-var EVENT_LEN=[14.13,14.1,11.8,10.8];
-var EVENTS=(function(){
-  var out=[], t=EVENT_BASE[0].t;
-  EVENT_BASE.forEach(function(b,i){
-    var enter=i===0?1.0:1.7, len=EVENT_LEN[i], k=(len-enter)/(b.end-b.t-enter);   // enter＝飛び込み終わるまで（全画面の前）
-    var shots=b.shots.map(function(x,j){return j===0?t:+(t+enter+(x-b.t-enter)*k).toFixed(3);});
-    out.push({t:t,end:+(t+len).toFixed(3),shots:shots});
-    t=+(t+len).toFixed(3);
-  });
-  return out;
-})();
-var PULL=1.2, HOLD=2.7;                      // 8月から全体へ引く秒と、並んだ壁のまま待つ秒（見本と同じ）
+// 8月から全体へ引く秒と、並んだ壁のまま待つ秒。本番の声は10月の話のすぐ後に来年の話になるので、待ちは 0（見本は 2.7）
+var PULL=1.2, HOLD=0;
 var GSTART=[14.3,15.05,15.8,16.55,17.2];     // 列ごとに並び始める秒（見出しも同じ秒）
 var REST=+(EVENTS[3].end+PULL+HOLD).toFixed(3);   // ④ 来年の頭（波の0.5秒前）。見本は 84.2
-var TIMES_DEFAULT={wave:0.5,flip:4.49,blink:8.12,len:14.1};
+// ④ の秒（④ の頭から）。裏返る＝声の「来年の行事の予定も」・点滅＝「来年入学したみんなと決めます」（見本の仮の声では 4.49・8.12）
+var TIMES_DEFAULT={wave:0.5,flip:3.86,blink:7.65,len:14.1}, TIMES_OLD={wave:0.5,flip:4.49,blink:8.12,len:14.1};
 var CLIP2={t0:14.0,frames:115};              // ③ 並ぶ＝14.0〜18.79秒（最後の1秒は並び終わった壁のまま）
 var T0=14.0, FPS=24;
 var LABELS_DEFAULT=[{m:"5月",n:"校外学習"},{m:"6月",n:"学年フェス"},{m:"7月",n:"お楽しみ会"},{m:"8月",n:"教室開放"},{m:"10月",n:"予定"}];
@@ -527,6 +524,8 @@ function normalizeState(o){
   }
   if(o.times)s.times={wave:num(o.times.wave,TIMES_DEFAULT.wave,0,60),flip:num(o.times.flip,TIMES_DEFAULT.flip,0,60),blink:num(o.times.blink,TIMES_DEFAULT.blink,0,60),len:num(o.times.len,TIMES_DEFAULT.len,1,60)};
   if(!validTimes(s.times))s.times=Object.assign({},TIMES_DEFAULT);
+  // 9/30 まで ④ の秒の既定は見本の仮の声に合わせた 4.49・8.12。自分で変えていなければ、本番の声に合わせた既定にする（1回だけ知らせる）
+  if(o.times&&["wave","flip","blink","len"].every(function(k){return s.times[k]===TIMES_OLD[k];})){s.times=Object.assign({},TIMES_DEFAULT);lastMigration=lastMigration||{moved:[],left:0};lastMigration.times=true;}
   if(o.res==="8k")s.res="8k";
   if(o.ex)["w","f","v2","v3","g","all"].forEach(function(k){if(typeof o.ex[k]==="boolean")s.ex[k]=o.ex[k];});
   return s;
@@ -536,7 +535,7 @@ function referenced(){var set=new Set();Object.keys(state.cells).forEach(functio
 var lastMigration=null;
 function migrationNote(){
   var m=lastMigration;lastMigration=null;if(!m)return "";
-  return (m.moved.length?"前の「戻るときの写真」を、次に移るマスへ移しました（"+m.moved.join("・")+"）。":"")+(m.left?"前の「戻るときの写真」のうち "+m.left+"枚は、次に移るマスが埋まっていたので、壁か置き場にあります。":"");
+  return (m.moved.length?"前の「戻るときの写真」を、次に移るマスへ移しました（"+m.moved.join("・")+"）。":"")+(m.left?"前の「戻るときの写真」のうち "+m.left+"枚は、次に移るマスが埋まっていたので、壁か置き場にあります。":"")+(m.times?"④ 来年の動きの秒を、本番の声に合わせた新しい既定にしました（裏返る 4.49→3.86秒・点滅 8.12→7.65秒）。":"");
 }
 function trayPhotos(){var ref=referenced();return Array.from(photos.values()).filter(function(p){return !ref.has(p.id);}).sort(function(a,b){return a.order-b.order;});}
 // 写真が見つからない置き方は、どこでも「空き」として扱う（数え方・飛び込む・次に移る・選んだ所）
@@ -1580,7 +1579,7 @@ function readmeText(when,files,res,madeFull,skipFull,sameExit){
   if(files.g)lines.push("■ 5_目安（8枚）","  ダイナミックズームの枠の目安です（緑＝始まり、赤＝終わり）。動画には入れません。","");
   if(files.all)lines.push("■ "+ALL_FILE+"（1920×1080・24コマ/秒・"+fmtSec(allFrames()/FPS)+"秒）","  試写と同じ動きを、最初から最後まで1本にした動画です。行事の場面の 14.0秒の所に置けば、下の組み立てをしなくても、そのまま使えます（①〜⑤は、自分で組み直すときの素材）。","");
   var E=EVENTS, f1=function(x){return x.toFixed(1);}, hop=function(g){return "  "+f1(E[g].t)+"〜"+f1(E[g].t+0.9)+"  "+L[g-1].m+"から引く（次に移るマスから）／"+f1(E[g].t+0.9)+"〜"+f1(E[g].t+1.7)+" "+L[g].m+"に寄る（飛び込むマスへ）";};
-  lines.push("置く秒の目安（行事の場面の頭＝0秒）");
+  lines.push("置く秒の目安（行事の場面の頭＝0秒）","  声（5 岡田）: 「5月。校外学習。」の言い始めを ⑥ の "+fmtSec(vt(20.423)-T0)+"秒（行事の場面の "+vt(20.423).toFixed(2)+"秒）に置くと、どの月も声が月の名前を言う所で移ります。声は切らずに続けて置きます。");
   if(files.all)lines.push("  14.0〜"+previewEnd().toFixed(1)+"  "+ALL_FILE+"（これ1本で、下の全部が入っています）","  ①〜⑤から自分で組むとき:");
   lines.push("  14.0〜18.8  3_並ぶ",
     "  17.6〜22.0  "+L[0].m+"に寄る（飛び込むマスへ）→ 22.0 から全画面（飛び込む → … → 次に移る）",
