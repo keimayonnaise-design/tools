@@ -8,11 +8,12 @@
 <meta name="robots" content="noindex, nofollow">
 <title>写真の壁</title>
 <!--
-  写真の壁 v1.3（2026-09-29・v1.2＝「次に移る」マス・v1.3＝⑥ 試写の通しの動画）
+  写真の壁 v1.4（2026-09-30・v1.2＝「次に移る」マス・v1.3＝⑥ 試写の通しの動画・v1.4＝5月を14.13秒に）
   学校紹介2026 の行事の章「B 写真の壁から1枚に飛び込む」を、自分の写真で作る道具。
   正はこのファイル（動画制作/学校紹介2026/行事の見せ方/写真の壁.html）。公開の写しは GitHub の tools/kabe/index.html（そのまま写す）。
   動きと寸法は 見本.html の OPT_B と同じ値（B_TW・B_Y・B_GROUPS・EVENTS の秒）。ここを変えると見本とずれる。
   ただし全画面の最後と、次の行事へ移る所だけは見本と違う（9/29 本人の指摘）: 飛び込むマスの右隣（8月は下）の「次に移る」マスの写真で全画面を終え、そのマスから次の飛び込むマスへ移る。次に移るマスが空の月は見本と同じ（飛び込む写真に戻ってから移る）。
+  行事の長さも5月だけ見本と違う（9/30 本人: 校外学習を14秒くらいに＝14.13秒）。後ろの行事は同じ長さのまま前へ詰めた（EVENT_LEN）。
   写真は通信しない（CSP で connect-src 'none'）。AI の確かめは「見本の写真で試す」の絵だけで行う。
   直したら python 動画制作/tools/kabe_check.py（見本との突き合わせ・操作・書き出し）を流す。
 
@@ -365,7 +366,7 @@ footer.foot{margin-top:var(--sp7);font-size:14px;color:var(--muted);display:grid
 </main>
 
 <footer class="foot">
-  <p>写真の壁 v1.3（2026年9月29日）。動きの秒は、学校紹介の動画の「行事」の場面に合わせてあります（④の秒は変えられます）。</p>
+  <p>写真の壁 v1.4（2026年9月30日）。動きの秒は、学校紹介の動画の「行事」の場面に合わせてあります（④の秒は変えられます）。</p>
   <p>写真と作業の記憶は、このブラウザの中にだけあります。別のブラウザや別のパソコンには移りません（移すときは作業ファイル）。</p>
 </footer>
 </div>
@@ -396,14 +397,29 @@ var W=1920, H=1080;
 var TW=208, TH=117, GAP=10, GGAP=30, ROWS=[300,427,554,681], BLINK=1.0, XF=0.35;
 var GROUP_COLS=[2,2,2,1,1];                 // 5月・6月・7月・8月・10月（10月は空の枠だけ）
 var PHOTO_GROUPS=4, ANCHOR_I=1;             // 飛び込むマス＝左の列の上から2つ目（見本の tiles[1]）
-var EVENTS=[
+/* 行事ごとの秒。見本の秒（EVENT_BASE）を、行事ごとの長さ（EVENT_LEN）に合わせて作り直す。
+   9/30 本人「校外学習を14秒くらいに・学年フェスと同じくらいで次に切り替わる」（台本を短くした）→ 5月だけ 22.63秒 → 14.13秒。
+   ほかの行事は長さを変えずに前へ詰める。全画面の写真を替える秒は、その行事の全画面の長さに合わせて同じ割合で縮める */
+var EVENT_BASE=[
   {t:20.97,end:43.6,shots:[20.97,25.79,29.8,34.54,38.9]},
   {t:43.6,end:57.7,shots:[43.6,47.96,51.48,53.68,55.28]},
   {t:57.7,end:69.5,shots:[57.7,60.6,63.14,66.09]},
   {t:69.5,end:80.3,shots:[69.5,73.28,74.1,75.3]}
 ];
+var EVENT_LEN=[14.13,14.1,11.8,10.8];
+var EVENTS=(function(){
+  var out=[], t=EVENT_BASE[0].t;
+  EVENT_BASE.forEach(function(b,i){
+    var enter=i===0?1.0:1.7, len=EVENT_LEN[i], k=(len-enter)/(b.end-b.t-enter);   // enter＝飛び込み終わるまで（全画面の前）
+    var shots=b.shots.map(function(x,j){return j===0?t:+(t+enter+(x-b.t-enter)*k).toFixed(3);});
+    out.push({t:t,end:+(t+len).toFixed(3),shots:shots});
+    t=+(t+len).toFixed(3);
+  });
+  return out;
+})();
+var PULL=1.2, HOLD=2.7;                      // 8月から全体へ引く秒と、並んだ壁のまま待つ秒（見本と同じ）
 var GSTART=[14.3,15.05,15.8,16.55,17.2];     // 列ごとに並び始める秒（見出しも同じ秒）
-var REST=84.2;                               // ④ 来年の頭（波の0.5秒前）
+var REST=+(EVENTS[3].end+PULL+HOLD).toFixed(3);   // ④ 来年の頭（波の0.5秒前）。見本は 84.2
 var TIMES_DEFAULT={wave:0.5,flip:4.49,blink:8.12,len:14.1};
 var CLIP2={t0:14.0,frames:115};              // ③ 並ぶ＝14.0〜18.79秒（最後の1秒は並び終わった壁のまま）
 var T0=14.0, FPS=24;
@@ -461,12 +477,12 @@ function sceneAt(t,mode){
     var a0=anchorView(0), push={x:lerp(960,a0.x,0.25),y:540,z:1.06};
     if(t<20.97)cam=fly(eIO(seg(t,17.6,3.37)),full,push);
     else if(t<21.97)cam=fly(seg(t,20.97,1.0),push,a0);
-    else if(t<80.3){
+    else if(t<EVENTS[3].end){
       var ei=curEvent(t), ev=EVENTS[ei], enterEnd=ei===0?21.97:ev.t+1.7;
       if(ei>0&&t<enterEnd)cam=fly(seg(t,ev.t,1.7),exitView(ei-1),anchorView(ei),1.7);
       else{fs={ev:ei,t0:enterEnd,t1:ev.end};cam=anchorView(ei);}
     }
-    else if(t<81.5)cam=fly(seg(t,80.3,1.2),exitView(3),full);
+    else if(t<EVENTS[3].end+PULL)cam=fly(seg(t,EVENTS[3].end,PULL),exitView(3),full);
   }
   var still=mode==="still", worldA=fs?0:(mode==="play"&&t>=tm.fade?1-seg(t,tm.fade,0.45):1), inDive=cam.z>2.5;
   var labels=LAYOUT.map(function(G){return still?1:clamp(seg(t,GSTART[G.g],0.3)*3)*(1-seg(t,tm.flip,0.5))*(inDive?0:1);});
@@ -1350,7 +1366,7 @@ function showVeil(){if(mode==="edit")$("veil").hidden=false;}
 function hideVeil(){$("veil").hidden=true;}
 
 /* ========== 試写 ========== */
-function chapters(){var L=state.labels, tm=timesAbs();return [["はじめ",14.0],[L[0].m,20.9],[L[1].m,43.5],[L[2].m,57.6],[L[3].m,69.4],[L[4].m,80.2],["来年",tm.wave-0.3]];}
+function chapters(){var L=state.labels, tm=timesAbs();return [["はじめ",14.0],[L[0].m,EVENTS[0].t-0.07],[L[1].m,EVENTS[1].t-0.1],[L[2].m,EVENTS[2].t-0.1],[L[3].m,EVENTS[3].t-0.1],[L[4].m,EVENTS[3].end-0.1],["来年",tm.wave-0.3]];}
 function buildChips(){
   var box=$("chips");box.textContent="";
   chapters().forEach(function(c){var b=mk("button","chip",box,c[0]);b.type="button";b.dataset.t=String(c[1]);b.addEventListener("click",function(){playFrom(Number(b.dataset.t));});});
@@ -1560,19 +1576,18 @@ function readmeText(when,files,res,madeFull,skipFull,sameExit){
     lines.push("");
   }else if(files.f&&skipFull.length)lines.push("■ 2_全画面","  飛び込むマスが全部空なので、作っていません。","");
   if(files.v2)lines.push("■ 3_並ぶ.mp4（1920×1080・24コマ/秒・"+fmtSec(CLIP2.frames/FPS)+"秒）","  写真が次々に並ぶ動き。最後のコマは「"+WALL_FILE+"」と同じ絵です。行事の場面の 14.0秒から。","");
-  if(files.v3)lines.push("■ 4_来年.mp4（1920×1080・24コマ/秒・"+fmtSec(v3Frames()/FPS)+"秒）","  最初のコマは「"+WALL_FILE+"」と同じ絵。"+fmtSec(tm.wave)+"秒で波、"+fmtSec(tm.flip)+"秒で裏返り、"+fmtSec(tm.blink)+"秒から空の枠が1秒ごとに点滅します。行事の場面の 84.2秒から。","");
+  if(files.v3)lines.push("■ 4_来年.mp4（1920×1080・24コマ/秒・"+fmtSec(v3Frames()/FPS)+"秒）","  最初のコマは「"+WALL_FILE+"」と同じ絵。"+fmtSec(tm.wave)+"秒で波、"+fmtSec(tm.flip)+"秒で裏返り、"+fmtSec(tm.blink)+"秒から空の枠が1秒ごとに点滅します。行事の場面の "+REST.toFixed(1)+"秒から。","");
   if(files.g)lines.push("■ 5_目安（8枚）","  ダイナミックズームの枠の目安です（緑＝始まり、赤＝終わり）。動画には入れません。","");
   if(files.all)lines.push("■ "+ALL_FILE+"（1920×1080・24コマ/秒・"+fmtSec(allFrames()/FPS)+"秒）","  試写と同じ動きを、最初から最後まで1本にした動画です。行事の場面の 14.0秒の所に置けば、下の組み立てをしなくても、そのまま使えます（①〜⑤は、自分で組み直すときの素材）。","");
+  var E=EVENTS, f1=function(x){return x.toFixed(1);}, hop=function(g){return "  "+f1(E[g].t)+"〜"+f1(E[g].t+0.9)+"  "+L[g-1].m+"から引く（次に移るマスから）／"+f1(E[g].t+0.9)+"〜"+f1(E[g].t+1.7)+" "+L[g].m+"に寄る（飛び込むマスへ）";};
   lines.push("置く秒の目安（行事の場面の頭＝0秒）");
   if(files.all)lines.push("  14.0〜"+previewEnd().toFixed(1)+"  "+ALL_FILE+"（これ1本で、下の全部が入っています）","  ①〜⑤から自分で組むとき:");
   lines.push("  14.0〜18.8  3_並ぶ",
     "  17.6〜22.0  "+L[0].m+"に寄る（飛び込むマスへ）→ 22.0 から全画面（飛び込む → … → 次に移る）",
-    "  43.6〜44.5  "+L[0].m+"から引く（次に移るマスから）／44.5〜45.3 "+L[1].m+"に寄る（飛び込むマスへ）",
-    "  57.7〜58.6  "+L[1].m+"から引く（次に移るマスから）／58.6〜59.4 "+L[2].m+"に寄る（飛び込むマスへ）",
-    "  69.5〜70.4  "+L[2].m+"から引く（次に移るマスから）／70.4〜71.2 "+L[3].m+"に寄る（飛び込むマスへ）",
-    "  80.3〜81.5  "+L[3].m+"から全体へ（次に移るマスから）",
+    hop(1),hop(2),hop(3),
+    "  "+f1(E[3].end)+"〜"+f1(E[3].end+PULL)+"  "+L[3].m+"から全体へ（次に移るマスから）",
     "  寄る・引くは、どれも "+WALL_FILE+" を使います。",
-    "  84.2〜      4_来年");
+    "  "+f1(REST)+"〜      4_来年");
   return "﻿"+lines.join("\r\n")+"\r\n";
 }
 async function doExport(){
@@ -2042,7 +2057,7 @@ async function init(){
   if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){labelCache={};requestRender();});
 }
 /* 確かめ用の出入り口（書き出しと同じ関数で1920×1080に描いた絵・写真の一覧）。写真の中身は外へ出さない */
-window.__kabe={sceneAt:sceneAt,shotsAt:function(t){return shotStates(sceneAt(t,"play")).map(function(s){return {k:s.k,o:s.o,scl:s.scl,px:s.px};});},anchorView:anchorView,exitIndex:exitIndex,exitView:exitView,shotIds:function(g){return shotList(g).map(function(pl){return pl.p;});},normalize:function(o){var st=normalizeState(o);return {state:st,note:migrationNote()};},
+window.__kabe={sceneAt:sceneAt,shotsAt:function(t){return shotStates(sceneAt(t,"play")).map(function(s){return {k:s.k,o:s.o,scl:s.scl,px:s.px};});},anchorView:anchorView,events:function(){return EVENTS;},rest:function(){return REST;},allFrames:allFrames,exitIndex:exitIndex,exitView:exitView,shotIds:function(g){return shotList(g).map(function(pl){return pl.p;});},normalize:function(o){var st=normalizeState(o);return {state:st,note:migrationNote()};},
   renderAt:function(t,m,k){var c=document.createElement("canvas");c.width=W;c.height=H;drawScene(c.getContext("2d",{alpha:false}),1,sceneAt(t,m||"play"),{src:function(ph){return ph.thumb;}});return c.toDataURL("image/png");},
   photoList:function(){return Array.from(photos.values()).map(function(p){return {id:p.id,name:p.name,w:p.w,h:p.h,sample:p.sample};});},LAYOUT:LAYOUT,cropRegion:cropRegion,labelLayout:labelLayout,guideSteps:guideSteps,midRect:midRect,state:function(){return state;},photoCount:function(){return photos.size;},filled:filledCount,busy:isBusy,canWrite:function(){return canWrite;},monthNum:monthNum,hiStats:function(){return {built:hiBuilt,cached:hiCache.size,bytes:hiBytes,fail:hiFail.size};},mux:muxMP4,zip:zipBlob,unzip:unzipBlob,render:requestRender,setMode:setMode};
 init();
